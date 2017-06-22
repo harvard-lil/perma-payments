@@ -2,21 +2,22 @@
 
 ## Up and running
 
-1. Install Docker (https://www.docker.com/community-edition). @rebeccalynncremona currently prefers Docker Tookbox (https://www.docker.com/products/docker-toolbox) due to certain performance issues when automatically re-building the [LIL website](https://github.com/harvard-lil/website-static); your mileage may vary.
+1. Install Docker (https://www.docker.com/community-edition). @rebeccacremona currently prefers Docker Tookbox (https://www.docker.com/products/docker-toolbox) due to certain performance issues when automatically re-building the [LIL website](https://github.com/harvard-lil/website-static); your mileage may vary.
 
-2. Clone the repo and cd inside
-
-3. Recommended: add the following alias to your .bash_profile or similar, so that it's easier run fab tasks in the Docker container.
+2. We use [Fabric](http://www.fabfile.org/) to automate common tasks. Recommended: add the following alias to your .bash_profile or similar, so that it's easier run fabric tasks inside the Docker container.
 `alias dfab="docker-compose exec web fab"`
 
+3. Clone the repo and cd inside
+
 4. Run `docker-compose up -d` to start two containers in the background:
-    -  a container with a postgres db
-    -  a container with python, Django, and the rest of our dev environment
+    -  a "db" container with a postgres database
+    -  a "web" container with python, Django, and the rest of our dev environment.
 
 5. Run `dfab run` to start the Django development server.
     -  If you are using Docker for Mac, the app will be served at http://localhost:8000
     -  If you are running Docker Machine, run `docker-machine ip` to discover the IP address of your virtualbox. The app will be served at http://#.#.#.#:8000
-  Other fab tasks (e.g. `fab test`, `fab init_db`) can similarly be run inside the running Docker container using dfab.
+
+  Other fabric tasks (e.g. `fab test`, `fab init_db`) can similarly be run using `dfab`.
 
 To get to a bash terminal in the running docker container, run `docker-compose exec web bash`.
 
