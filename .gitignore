@@ -1,0 +1,7 @@
+*.pyc
+__pycache__
+perma-payments/config/settings/settings.py
+
+# pytest
+.cache
+

@@ -1,0 +1,16 @@
+version: '2'
+
+services:
+  db:
+    image: postgres:9.6.3
+  web:
+    build: .
+    image: perma-payments:0.1
+    tty: true
+    command: bash
+    volumes:
+      - ./perma-payments:/perma-payments
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
