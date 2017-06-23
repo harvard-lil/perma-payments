@@ -7,9 +7,9 @@ try:
 except Exception as e:
     print("WARNING: Can't configure Django -- tasks depending on Django will fail:\n%s" % e)
 
-from django.contrib.auth.models import User
 from fabric.api import local
 from fabric.decorators import task
+from django.conf import settings
 
 @task(alias='run')
 def run_django():
@@ -22,8 +22,10 @@ def test():
 @task
 def init_db():
     """
-        Set up new dev database.
+        Set up a new dev database.
     """
     local("python3 manage.py migrate")
-    print("Creating DEV admin user:")
-    User.objects.create_superuser('admin', 'admin@example.com', 'admin')
+    if settings.ADMIN_ENABLED:
+        print("Creating dev admin user.")
+        from django.contrib.auth.models import User #noqa
+        User.objects.create_superuser('admin', 'admin@example.com', 'admin')
