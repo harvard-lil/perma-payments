@@ -7,3 +7,5 @@ SECRET_KEY = 'k2#@_q=1$(__n7#(zax6#46fu)x=3&^lz&bwb8ol-_097k_rj5'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+
+ADMIN_ENABLED = True

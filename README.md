@@ -6,7 +6,7 @@
 
 1. Install Docker (https://www.docker.com/community-edition). @rebeccacremona currently prefers Docker Tookbox (https://www.docker.com/products/docker-toolbox) due to certain performance issues when automatically re-building the [LIL website](https://github.com/harvard-lil/website-static); your mileage may vary.
 
-2. We use [Fabric](http://www.fabfile.org/) to automate common tasks. Recommended: add the following alias to your .bash_profile or similar, so that it's easier run fabric tasks inside the Docker container.
+2. We use [Fabric](http://www.fabfile.org/) to automate common tasks. Recommended: add the following alias to your .bash_profile or similar, so that `dfab` will run any arbitrary fabric task inside the Docker container.
 `alias dfab="docker-compose exec web fab"`
 
 3. Clone the repo and cd inside
@@ -15,19 +15,19 @@
     -  a "db" container with a postgres database
     -  a "web" container with python, Django, and the rest of our dev environment.
 
-5. Run `dfab run` to start the Django development server.
+5. Run `dfab init_db` to initialize a development database.
+
+6. Run `dfab run` to start the Django development server.
     -  If you are using Docker for Mac, the app will be served at http://localhost:8000
     -  If you are running Docker Machine, run `docker-machine ip` to discover the IP address of your virtualbox. The app will be served at http://#.#.#.#:8000
 
-  Other fabric tasks (e.g. `fab test`, `fab init_db`) can similarly be run using `dfab`.
+To stop all running containers (and retain any information in your database), run `docker-compose stop`.
 
-To get to a bash terminal in the running docker container, run `docker-compose exec web bash`.
-
-To stop all running containers, run `docker-compose stop`.
-
-To stop and remove all containers created via docker-compose up, run `docker-compose down`.
+To stop and destroy all containers created via docker-compose up, run `docker-compose down`. Note that this will destroy your database and all its data.
 
 If you need to start fresh for some reason, run `docker-compose down --rmi local`.
+
+To get to a bash terminal in the running docker container, run `docker-compose exec web bash`.
 
 If you change the contents of docker-compose.yml, running `docker-compose up -d` again should cause your changes to get picked up.
 
