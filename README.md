@@ -1,5 +1,7 @@
 # perma-payments
 
+[![Build Status](https://travis-ci.org/harvard-lil/perma-payments.svg?branch=develop)](https://travis-ci.org/harvard-lil/perma-payments) [![Coverage Status](https://coveralls.io/repos/github/harvard-lil/perma-payments/badge.svg?branch=develop)](https://coveralls.io/github/harvard-lil/perma-payments?branch=develop)
+
 ## Up and running
 
 1. Install Docker (https://www.docker.com/community-edition). @rebeccacremona currently prefers Docker Tookbox (https://www.docker.com/products/docker-toolbox) due to certain performance issues when automatically re-building the [LIL website](https://github.com/harvard-lil/website-static); your mileage may vary.
