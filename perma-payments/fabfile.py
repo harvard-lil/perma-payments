@@ -8,7 +8,7 @@ except Exception as e:
     print("WARNING: Can't configure Django -- tasks depending on Django will fail:\n%s" % e)
 
 from django.contrib.auth.models import User
-from fabric.api import run, local
+from fabric.api import local
 from fabric.decorators import task
 
 @task(alias='run')
@@ -17,7 +17,7 @@ def run_django():
 
 @task
 def test():
-    local("pytest")
+    local("pytest --cov --cov-report=")
 
 @task
 def init_db():
