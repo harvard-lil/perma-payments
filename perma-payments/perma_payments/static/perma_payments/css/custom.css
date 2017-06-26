@@ -1,0 +1,23 @@
+html, body {
+    height: 100%;
+}
+
+div.wrapper {
+    height:100%;
+    margin-top: 15px;
+    text-align: center;
+}
+
+div.wrapper-flex {
+    display: -webkit-flex;
+    display: flex;
+    -webkit-align-items: center;
+    align-items:center;
+    -webkit-justify-content: center;
+    justify-content:center;
+}
+
+label.required:after {
+  content:"*";
+  color:red;
+}
