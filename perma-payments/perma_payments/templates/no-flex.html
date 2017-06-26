@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="wrapper">
+  <main class="container">
+    <div class="row">
+      <h1>{{ context["heading"] }}</h1>
+      {% block content %}
+      {% endblock content %}
+    </div>
+  </main>
+</div>
+{% endblock body %}
