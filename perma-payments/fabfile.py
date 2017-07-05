@@ -13,11 +13,12 @@ from django.conf import settings
 
 @task(alias='run')
 def run_django():
-    local("python3 manage.py runserver 0.0.0.0:8000")
+    local("python3 manage.py runserver 0.0.0.0:80")
 
 @task
 def test():
-    local("pytest --cov --cov-report=")
+    local("pytest --cov --cov-report= --ds=config.settings.settings_testing")
+
 
 @task
 def init_db():
