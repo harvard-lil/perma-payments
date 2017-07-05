@@ -9,3 +9,12 @@ except ModuleNotFoundError as e:
         from .settings_dev import *
     else:
         raise
+
+# After we've imported one of the deployment targets, we'll override the settings based on any
+# DJANGO__SETTING_NAME environment variables. This is handy for deploying to Heroku, Travis, etc.
+from .utils.environmental_settings import import_environmental_settings
+import_environmental_settings(globals())
+
+# Finally we'll apply some post-processing logic to the settings we've ended up with.
+from .utils.post_processing import post_process_settings
+post_process_settings(globals())
