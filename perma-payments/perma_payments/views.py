@@ -8,6 +8,8 @@ import base64
 from django.conf import settings
 from django.shortcuts import render
 
+from .constants import *
+
 def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
@@ -49,7 +51,7 @@ def payment_form(request):
     context.update(signed_fields)
     context['signature'] = sign_data(data_to_sign)
     context['heading'] = "Payment Form"
-    context['post_to_url'] = settings.CS_PAYMENT_URL
+    context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     return render(request, 'payment-form.html', context)
 
 def get_price():

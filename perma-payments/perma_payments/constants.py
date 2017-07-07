@@ -1,4 +1,84 @@
 
+# API endpoints from "CyberSource Secure Acceptance Web/Mobile Configuration Guide"
+# dated "June 2017"
+# http://apps.cybersource.com/library/documentation/dev_guides/Secure_Acceptance_WM/Secure_Acceptance_WM.pdf
+
+# "Process Transaction Endpoints"
+#
+# Supported transaction types :
+# - authorization
+# - authorization,create_payment_token
+# - authorization,update_payment_token
+# - sale
+# - sale,create_payment_token
+# - sale,update_payment_token
+CS_PAYMENT_URL = {
+    'test': 'https://testsecureacceptance.cybersource.com/pay',
+    'prod': 'https://secureacceptance.cybersource.com/pay'
+}
+
+# "Create Payment Token Endpoints"
+#
+# Supported transaction type:
+# - create_payment_token
+CS_TOKEN_URL = {
+    'test': 'https://testsecureacceptance.cybersource.com/token/create',
+    'prod': 'https://secureacceptance.cybersource.com/token/create'
+}
+
+# "Update Payment Token Endpoints"
+#
+# Supported transaction type:
+# - update_payment_token
+CS_TEST_TOKEN_UPDATE_URL = {
+    'test': 'https://testsecureacceptance.cybersource.com/token/update',
+    'prod': 'https://secureacceptance.cybersource.com/token/update'
+}
+
+CS_CARD_TYPE = {
+    'visa': '001',
+    'mastercard': '002',
+    'american_express': '003',
+    'discover': '004',
+    # Diners Club: cards starting with 54 or 55 are rejected.
+    'diners_club': '005',
+    'carte_blanche': '006',
+    'jcb': '007',
+    'enroute': '014',
+    'jal': '021',
+    'maestro_uk_domestic': '024',
+    'delta': '031',
+    'visa_electron': '033',
+    'dankort': '034',
+    'carte_bleue': '036',
+    'carta_si': '037',
+    'maestro_international': '042',
+    'ge_money_uk_card': '043',
+    # Hipercard (sale only)
+    'hipercard': '050',
+    'elo': '054',
+}
+
+# "Types of Notifications" (decision)
+# (decision, description, what happens if you are using CS Hosted pages)
+CS_DECISIONS = {
+    # CyberSource Hosted Page: Accept
+    'ACCEPT': "Successful transaction. Reason codes 100 and 110.",
+    # CyberSource Hosted Page: Accept (is this a problem for us???)
+    'REVIEW': "Authorization was declined; however, the capture may still be possible. " +
+              "Review payment details. See reason codes 200, 201, 230, and 520.",
+    # CyberSource Hosted Page: Decline
+    'DECLINE': "Transaction was declined. See reason codes 102, 200, 202, 203, 204, " +
+               "205, 207, 208, 210, 211, 221, 222, 230, 231, " +
+               "232, 233, 234, 236, 240, 475, 476, and 481.",
+    # CyberSource Hosted Page: Error
+    'ERROR': "Access denied, page not found, or internal server error. " +
+             "See reason codes 102, 104, 150, 151 and 152.",
+    # CyberSource Hosted Page: Cancel
+    'CANCEL': "The customer did not accept the service fee conditions, " +
+              "or the customer cancelled the transaction."
+}
+
 # "Reason Codes" (payer_authentication_reason_code)
 # from http://apps.cybersource.com/library/documentation/dev_guides/Secure_Acceptance_WM/Secure_Acceptance_WM.pdf
 # Because CyberSource may add reply fields and reason codes at any time,
@@ -114,4 +194,101 @@ CS_ERROR_CODES = {
            "declined by CyberSource based on your legacy Smart Authorization settings. " +
            "Possible action: review the authorization request.",
 }
+
+# AVS Codes (auth_avs_code)
+#
+# An issuing bank uses the AVS code to confirm that your customer is providing the correct
+# billing address. If the customer provides incorrect data, the transaction might be
+# fraudulent.
+#
+# NB: When you populate billing street address 1 and billing street address 2,
+# CyberSource through VisaNet concatenates the two values. If the
+# concatenated value exceeds 40 characters, CyberSource through VisaNet
+# truncates the value at 40 characters before sending it to Visa and the issuing
+# bank. Truncating this value affects AVS results and therefore might also affect
+# risk decisions and chargebacks.
+
+# US Domestic AVS Codes
+CS_DOMESTIC_AVS_CODES = {
+    'A': "Partial match: Street address matches, but five-digit and nine-digit postal " +
+         "codes do not match. ",
+    'B': "Partial match: Street address matches, but postal code is not verified.",
+    'C': "No match: Street address and postal code do not match.",
+    'D': "Match: Street address and postal code match. ",
+    'E': "Invalid: AVS data is invalid or AVS is not allowed for this card type",
+    'F': "Partial match: Card member’s name does not match, " +
+         "but billing postal code matches. " +
+         "Returned only for the American Express card type",
+    'H': "Partial match: Card member’s name does not match, " +
+         "but street address and postal code match. " +
+         "Returned only for the American Express card type.",
+    'I': "No match: Address not verified.",
+    'J': "Match: Card member’s name, billing address, and postal code match. " +
+         "Shipping information verified and chargeback protection " +
+         "guaranteed through the Fraud Protection Program. Returned " +
+         "only if you are signed up to use AAV+ with the American " +
+         "Express Phoenix processor.",
+    'K': "Partial match: Card member’s name matches, but billing address and billing " +
+         "postal code do not match. Returned only for the American " +
+         "Express card type.",
+    'L': "Partial match: Card member’s name and billing postal code match, but billing " +
+         "address does not match. Returned only for the American " +
+         "Express card type.",
+    'M': "Match: Street address and postal code match.",
+    'N': "No match: One of the following: a) Street address and postal code do not match." +
+         "b) Card member’s name, street address, and postal code do not match." +
+         "Returned only for the American Express card type.",
+    'O': "Partial match: Card member’s name and billing address match, but billing " +
+         "postal code does not match. Returned only for the American Express card type",
+    'P': "Partial match: Postal code matches, but street address not verified.",
+    'Q': "Match: Card member’s name, billing address, and postal code match. " +
+         "Shipping information verified but chargeback protection not " +
+         "guaranteed (Standard program). Returned only if you are signed " +
+         "to use AAV+ with the American Express Phoenix processor.",
+    'R': "System unavailable: System unavailable.",
+    'S': "Not supported: U.S.-issuing bank does not support AVS.",
+    'T': "Partial match: Card member's name does not match, but street address matches. " +
+         "Returned only for the American Express card type.",
+    'U': "System unavailable: Address information unavailable for one of these reasons: " +
+         "a) The U.S. bank does not support non-U.S. AVS. " +
+         "b) The AVS in a U.S. bank is not functioning properly",
+    'V': "Match: Card member’s name, billing address, and billing postal code match. " +
+         "Returned only for the American Express card type.",
+    'W': "Partial match: Street address does not match, but nine-digit postal code matches.",
+    'X': "Match: Street address and nine-digit postal code match.",
+    'Y': "Match: Street address and five-digit postal code match.",
+    'Z': "Partial match: Street address does not match, but five-digit postal code matches.",
+    '1': "Not supported: AVS is not supported for this processor or card type.",
+    '2': "Unrecognized:  The processor returned an unrecognized value for the AVS response.",
+    '3': "Match: Address is confirmed. Returned only for PayPal Express Checkout.",
+    '4': "No match: Address is not confirmed. Returned only for PayPal Express Checkout.",
+}
+
+# International AVS Codes
+# These codes are returned only for Visa cards issued outside the U.S.
+CS_INTERNATIONAL_AVS_CODES = {
+    'B': "Partial match: Street address matches, but postal code is not verified.",
+    'C': "No match: Street address and postal code do not match.",
+    'D': "Match: Street address and postal code match.",
+    'I': "No match: Address not verified.",
+    'M': "Match: Street address and postal code match.",
+    'P': "Partial match: Postal code matches, but street address not verified."
+}
+
+# "CVN Codes"
+# The Card Verification Number (CVN) is a three- or four-digit number that helps
+# ensure that the customer has possession of the card at the time of the
+# transaction.
+CS_CVN_CODES = {
+    'D': "The transaction was considered to be suspicious by the issuing bank.",
+    'I': "The CVN failed the processor's data validation.",
+    'M': "The CVN matched.",
+    'N': "The CVN did not match.",
+    'P': "The CVN was not processed by the processor for an unspecified reason.",
+    'S': "The CVN is on the card but was not included in the request.",
+    'U': "Card verification is not supported by the issuing bank.",
+    'X': "Card verification is not supported by the card association.",
+    '1': "Card verification is not supported for this processor or card type.",
+    '2': "An unrecognized result code was returned by the processor for the card verification response.",
+    '3': "No result code was returned by the processor."
 }
