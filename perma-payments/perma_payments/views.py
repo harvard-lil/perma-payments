@@ -14,7 +14,7 @@ def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
-def payment_form(request):
+def subscribe(request):
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
         'amount': get_price(),
@@ -22,13 +22,12 @@ def payment_form(request):
         'locale': 'en-us',
         'payment_method': 'card',
         'profile_id': settings.CS_PROFILE_ID,
-        # 'recurring_amount': get_price(),
-        # 'recurring_frequency': 'monthly',
+        'recurring_amount': get_price(),
+        'recurring_frequency': 'monthly',
         'reference_number': generate_reference_number(),
         'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         'signed_field_names': '',
-        'transaction_type': 'sale',
-        # 'transaction_type': 'authorization,create_payment_token',
+        'transaction_type': 'sale,create_payment_token',
         'transaction_uuid': str(uuid4()),
         'unsigned_field_names': '',
 
@@ -51,9 +50,9 @@ def payment_form(request):
     context.update(signed_fields)
     context.update(unsigned_fields)
     context['signature'] = sign_data(data_to_sign)
-    context['heading'] = "Payment Form"
+    context['heading'] = "Subscribe"
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
-    return render(request, 'payment-form.html', context)
+    return render(request, 'subscribe.html', context)
 
 def get_price():
     """
