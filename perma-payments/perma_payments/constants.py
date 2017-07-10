@@ -292,3 +292,32 @@ CS_CVN_CODES = {
     '2': "An unrecognized result code was returned by the processor for the card verification response.",
     '3': "No result code was returned by the processor."
 }
+
+# from http://apps.cybersource.com/library/documentation/dev_guides/Secure_Acceptance_WM/Secure_Acceptance_WM.pdf
+CS_TEST_CUSTOMER = {
+    'first_name': "noreal",
+    'last_name': "name",
+    'street1': "1295 Charleston Road",
+    'city': "Mountain View",
+    'state': "CA",
+    'postal_code': "94043",
+    'country': "US",
+    'email': "null@cybersource.com",
+
+}
+
+CS_TEST_CARD = {
+    'visa': {
+        'card_cvn': '500',
+        'card_expiry_date': '12-2022',
+        'card_number': '4111111111111111',
+        'card_type': '001'
+    },
+    # 'mastercard': '5555555555554444',
+    # 'american_express': '378282246310005',
+    # 'discover': '6011111111111117',
+    # 'jcb': '3566111111111113',
+    # 'diners_club': '38000000000006',
+    # 'maestro_international': '6000340000009859',
+    # 'maestro_uk_domestic': '6759180000005546'
+}

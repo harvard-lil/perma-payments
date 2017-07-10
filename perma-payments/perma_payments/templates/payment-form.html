@@ -2,12 +2,14 @@
 
 {% block content %}
 <form id="payment_form" action="{{ post_to_url }}" method="post">
-  <input type="hidden" name="access_key" value="{{ access_key }}">
   <input type="hidden" name="amount" value="{{ amount }}">
+  <input type="hidden" name="access_key" value="{{ access_key }}">
   <input type="hidden" name="currency" value="{{ currency }}">
   <input type="hidden" name="locale" value="{{ locale }}">
   <input type="hidden" name="payment_method" value="{{ payment_method }}">
   <input type="hidden" name="profile_id" value="{{ profile_id }}">
+  {# <input type="hidden" name="recurring_amount" value="{{ recurring_amount }}"> #}
+  {# <input type="hidden" name="recurring_frequency" value="{{ recurring_frequency }}"> #}
   <input type="hidden" name="reference_number" value="{{ reference_number }}">
   <input type="hidden" name="signed_date_time" value="{{ signed_date_time }}">
   <input type="hidden" name="signed_field_names" value="{{ signed_field_names }}">
@@ -16,7 +18,6 @@
   <input type="hidden" name="unsigned_field_names" value="{{ unsigned_field_names}}">
 
   <!-- Card information -->
-  <!--
   <label>Card cvn:
     <input type="text" name="card_cvn" value="{{ card_cvn }}">
   </label>
@@ -29,10 +30,10 @@
   <label>Card type:
     <input type="text" name="card_type" value="{{ card_type }}">
   </label>
-  -->
+
 
   <!-- Billing information -->
-  <!--
+
   <label>Bill to forename:
     <input type="text" name="bill_to_forename" value="{{ bill_to_forename }}">
   </label>
@@ -57,7 +58,7 @@
   <label>Bill to address country:
     <input type="text" name="bill_to_address_country" value="{{ bill_to_address_country }}">
   </label>
-  -->
+
 
   <input type="hidden" name="signature" value="{{ signature }}">
   <button type="submit">Submit</button>

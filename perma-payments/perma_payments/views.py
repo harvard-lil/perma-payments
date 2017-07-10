@@ -22,33 +22,34 @@ def payment_form(request):
         'locale': 'en-us',
         'payment_method': 'card',
         'profile_id': settings.CS_PROFILE_ID,
+        # 'recurring_amount': get_price(),
+        # 'recurring_frequency': 'monthly',
         'reference_number': generate_reference_number(),
         'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         'signed_field_names': '',
-        'transaction_type': 'authorization',
+        'transaction_type': 'sale',
+        # 'transaction_type': 'authorization,create_payment_token',
         'transaction_uuid': str(uuid4()),
         'unsigned_field_names': '',
 
-        # card information
-        # 'card_cvn': '500',
-        # 'card_expiry_date': '12-2022',
-        # 'card_number': '4 11111111111111',
-        # 'card_type': '001',
-        #
         # billing infomation
-        # 'bill_to_forename': 'Willie',
-        # 'bill_to_surname': 'Nelson',
-        # 'bill_to_email': 'willie@bogus.com',
-        # 'bill_to_address_line1': '123 green st',
-        # 'bill_to_address_city': 'San Francisco',
-        # 'bill_to_address_state': 'CA',
-        # 'bill_to_address_postal_code': '94107',
-        # 'bill_to_address_country': 'US',
+        'bill_to_forename': CS_TEST_CUSTOMER['first_name'],
+        'bill_to_surname': CS_TEST_CUSTOMER['last_name'],
+        'bill_to_email': CS_TEST_CUSTOMER['email'],
+        'bill_to_address_line1': CS_TEST_CUSTOMER['street1'],
+        'bill_to_address_city': CS_TEST_CUSTOMER['city'],
+        'bill_to_address_state': CS_TEST_CUSTOMER['state'],
+        'bill_to_address_postal_code': CS_TEST_CUSTOMER['postal_code'],
+        'bill_to_address_country': CS_TEST_CUSTOMER['country'],
     }
+    unsigned_fields = {}
+    unsigned_fields.update(CS_TEST_CARD['visa'])
     signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
     data_to_sign = data_to_string(signed_fields)
     context = {}
     context.update(signed_fields)
+    context.update(unsigned_fields)
     context['signature'] = sign_data(data_to_sign)
     context['heading'] = "Payment Form"
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
