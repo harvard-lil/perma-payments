@@ -1,6 +1,4 @@
 from datetime import datetime
-import random
-from uuid import uuid4
 import hashlib
 import hmac
 import base64
@@ -9,26 +7,40 @@ from django.conf import settings
 from django.shortcuts import render
 
 from .constants import *
+from .models import *
+
 
 def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
 def subscribe(request):
+    s_agreement = SubscriptionAgreement(
+        registrar=1,
+        status='Pending'
+    )
+    s_agreement.save()
+    s_request = SubscriptionRequest(
+        subscription_agreement=s_agreement,
+        amount=get_price(),
+        recurring_amount=get_price(),
+        recurring_frequency='monthly',
+    )
+    s_request.save()
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
-        'amount': get_price(),
-        'currency': 'USD',
-        'locale': 'en-us',
-        'payment_method': 'card',
+        'amount': s_request.amount,
+        'currency': s_request.currency,
+        'locale': s_request.locale,
+        'payment_method': s_request.payment_method,
         'profile_id': settings.CS_PROFILE_ID,
-        'recurring_amount': get_price(),
-        'recurring_frequency': 'monthly',
-        'reference_number': generate_reference_number(),
-        'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        'recurring_amount': s_request.recurring_amount,
+        'recurring_frequency': s_request.recurring_frequency,
+        'reference_number': s_request.reference_number,
+        'signed_date_time': s_request.get_formatted_datetime(),
         'signed_field_names': '',
-        'transaction_type': 'sale,create_payment_token',
-        'transaction_uuid': str(uuid4()),
+        'transaction_type': s_request.transaction_type,
+        'transaction_uuid': s_request.transaction_uuid,
         'unsigned_field_names': '',
 
         # billing infomation
@@ -54,49 +66,6 @@ def subscribe(request):
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     return render(request, 'subscribe.html', context)
 
-def get_price():
-    """
-    This should return the correct price for a customer.
-    """
-    return "1.00"
-
-def generate_reference_number():
-    """
-
-    """
-    # Based on GUID generation in Perma
-    # only try 100 attempts at finding an unused GUID
-    # (100 attempts should never be necessary, since we'll expand the keyspace long before
-    # there are frequent collisions)
-    guid_character_set = "0123456789"
-    reference_number_prefix = "PERMA"
-    for i in range(100):
-        # Generate an 8-character random string like "912768"
-        guid = ''.join(random.choice(guid_character_set) for _ in range(8))
-
-        # apply standard formatting (hyphens)
-        guid = get_canonical_guid(guid)
-
-        # TODO: make transaction model
-        # if not match and not Transaction.objects.filter(guid=guid).exists():
-        #     break
-        break
-    else:
-        raise Exception("No valid GUID found in 100 attempts.")
-    return "{}-{}".format(reference_number_prefix, guid)
-
-def get_canonical_guid(guid):
-    """
-    Given a GUID, return the canonical version, with hyphens every 4 chars.
-    So "12345678" becomes "1234-5678".
-    """
-
-    # split guid into 4-char chunks, starting from the end
-    guid_parts = [guid[max(i - 4, 0):i] for i in
-                  range(len(guid), 0, -4)]
-
-    # stick together parts with '-'
-    return "-".join(reversed(guid_parts))
 
 def data_to_string(data):
     return ','.join('{}={}'.format(key, data[key]) for key in sorted(data))
@@ -109,3 +78,9 @@ def sign_data(data_string):
     secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
+
+def get_price():
+    """
+    This should return the correct price for a customer.
+    """
+    return "1.00"
