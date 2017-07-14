@@ -2,31 +2,53 @@ from datetime import datetime
 import hashlib
 import hmac
 import base64
+import json
 
 from django.conf import settings
 from django.shortcuts import render
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 
 from .constants import *
 from .models import *
-
 
 def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
+@csrf_exempt
+@require_http_methods(["POST"])
 def subscribe(request):
-    s_agreement = SubscriptionAgreement(
-        registrar=1,
-        status='Pending'
-    )
-    s_agreement.save()
-    s_request = SubscriptionRequest(
-        subscription_agreement=s_agreement,
-        amount=get_price(),
-        recurring_amount=get_price(),
-        recurring_frequency='monthly',
-    )
-    s_request.save()
+    """
+    Processes user-initiated subscription requests from Perma.cc;
+    Redirects user to CyberSource for payment.
+    """
+    #
+    # In development:
+    # curl -X POST -H "Content-Type: application/json" -d '{"registrar":"1", "amount":"2.00","recurring_amount":"2.00","recurring_frequency":"monthly"}' http://192.168.99.100/subscribe/
+    #
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except:
+        # if something goes wrong, we should log it, and display an error page
+        raise
+    try:
+        s_agreement = SubscriptionAgreement(
+            registrar=data['registrar'],
+            status='Pending'
+        )
+        s_agreement.save()
+        s_request = SubscriptionRequest(
+            subscription_agreement=s_agreement,
+            amount=data['amount'],
+            recurring_amount=data['recurring_amount'],
+            recurring_frequency=data['recurring_frequency']
+        )
+        s_request.save()
+    except:
+        # if something goes wrong, we should log it, and display an error page
+        raise
+
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
         'amount': s_request.amount,
@@ -78,9 +100,3 @@ def sign_data(data_string):
     secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
-
-def get_price():
-    """
-    This should return the correct price for a customer.
-    """
-    return "1.00"
