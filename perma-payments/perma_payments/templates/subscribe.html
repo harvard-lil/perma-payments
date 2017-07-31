@@ -40,3 +40,9 @@
   <button type="submit">Subscribe</button>
 </form>
 {% endblock content %}
+
+{% block scripts %}
+  <script>
+    document.getElementById("payment_form").submit();
+  </script>
+{% endblock scripts%}

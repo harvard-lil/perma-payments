@@ -2,7 +2,6 @@ from datetime import datetime
 import hashlib
 import hmac
 import base64
-import json
 
 from django.conf import settings
 from django.shortcuts import render
@@ -23,12 +22,8 @@ def subscribe(request):
     Processes user-initiated subscription requests from Perma.cc;
     Redirects user to CyberSource for payment.
     """
-    #
-    # In development:
-    # curl -X POST -H "Content-Type: application/json" -d '{"registrar":"1", "amount":"2.00","recurring_amount":"2.00","recurring_frequency":"monthly"}' http://192.168.99.100/subscribe/
-    #
     try:
-        data = json.loads(request.body.decode('utf-8'))
+        data = request.POST.dict()
     except:
         # if something goes wrong, we should log it, and display an error page
         raise
@@ -100,3 +95,12 @@ def sign_data(data_string):
     secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
+
+def perma_spoof(request):
+    """
+    This logic will live in Perma; here now for simplicity
+    """
+    context = {
+        'subscribe_url': "http://192.168.99.100/subscribe/"
+    }
+    return render(request, 'perma-spoof.html', context)
