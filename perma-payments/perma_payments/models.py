@@ -65,6 +65,9 @@ class SubscriptionAgreement(models.Model):
 
     This is a feature of CyberSource; it is not a perma-payments design decision.
     """
+    def __str__(self):
+        return 'SubscriptionAgreement {}'.format(self.id)
+
     registrar = models.IntegerField()
     status = models.CharField(
         max_length=20,
@@ -108,6 +111,9 @@ class SubscriptionRequest(models.Model):
     2) resending failed requests;
     3) comparing notes with CyberSource records
     """
+    def __str__(self):
+        return 'SubscriptionRequest {}'.format(self.id)
+
     subscription_agreement = models.OneToOneField(
         SubscriptionAgreement,
         related_name='subscription_agreement'
