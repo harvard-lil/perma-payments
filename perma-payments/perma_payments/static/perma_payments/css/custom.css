@@ -1,3 +1,36 @@
+/* a11y helpers */
+/* from https://github.com/twbs/bootstrap-sass/blob/5d6b2ebba0c2a5885ce2f0e01e9218db3d3b5e47/assets/stylesheets/bootstrap/_scaffolding.scss*/
+
+/* Only display content to screen readers
+  See: http://a11yproject.com/posts/how-to-hide-content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  border: 0;
+}
+
+/*Use in conjunction with .sr-only to only display content when it's focused.
+Useful for "Skip to main content" links; see http://www.w3.org/TR/2013/NOTE-WCAG20-TECHS-20130905/G1
+Credit: HTML5 Boilerplate*/
+.sr-only-focusable {
+  &:active,
+  &:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+  }
+}
+
+/* styles */
+
 html, body {
     height: 100%;
 }
@@ -17,7 +50,31 @@ div.wrapper-flex {
     justify-content:center;
 }
 
-label.required:after {
-  content:"*";
-  color:red;
+
+.btn-link {
+  color: #0080a4;
+  font-weight: normal;
+  font-size: 1.3em;
+  border-radius: 0;
+  text-transform: none;
+  text-decoration: underline;
 }
+.btn-link,
+.btn-link:active,
+.btn-link.active,
+.btn-link[disabled] {
+    background-color: transparent;
+}
+.btn-link,
+.btn-link:hover,
+.btn-link:focus,
+.btn-link:active {
+    border-color: transparent;
+}
+.btn-link:hover,
+.btn-link:focus {
+    color: #008a00;
+    background-color: transparent;
+}
+
+

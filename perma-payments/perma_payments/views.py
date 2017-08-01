@@ -93,10 +93,10 @@ def subscribe(request):
     context.update(signed_fields)
     context.update(unsigned_fields)
     context['signature'] = sign_data(data_to_sign)
-    context['heading'] = "Subscribe"
+    context['heading'] = "Redirecting"
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
-    return render(request, 'subscribe.html', context)
+    return render(request, 'redirect.html', context)
 
 
 def perma_spoof(request):

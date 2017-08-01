@@ -1,4 +1,8 @@
-{% extends "no-flex.html" %}
+{% extends "base.html" %}
+
+{% block heading %}
+  <h1 class="sr-only">{{ heading }}</h1>
+{% endblock heading %}
 
 {% block content %}
 <form id="payment_form" action="{{ post_to_url }}" method="post">
@@ -34,10 +38,8 @@
   <input type="hidden" name="bill_to_address_state" value="{{ bill_to_address_state }}">
   <input type="hidden" name="bill_to_address_country" value="{{ bill_to_address_country }}">
 
-
-
   <input type="hidden" name="signature" value="{{ signature }}">
-  <button type="submit">Subscribe</button>
+  <button class="btn-link" type="submit">If you are not redirected in a few seconds, please click here.</button>
 </form>
 {% endblock content %}
 
