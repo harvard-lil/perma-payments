@@ -7,6 +7,7 @@ from django.db import models
 # HELPERS
 #
 
+
 def generate_reference_number():
     """
     Generate a unique, human-friendly reference number. Based on Perma GUID generation.
@@ -30,6 +31,7 @@ def generate_reference_number():
     else:
         raise Exception("No valid reference_number found in 100 attempts.")
     return rn
+
 
 def get_canonical_reference_number(rn, prefix):
     """

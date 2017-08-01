@@ -8,7 +8,9 @@ from .models import SubscriptionAgreement, SubscriptionRequest
 # admin.site.unregister(Site)
 admin.site.unregister(Group)
 
+
 ## HELPERS ##
+
 
 class ReadOnlyTabularInline(admin.TabularInline):
     extra = 0
@@ -19,9 +21,9 @@ class ReadOnlyTabularInline(admin.TabularInline):
 
     def get_readonly_fields(self, request, obj=None):
         return list(self.readonly_fields) + \
-               [field.name for field in self.model._meta.fields
-                if field.name not in self.editable_fields and
-                   field.name not in self.exclude]
+                [field.name for field in self.model._meta.fields
+                 if field.name not in self.editable_fields and
+                    field.name not in self.exclude]
 
     def has_add_permission(self, request):
         return False
@@ -29,11 +31,14 @@ class ReadOnlyTabularInline(admin.TabularInline):
 
 ## Admin Models ##
 
+
 class SubscriptionRequestInline(ReadOnlyTabularInline):
     model = SubscriptionRequest
 
+
 class SubscriptionRequestAdmin(admin.ModelAdmin):
     list_display = [f.name for f in SubscriptionRequest._meta.get_fields()]
+
 
 @admin.register(SubscriptionAgreement)
 class SubscriptionAgreementAdmin(admin.ModelAdmin):

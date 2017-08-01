@@ -19,6 +19,7 @@ def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
+
 @csrf_exempt
 @require_http_methods(["POST"])
 @sensitive_post_parameters('signature')
