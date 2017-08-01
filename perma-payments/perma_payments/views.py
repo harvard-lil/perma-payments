@@ -95,6 +95,7 @@ def subscribe(request):
     context['signature'] = sign_data(data_to_sign)
     context['heading'] = "Subscribe"
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
+    logger.info("Subscription request received for registrar {}".format(data['registrar']))
     return render(request, 'subscribe.html', context)
 
 
