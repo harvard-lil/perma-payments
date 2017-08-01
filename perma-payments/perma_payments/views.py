@@ -1,7 +1,3 @@
-import hashlib
-import hmac
-import base64
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -13,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .constants import *
 from .custom_errors import bad_request
 from .models import *
+from .security import data_to_string, sign_data
 
 import logging
 logger = logging.getLogger(__name__)
@@ -100,18 +97,6 @@ def subscribe(request):
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     return render(request, 'subscribe.html', context)
 
-
-def data_to_string(data):
-    return ','.join('{}={}'.format(key, data[key]) for key in sorted(data))
-
-def sign_data(data_string):
-    """
-    Sign with HMAC sha256 and base64 encode
-    """
-    message = bytes(data_string, 'utf-8')
-    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
-    hash = hmac.new(secret, message, hashlib.sha256)
-    return base64.b64encode(hash.digest())
 
 def perma_spoof(request):
     """

@@ -1,5 +1,5 @@
 # from django.test import TestCase
-from .views import data_to_string, sign_data
+from .security import data_to_string, sign_data
 
 def test_data_to_string():
     """
