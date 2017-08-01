@@ -5,13 +5,13 @@ import base64
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http.response import HttpResponseBadRequest
 from django.shortcuts import render
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
 from .constants import *
+from .custom_errors import bad_request
 from .models import *
 
 import logging
@@ -39,7 +39,8 @@ def subscribe(request):
         }
     except KeyError as e:
         logger.warning('Incomplete POST from Perma.cc subscribe form: missing {}'.format(e))
-        return HttpResponseBadRequest()
+        return bad_request(request)
+
     try:
         with transaction.atomic():
             s_agreement = SubscriptionAgreement(
@@ -58,7 +59,7 @@ def subscribe(request):
             s_request.save()
     except ValidationError as e:
         logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
-        return HttpResponseBadRequest()
+        return bad_request(request)
 
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
