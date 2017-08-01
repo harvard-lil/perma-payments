@@ -20,7 +20,9 @@
     <div class="wrapper wrapper-flex">
       <main class="container">
         <div class="row">
-          <h1>{{ heading }}</h1>
+          {% block heading %}
+            <h1>{{ heading }}</h1>
+          {% endblock heading %}
           {% block content %}
           {% endblock content %}
         </div>

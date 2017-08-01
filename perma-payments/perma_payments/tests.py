@@ -1,17 +1,19 @@
 # from django.test import TestCase
-from .views import data_to_string, sign_data
+from .security import data_to_string, sign_data
+
 
 def test_data_to_string():
     """
         Sorts keys alphabetcially, joins in expected format.
     """
     data = {
-      "foo": "baz",
-      "bar": "bamph",
-      "signed_field_names": "bar,foo,signed_field_names"
+        "foo": "baz",
+        "bar": "bamph",
+        "signed_field_names": "bar,foo,signed_field_names"
     }
     data_to_sign = data_to_string(data)
     assert data_to_sign == "bar=bamph,foo=baz,signed_field_names=bar,foo,signed_field_names"
+
 
 def test_sign_data():
     """

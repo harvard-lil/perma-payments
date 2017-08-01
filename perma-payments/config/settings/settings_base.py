@@ -115,3 +115,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 ADMIN_ENABLED = False
+
+# Direct all CyberSource communications to their test server by default
+CS_MODE = 'test'

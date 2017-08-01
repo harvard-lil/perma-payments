@@ -1,109 +1,110 @@
-from datetime import datetime
-import random
-from uuid import uuid4
-import hashlib
-import hmac
-import base64
-
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.shortcuts import render
+from django.views.decorators.debug import sensitive_post_parameters
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+
+from .constants import *
+from .custom_errors import bad_request
+from .models import *
+from .security import data_to_string, sign_data
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
-def payment_form(request):
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters('signature')
+def subscribe(request):
+    """
+    Processes user-initiated subscription requests from Perma.cc;
+    Redirects user to CyberSource for payment.
+    """
+    try:
+        data = {
+            'registrar': request.POST.__getitem__('registrar'),
+            'amount': request.POST.__getitem__('amount'),
+            'recurring_amount': request.POST.__getitem__('recurring_amount'),
+            'recurring_frequency': request.POST.__getitem__('recurring_frequency')
+        }
+    except KeyError as e:
+        logger.warning('Incomplete POST from Perma.cc subscribe form: missing {}'.format(e))
+        return bad_request(request)
+
+    try:
+        with transaction.atomic():
+            s_agreement = SubscriptionAgreement(
+                registrar=data['registrar'],
+                status='Pending'
+            )
+            s_agreement.full_clean()
+            s_agreement.save()
+            s_request = SubscriptionRequest(
+                subscription_agreement=s_agreement,
+                amount=data['amount'],
+                recurring_amount=data['recurring_amount'],
+                recurring_frequency=data['recurring_frequency']
+            )
+            s_request.full_clean()
+            s_request.save()
+    except ValidationError as e:
+        logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
+        return bad_request(request)
+
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
-        'amount': get_price(),
-        'currency': 'USD',
-        'locale': 'en-us',
-        'payment_method': 'card',
+        'amount': s_request.amount,
+        'currency': s_request.currency,
+        'locale': s_request.locale,
+        'payment_method': s_request.payment_method,
         'profile_id': settings.CS_PROFILE_ID,
-        'reference_number': generate_reference_number(),
-        'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        'recurring_amount': s_request.recurring_amount,
+        'recurring_frequency': s_request.recurring_frequency,
+        'reference_number': s_request.reference_number,
+        'signed_date_time': s_request.get_formatted_datetime(),
         'signed_field_names': '',
-        'transaction_type': 'authorization',
-        'transaction_uuid': str(uuid4()),
+        'transaction_type': s_request.transaction_type,
+        'transaction_uuid': s_request.transaction_uuid,
         'unsigned_field_names': '',
 
-        # card information
-        # 'card_cvn': '500',
-        # 'card_expiry_date': '12-2022',
-        # 'card_number': '4 11111111111111',
-        # 'card_type': '001',
-        #
         # billing infomation
-        # 'bill_to_forename': 'Willie',
-        # 'bill_to_surname': 'Nelson',
-        # 'bill_to_email': 'willie@bogus.com',
-        # 'bill_to_address_line1': '123 green st',
-        # 'bill_to_address_city': 'San Francisco',
-        # 'bill_to_address_state': 'CA',
-        # 'bill_to_address_postal_code': '94107',
-        # 'bill_to_address_country': 'US',
+        'bill_to_forename': CS_TEST_CUSTOMER['first_name'],
+        'bill_to_surname': CS_TEST_CUSTOMER['last_name'],
+        'bill_to_email': CS_TEST_CUSTOMER['email'],
+        'bill_to_address_line1': CS_TEST_CUSTOMER['street1'],
+        'bill_to_address_city': CS_TEST_CUSTOMER['city'],
+        'bill_to_address_state': CS_TEST_CUSTOMER['state'],
+        'bill_to_address_postal_code': CS_TEST_CUSTOMER['postal_code'],
+        'bill_to_address_country': CS_TEST_CUSTOMER['country'],
     }
+    unsigned_fields = {}
+    unsigned_fields.update(CS_TEST_CARD['visa'])
     signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
     data_to_sign = data_to_string(signed_fields)
     context = {}
     context.update(signed_fields)
+    context.update(unsigned_fields)
     context['signature'] = sign_data(data_to_sign)
-    context['heading'] = "Payment Form"
-    context['post_to_url'] = settings.CS_PAYMENT_URL
-    return render(request, 'payment-form.html', context)
+    context['heading'] = "Redirecting"
+    context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
+    logger.info("Subscription request received for registrar {}".format(data['registrar']))
+    return render(request, 'redirect.html', context)
 
-def get_price():
+
+def perma_spoof(request):
     """
-    This should return the correct price for a customer.
+    This logic will live in Perma; here now for simplicity
     """
-    return "1.00"
-
-def generate_reference_number():
-    """
-
-    """
-    # Based on GUID generation in Perma
-    # only try 100 attempts at finding an unused GUID
-    # (100 attempts should never be necessary, since we'll expand the keyspace long before
-    # there are frequent collisions)
-    guid_character_set = "0123456789"
-    reference_number_prefix = "PERMA"
-    for i in range(100):
-        # Generate an 8-character random string like "912768"
-        guid = ''.join(random.choice(guid_character_set) for _ in range(8))
-
-        # apply standard formatting (hyphens)
-        guid = get_canonical_guid(guid)
-
-        # TODO: make transaction model
-        # if not match and not Transaction.objects.filter(guid=guid).exists():
-        #     break
-        break
-    else:
-        raise Exception("No valid GUID found in 100 attempts.")
-    return "{}-{}".format(reference_number_prefix, guid)
-
-def get_canonical_guid(guid):
-    """
-    Given a GUID, return the canonical version, with hyphens every 4 chars.
-    So "12345678" becomes "1234-5678".
-    """
-
-    # split guid into 4-char chunks, starting from the end
-    guid_parts = [guid[max(i - 4, 0):i] for i in
-                  range(len(guid), 0, -4)]
-
-    # stick together parts with '-'
-    return "-".join(reversed(guid_parts))
-
-def data_to_string(data):
-    return ','.join('{}={}'.format(key, data[key]) for key in sorted(data))
-
-def sign_data(data_string):
-    """
-    Sign with HMAC sha256 and base64 encode
-    """
-    message = bytes(data_string, 'utf-8')
-    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
-    hash = hmac.new(secret, message, hashlib.sha256)
-    return base64.b64encode(hash.digest())
+    context = {
+        'subscribe_url': "http://192.168.99.100/subscribe/"
+    }
+    return render(request, 'perma-spoof.html', context)
