@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -105,6 +106,6 @@ def perma_spoof(request):
     This logic will live in Perma; here now for simplicity
     """
     context = {
-        'subscribe_url': "http://192.168.99.100/subscribe/"
+        'subscribe_url': reverse('subscribe')
     }
     return render(request, 'perma-spoof.html', context)
