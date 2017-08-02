@@ -124,7 +124,6 @@ def subscribe(request):
 def cybersource_callback(request):
     """
     In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
-    or curl http://192.168.99.100/cybersource-callback/ -X POST -d @sample_response.json
     """
     try:
         signature = request.POST.__getitem__('signature')
