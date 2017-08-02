@@ -78,6 +78,8 @@ class SubscriptionAgreement(models.Model):
             ('Pending', 'Pending'),
             # CyberSource has rejected the request; no payment token/subscription ID was issued
             ('Rejected', 'Rejected'),
+            # The user did not submit payment information
+            ('Abandoned', 'Abandoned'),
             #
             # CyberSource approved the request and a payment token/subscription ID was issued
             # The subscription can lapse, etc. at any point thereafter.
