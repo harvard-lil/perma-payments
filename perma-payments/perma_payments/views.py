@@ -159,9 +159,29 @@ def cybersource_callback(request):
     )
     sub_resp.save()
 
-    # TODO
-    # finally, take an appropriate action
+    decision = sub_resp['decision']
+    if decision == 'ACCEPT':
+        # Successful transaction. Reason codes 100 and 110.
+        return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
+    elif decision == 'CANCEL':
+        # The customer did not accept the service fee conditions,
+        # or the customer cancelled the transaction.
+        return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
+    elif decision == 'DECLINE':
+        # Transaction was declined.See reason codes 102, 200, 202, 203,
+        # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
+        # 234, 236, 240, 475, 476, and 481.
+        return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
+    elif decision == 'REVIEW':
+        # Authorization was declined; however, the capture may still be possible.
+        # Review payment details. See reason codes 200, 201, 230, and 520.
+        return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
+    elif decision == 'ERROR':
+        # Access denied, page not found, or internal server error.
+        # See reason codes 102, 104, 150, 151 and 152.
+        return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
 
+    # If we're here, that means we weren't prepared for the decision, so raise a ruckus.
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
 
 
