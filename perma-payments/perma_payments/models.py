@@ -186,57 +186,34 @@ class SubscriptionRequest(models.Model):
         return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class SubscriptionRequestResponse():
-    pass
-    # subscription_request = models.OneToOneField(
-    #     SubscriptionRequest,
-    #     related_name='subscription_request'
-    # )
+class SubscriptionRequestResponse(models.Model):
+    """
+    All (non-confidential) specifics of CyberSource's response to a subscription request.
+    """
+    def __str__(self):
+        return 'SubscriptionRequestResponse {}'.format(self.id)
 
-    # Response
-
-    # signature=/QQFU5A0wzol7F8zmTrbwJHUti1QlZDCL9Y5o918yYw=
-    # signed_field_names=transaction_id,decision,req_access_key,req_profile_id,req_transaction_uuid,req_transaction_type,req_reference_number,req_amount,req_currency,req_locale,req_payment_method,req_recurring_frequency,req_recurring_amount,req_bill_to_forename,req_bill_to_surname,req_bill_to_email,req_bill_to_address_line1,req_bill_to_address_city,req_bill_to_address_state,req_bill_to_address_country,req_bill_to_address_postal_code,req_card_number,req_card_type,req_card_expiry_date,message,reason_code,auth_avs_code,auth_avs_code_raw,auth_response,auth_amount,auth_code,auth_trans_ref_no,auth_time,request_token,bill_trans_ref_no,payment_token,signed_field_names,signed_date_time
-    # signed_date_time=2017-07-10T19:18:10Z
-
-    # transaction_id=4997142906156171104101
-    # payment_token=4997142906156171104101
-    # decision=ACCEPT
-    # message=Request was processed successfully.
-    # reason_code=100
-
-    # auth_trans_ref_no=74891332D4XYOO7T
-    # auth_amount=1.00
-    # auth_response=100
-    # auth_time=2017-07-10T191810Z
-    # auth_avs_code_raw=I1 String (1)
-    # auth_avs_code=X
-    # auth_code=888888
-
-    # bill_trans_ref_no=74891332D4XYOO7T
-
-    # request_token=Ahj//wSTDuVJ9Sa1v49lESDdo4csWbNlEaWLM+e3qJb374OagClvfvg5qaQHyOC8MmkmXoxXF8ZBgTkw7lSfUmtb+PZQyxrh
-
-    # req_transaction_uuid=04e2347d-8e5d-4ec9-a819-74c3258f4a9f
-    # req_reference_number=PERMA-6782-9670
-
-    # req_recurring_frequency=monthly
-    # req_card_number=xxxxxxxxxxxx1111
-    # req_locale=en-us
-    # req_bill_to_surname=name
-    # req_bill_to_address_city=Mountain View
-    # req_card_expiry_date=12-2022
-    # req_bill_to_address_postal_code=94043
-    # req_bill_to_forename=noreal
-    # req_payment_method=card
-    # req_recurring_amount=1.00
-    # req_amount=1.00
-    # req_bill_to_email=null@cybersource.com
-    # req_bill_to_address_country=US
-    # req_transaction_type=sale,create_payment_token
-    # req_access_key=7e6a19738a913a45aedc6c6abdda3998
-    # req_profile_id=2C5AD95B-B3EC-4F59-9138-32910CEB6A69
-    # req_bill_to_address_state=CA
-    # req_bill_to_address_line1=1295 Charleston Road
-    # req_currency=USD
-    # req_card_type=001
+    subscription_request = models.OneToOneField(
+        SubscriptionRequest,
+        related_name='subscription_request'
+    )
+    decision = models.CharField(
+        max_length=7,
+        choices=(
+            ('ACCEPT', 'ACCEPT'),
+            ('REVIEW', 'REVIEW'),
+            ('DECLINE', 'DECLINE'),
+            ('ERROR', 'ERROR'),
+            ('CANCEL', 'CANCEL'),
+        )
+    )
+    reason_code = models.IntegerField()
+    message = models.TextField()
+    payment_token = models.CharField(
+        max_length=26,
+        blank=True,
+        default=''
+    )
+    full_response = models.TextField(
+        help_text="The full response, encrypted, in case we ever need it."
+    )
