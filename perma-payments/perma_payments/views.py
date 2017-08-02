@@ -1,3 +1,5 @@
+from werkzeug.security import safe_str_cmp
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -99,6 +101,55 @@ def subscribe(request):
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
     return render(request, 'redirect.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters(
+    'payment_token'
+    'req_access_key',
+    'req_bill_to_address_city'
+    'req_bill_to_address_country'
+    'req_bill_to_address_line1'
+    'req_bill_to_address_postal_code'
+    'req_bill_to_address_state'
+    'req_bill_to_email'
+    'req_bill_to_forename'
+    'req_bill_to_surname'
+    'req_card_expiry_date'
+    'req_card_number'
+    'req_profile_id',
+    'signature'
+)
+def cybersource_callback(request):
+    """
+    In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
+    or curl http://192.168.99.100/cybersource-callback/ -X POST -d @sample_response.json
+    """
+    try:
+        signature = request.POST.__getitem__('signature')
+        signed_field_names = request.POST.__getitem__('signed_field_names')
+        signed_fields = {}
+        for field in signed_field_names.split(','):
+            signed_fields[field] = request.POST.__getitem__(field)
+    except KeyError as e:
+        logger.warning('Incomplete POST to CyberSource callback route: missing {}'.format(e))
+        return bad_request(request)
+
+    data_to_sign = data_to_string(signed_fields, sort=False)
+    if not safe_str_cmp(signature, sign_data(data_to_sign)):
+        logger.warning('Data with invalid signature POSTed to CyberSource callback route')
+        return bad_request(request)
+
+    # TODO
+    # validate the data
+    #    what does that mean? response matches a known request?
+    #    probably not much beyond that: we shouldn't rely on CyberSource to be consistent
+    # if invalid, raise a ruckus, and preserve the data somehow so we can see what in the world is wrong
+    # else, save the data
+    # finally, take an appropriate action
+
+    return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
 
 
 def perma_spoof(request):

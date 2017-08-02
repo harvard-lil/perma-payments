@@ -5,8 +5,8 @@ import base64
 from django.conf import settings
 
 
-def data_to_string(data):
-    return ','.join('{}={}'.format(key, data[key]) for key in sorted(data))
+def data_to_string(data, sort=True):
+    return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
 
 
 def sign_data(data_string):

@@ -1,6 +1,7 @@
 # After updating this file, run `pip-compile` to update requirements.txt.
 
 psycopg2                    # postgres connector
+werkzeug                    # for its utilities
 
 # Django stuff
 Django==1.11.2

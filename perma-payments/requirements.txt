@@ -35,3 +35,4 @@ pytest-xdist==1.16.0
 pytest==3.1.2             # via pytest-cov, pytest-django, pytest-xdist
 pytz==2017.2              # via django
 six==1.10.0               # via bcrypt, cryptography, fabric3, pip-tools, pynacl
+werkzeug==0.12.2
