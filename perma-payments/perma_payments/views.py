@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .constants import *
 from .custom_errors import bad_request
 from .models import *
-from .security import data_to_string, sign_data
+from .security import data_to_string, sign_data, encrypt_for_storage
 
 import logging
 logger = logging.getLogger(__name__)
@@ -150,7 +150,12 @@ def cybersource_callback(request):
         reason_code=request.POST.__getitem__('reason_code'),
         message=request.POST.__getitem__('message'),
         payment_token=request.POST.get('payment_token', ''),
-        full_response=pretend_encrypt(request.POST.dict())
+        encryption_key_id=settings.STORAGE_SECRET_KEY['id'],
+        full_response=encrypt_for_storage(
+            bytes(str(request.POST.dict()), 'utf-8'),
+            # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
+            (sub_req.pk).to_bytes(24, byteorder='big')
+        )
     )
     sub_resp.save()
 
@@ -159,11 +164,6 @@ def cybersource_callback(request):
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
 
-def pretend_encrypt(data):
-    """
-    Placeholder. This will encrypt using PyNacl or something.
-    """
-    return data
 
 def perma_spoof(request):
     """

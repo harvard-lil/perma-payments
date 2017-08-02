@@ -214,6 +214,7 @@ class SubscriptionRequestResponse(models.Model):
         blank=True,
         default=''
     )
-    full_response = models.TextField(
+    full_response = models.BinaryField(
         help_text="The full response, encrypted, in case we ever need it."
     )
+    encryption_key_id = models.IntegerField()
