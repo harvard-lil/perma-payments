@@ -140,16 +140,30 @@ def cybersource_callback(request):
         logger.warning('Data with invalid signature POSTed to CyberSource callback route')
         return bad_request(request)
 
+    sub_req = SubscriptionRequest.objects.get(
+        reference_number=request.POST.__getitem__('req_reference_number'),
+        transaction_uuid=request.POST.__getitem__('req_transaction_uuid')
+    )
+    sub_resp = SubscriptionRequestResponse(
+        subscription_request=sub_req,
+        decision=request.POST.__getitem__('decision'),
+        reason_code=request.POST.__getitem__('reason_code'),
+        message=request.POST.__getitem__('message'),
+        payment_token=request.POST.get('payment_token', ''),
+        full_response=pretend_encrypt(request.POST.dict())
+    )
+    sub_resp.save()
+
     # TODO
-    # validate the data
-    #    what does that mean? response matches a known request?
-    #    probably not much beyond that: we shouldn't rely on CyberSource to be consistent
-    # if invalid, raise a ruckus, and preserve the data somehow so we can see what in the world is wrong
-    # else, save the data
     # finally, take an appropriate action
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'Message Received'})
 
+def pretend_encrypt(data):
+    """
+    Placeholder. This will encrypt using PyNacl or something.
+    """
+    return data
 
 def perma_spoof(request):
     """

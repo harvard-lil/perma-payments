@@ -5,6 +5,7 @@ werkzeug                    # for its utilities
 
 # Django stuff
 Django==1.11.2
+django-nested-inline
 
 # Admin stuff
 pip-tools==1.9.0            # freeze requirements.txt

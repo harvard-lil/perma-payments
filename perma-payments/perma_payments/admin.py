@@ -1,8 +1,9 @@
+from nested_inline.admin import NestedTabularInline, NestedModelAdmin
+
 from django.contrib import admin
 from django.contrib.auth.models import Group
 
-
-from .models import SubscriptionAgreement, SubscriptionRequest
+from .models import SubscriptionAgreement, SubscriptionRequest, SubscriptionRequestResponse
 
 # remove builtin models
 # admin.site.unregister(Site)
@@ -12,7 +13,7 @@ admin.site.unregister(Group)
 ## HELPERS ##
 
 
-class ReadOnlyTabularInline(admin.TabularInline):
+class ReadOnlyTabularInline(NestedTabularInline):
     extra = 0
     can_delete = False
     editable_fields = []
@@ -32,16 +33,22 @@ class ReadOnlyTabularInline(admin.TabularInline):
 ## Admin Models ##
 
 
+class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
+    model = SubscriptionRequestResponse
+    fk_name = 'subscription_request'
+    exclude = ['full_response']
+
+
 class SubscriptionRequestInline(ReadOnlyTabularInline):
     model = SubscriptionRequest
-
-
-class SubscriptionRequestAdmin(admin.ModelAdmin):
-    list_display = [f.name for f in SubscriptionRequest._meta.get_fields()]
+    fk_name = 'subscription_agreement'
+    inlines = [
+        SubscriptionRequestResponseInline,
+    ]
 
 
 @admin.register(SubscriptionAgreement)
-class SubscriptionAgreementAdmin(admin.ModelAdmin):
+class SubscriptionAgreementAdmin(NestedModelAdmin):
     readonly_fields = list_display = ('id', 'registrar', 'status', 'status_updated')
     inlines = [
         SubscriptionRequestInline,
