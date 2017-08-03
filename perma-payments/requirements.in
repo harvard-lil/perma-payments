@@ -1,9 +1,12 @@
 # After updating this file, run `pip-compile` to update requirements.txt.
 
 psycopg2                    # postgres connector
+pynacl                      # encryption
+werkzeug                    # for its utilities
 
 # Django stuff
 Django==1.11.2
+django-nested-inline
 
 # Admin stuff
 pip-tools==1.9.0            # freeze requirements.txt

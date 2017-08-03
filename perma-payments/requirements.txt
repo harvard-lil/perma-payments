@@ -11,6 +11,7 @@ cffi==1.10.0              # via bcrypt, cryptography, pynacl
 click==6.7                # via pip-tools
 coverage==4.3.4           # via pytest-cov
 cryptography==1.9         # via paramiko
+django-nested-inline==0.3.7
 django==1.11.2
 enum34==1.1.6             # via cryptography
 execnet==1.4.1            # via pytest-xdist
@@ -28,10 +29,11 @@ py==1.4.34                # via pytest, pytest-xdist
 pyasn1==0.2.3             # via paramiko
 pycparser==2.17           # via cffi
 pyflakes==1.0.0           # via flake8
-pynacl==1.1.2             # via paramiko
+pynacl==1.1.2
 pytest-cov==2.5.1
 pytest-django==3.1.2
 pytest-xdist==1.16.0
 pytest==3.1.2             # via pytest-cov, pytest-django, pytest-xdist
 pytz==2017.2              # via django
 six==1.10.0               # via bcrypt, cryptography, fabric3, pip-tools, pynacl
+werkzeug==0.12.2
