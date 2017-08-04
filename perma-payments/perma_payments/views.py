@@ -3,6 +3,7 @@ from werkzeug.security import safe_str_cmp
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
@@ -200,8 +201,12 @@ def cybersource_callback(request):
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 
+
 def current(request, registrar):
-    return render(request, 'generic.html', {'heading': 'Has Current Subscription?', 'message': 'registrar {}: {}'.format(registrar, True)})
+    current = SubscriptionAgreement.objects.filter(registrar=registrar, status='Current').count()
+    if current > 1:
+        logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
+    return JsonResponse({'registrar': registrar, 'current': bool(current)})
 
 
 def perma_spoof(request):
