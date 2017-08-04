@@ -43,6 +43,11 @@ def subscribe(request):
         logger.warning('Incomplete POST from Perma.cc subscribe form: missing {}'.format(e))
         return bad_request(request)
 
+    if settings.PREVENT_MULTIPLE_SUBSCRIPTIONS and SubscriptionAgreement.registrar_has_current(data['registrar']):
+        return render(request, 'generic.html', {'heading': "Good News!",
+                                                'message': "You already have an active subscription to Perma.cc, and your payments are current.<br>" +
+                                                           "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+
     try:
         with transaction.atomic():
             s_agreement = SubscriptionAgreement(

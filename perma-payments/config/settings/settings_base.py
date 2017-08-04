@@ -120,3 +120,6 @@ ADMIN_ENABLED = False
 
 # Direct all CyberSource communications to their test server by default
 CS_MODE = 'test'
+
+# Prevent duplicate subscriptions by default; override if desired for easier testing
+PREVENT_MULTIPLE_SUBSCRIPTIONS = True
