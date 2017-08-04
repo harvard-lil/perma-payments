@@ -3,6 +3,7 @@ from werkzeug.security import safe_str_cmp
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
@@ -41,6 +42,11 @@ def subscribe(request):
     except KeyError as e:
         logger.warning('Incomplete POST from Perma.cc subscribe form: missing {}'.format(e))
         return bad_request(request)
+
+    if settings.PREVENT_MULTIPLE_SUBSCRIPTIONS and SubscriptionAgreement.registrar_has_current(data['registrar']):
+        return render(request, 'generic.html', {'heading': "Good News!",
+                                                'message': "You already have an active subscription to Perma.cc, and your payments are current.<br>" +
+                                                           "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
 
     try:
         with transaction.atomic():
@@ -199,6 +205,10 @@ def cybersource_callback(request):
         logger.error("Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(sub_req.pk, agreement.registrar, non_sensitive_params))
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
+
+
+def current(request, registrar):
+    return JsonResponse({'registrar': registrar, 'current': SubscriptionAgreement.registrar_has_current(registrar)})
 
 
 def perma_spoof(request):
