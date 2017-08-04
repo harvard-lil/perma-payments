@@ -200,6 +200,9 @@ def cybersource_callback(request):
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 
+def current(request, registrar):
+    return render(request, 'generic.html', {'heading': 'Has Current Subscription?', 'message': 'registrar {}: {}'.format(registrar, True)})
+
 
 def perma_spoof(request):
     """

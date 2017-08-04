@@ -6,5 +6,6 @@ urlpatterns = [
     url(r'^$', views.index, name='index'),
     url(r'^subscribe/$', views.subscribe, name='subscribe'),
     url(r'^cybersource-callback/$', views.cybersource_callback, name='cybersource_callback'),
+    url(r'^current/(?P<registrar>[0-9]+)$', views.current, name='current'),
     url(r'^perma-spoof/$', views.perma_spoof, name='perma_spoof'),
 ]
