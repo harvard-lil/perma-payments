@@ -3,6 +3,9 @@ from uuid import uuid4
 
 from django.db import models
 
+import logging
+logger = logging.getLogger(__name__)
+
 #
 # HELPERS
 #
@@ -104,6 +107,13 @@ class SubscriptionAgreement(models.Model):
         )
     )
     status_updated = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def registrar_has_current(cls, registrar):
+        current = cls.objects.filter(registrar=registrar, status='Current').count()
+        if current > 1:
+            logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
+        return bool(current)
 
 
 class SubscriptionRequest(models.Model):

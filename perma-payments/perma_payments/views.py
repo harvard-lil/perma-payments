@@ -203,10 +203,7 @@ def cybersource_callback(request):
 
 
 def current(request, registrar):
-    current = SubscriptionAgreement.objects.filter(registrar=registrar, status='Current').count()
-    if current > 1:
-        logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
-    return JsonResponse({'registrar': registrar, 'current': bool(current)})
+    return JsonResponse({'registrar': registrar, 'current': SubscriptionAgreement.registrar_has_current(registrar)})
 
 
 def perma_spoof(request):
