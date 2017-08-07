@@ -221,18 +221,3 @@ def perma_spoof(request):
     }
     return render(request, 'perma-spoof.html', context)
 
-def debug_logging(request):
-    """
-    This logs query param "message" to logger of level "level"
-    """
-    message = request.GET.get('message', 'a default logging message')
-    level = request.GET.get('level', 'debug')
-    if level == 'debug':
-        logger.debug(message)
-    if level == 'info':
-        logger.info(message)
-    if level == 'warning':
-        logger.warning(message)
-    if level == 'error':
-        logger.error(message)
-    return render(request, 'generic.html', {'heading': 'Logging Route', 'message': 'OK'})
