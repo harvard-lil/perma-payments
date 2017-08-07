@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
@@ -136,7 +137,7 @@ def cybersource_callback(request):
     try:
         signature = request.POST.__getitem__('signature')
         signed_field_names = request.POST.__getitem__('signed_field_names')
-        signed_fields = {}
+        signed_fields = OrderedDict()
         for field in signed_field_names.split(','):
             signed_fields[field] = request.POST.__getitem__(field)
     except KeyError as e:
@@ -219,3 +220,19 @@ def perma_spoof(request):
         'subscribe_url': reverse('subscribe')
     }
     return render(request, 'perma-spoof.html', context)
+
+def debug_logging(request):
+    """
+    This logs query param "message" to logger of level "level"
+    """
+    message = request.GET.get('message', 'a default logging message')
+    level = request.GET.get('level', 'debug')
+    if level == 'debug':
+        logger.debug(message)
+    if level == 'info':
+        logger.info(message)
+    if level == 'warning':
+        logger.warning(message)
+    if level == 'error':
+        logger.error(message)
+    return render(request, 'generic.html', {'heading': 'Logging Route', 'message': 'OK'})
