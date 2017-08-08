@@ -13,7 +13,7 @@ CS_PAYMENT_URL = 'https://testsecureacceptance.cybersource.com/pay'
 # generated using perma_payments.security.generate_public_private_keys
 # SECURITY WARNING: keep the production app secret key secret!
 # SECURITY WARNING: keep the production vault secret key offline!
-STORAGE_SECRET_KEY = {
+STORAGE_ENCRYPTION_KEYS = {
     'id': 3,
     'app_secret_key': b'\xf8O\xbe\x18Y\xd0f\xd0\xe1\xcc\xd1\x07\xc9\xdd\x18]p\xc9\xae\xfd\xe6\x91\xf6\xf76\x8ae\x84\x991\xad\x9e',
     'vault_secret_key': b'\x13.\xe1\x11\x88\x0b"D\x83\xbf\x1c0\xfd\xd0\x19\xa8\x8f{\x80\xfd\x85\xc4!\xc9o\x13\xb0\x96\xf8Y\xa7\xd6',

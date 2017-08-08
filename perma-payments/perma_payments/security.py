@@ -41,7 +41,7 @@ def encrypt_for_storage(message, nonce):
     """
     Basic public key encryption ala pynacl.
     """
-    box = Box(PrivateKey(settings.STORAGE_SECRET_KEY['app_secret_key']), PublicKey(settings.STORAGE_SECRET_KEY['vault_public_key']))
+    box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['app_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['vault_public_key']))
     return box.encrypt(message, nonce)
 
 
@@ -56,5 +56,5 @@ def decrypt_from_storage(ciphertext):
     >>> resp = SubscriptionRequestResponse.objects.get(pk=????????)
     >>> decrypt_full_response(bytes(resp.full_response))
     """
-    box = Box(PrivateKey(settings.STORAGE_SECRET_KEY['vault_secret_key']), PublicKey(settings.STORAGE_SECRET_KEY['app_public_key']))
+    box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['vault_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['app_public_key']))
     return box.decrypt(ciphertext)
