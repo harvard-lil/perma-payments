@@ -8,8 +8,12 @@ CS_PROFILE_ID = 'TEST'
 CS_SECRET_KEY = 'TEST'
 
 # Our encryption key for storing full responses from CyberSource
-# generated using https://pynacl.readthedocs.io/en/latest/secret/
+# generated using perma_payments.security.generate_public_private_keys
+# SECURITY WARNING: keep the production app secret key secret!
+# SECURITY WARNING: keep the production vault secret key offline!
 STORAGE_SECRET_KEY = {
-    'id': 1,
-    'key': b'TEST'
+    'id': 3,
+    'app_secret_key': b'\xf8O\xbe\x18Y\xd0f\xd0\xe1\xcc\xd1\x07\xc9\xdd\x18]p\xc9\xae\xfd\xe6\x91\xf6\xf76\x8ae\x84\x991\xad\x9e',
+    'vault_public_key': b'\xbd6\xe14\x8dB\xb5\xac\xdb\x95\xdc.:=xhb\xbd\xacwx\xd5\x17G\x8a/\xa9\xf58\x9bpU',
 }
+
