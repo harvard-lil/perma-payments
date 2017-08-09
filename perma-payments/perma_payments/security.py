@@ -1,6 +1,8 @@
+import base64
+from datetime import timedelta, datetime
 import hashlib
 import hmac
-import base64
+import json
 from nacl.public import Box, PrivateKey, PublicKey
 
 from django.conf import settings
@@ -57,4 +59,64 @@ def decrypt_from_storage(ciphertext):
     >>> decrypt_full_response(bytes(resp.full_response))
     """
     box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['vault_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['app_public_key']))
+    return box.decrypt(ciphertext)
+
+
+def pack_data(dictionary):
+    """
+    Takes a dict. Converts to a bytestring, suitable for passing to an encryption function.
+    """
+    return bytes(json.dumps(dictionary), 'utf-8')
+
+
+def unpack_data(data):
+    """
+    Reverses pack_data.
+
+    Takes a bytestring, returns a dict or raises ValueError.
+    """
+    try:
+        dictionary = json.loads(str(data, 'utf-8'))
+    except:
+        raise ValueError
+    return dictionary
+
+
+def is_valid_timestamp(stamp, max_age):
+    return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
+
+
+def encrypt_for_perma(message):
+    """
+    Basic public key encryption ala pynacl.
+    """
+    box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
+    return box.encrypt(message)
+
+
+def decrypt_from_perma(ciphertext):
+    """
+    Decrypt bytes encrypted by perma.cc
+    """
+    box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
+    return box.decrypt(ciphertext)
+
+
+def encrypt_for_perma_payments(message):
+    """
+    Basic public key encryption ala pynacl.
+
+    This logic will live in Perma; here now for simplicity.
+    """
+    box = Box(PrivateKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_secret_key']), PublicKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_payments_public_key']))
+    return box.encrypt(message)
+
+
+def decrypt_from_perma_payments(ciphertext):
+    """
+    Decrypt bytes encrypted by perma-payments.
+
+    This logic will live in Perma; here now for simplicity.
+    """
+    box = Box(PrivateKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_secret_key']), PublicKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_payments_public_key']))
     return box.decrypt(ciphertext)
