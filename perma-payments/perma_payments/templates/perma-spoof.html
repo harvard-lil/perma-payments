@@ -133,27 +133,18 @@
 
                   <form class="payment-form col-xs-12 col-md-4" method="post" action="{{ subscribe_url }}">
                     <button style="border-color: rgba(223,182,103,1);;"><span>Bronze</span><br>$2/month</button>
-                    <input type="hidden" name="amount" value="2.00">
-                    <input type="hidden" name="recurring_amount" value="2.00">
-                    <input type="hidden" name="recurring_frequency" value="monthly">
-                    <input type="hidden" name="registrar" value="1">
+                    <input type="hidden" name="encrypted_data" value={{ data_bronze }}>
                   </form>
 
                   <form class="payment-form col-xs-12 col-md-4" method="post" action="{{ subscribe_url }}">
                     <button style="border-color: rgba(160,160,160,1);"><span>Silver</span><br>$4/month</button>
-                    <input type="hidden" name="amount" value="4.00">
-                    <input type="hidden" name="recurring_amount" value="4.00">
-                    <input type="hidden" name="recurring_frequency" value="monthly">
-                    <input type="hidden" name="registrar" value="1">
+                    <input type="hidden" name="encrypted_data" value={{ data_silver }}>
                   </form>
 
                   <form class="payment-form col-xs-12 col-md-4" method="post" action="{{ subscribe_url }}">
                       <button style="border-color: rgba(242,215,50,1);"><span>Gold</span><br>$6/month</button>
-                      <input type="hidden" name="amount" value="6.00">
-                      <input type="hidden" name="recurring_amount" value="6.00">
-                      <input type="hidden" name="recurring_frequency" value="monthly">
-                      <input type="hidden" name="registrar" value="1">
-                </form>
+                      <input type="hidden" name="encrypted_data" value={{ data_gold }}>
+                  </form>
                 </div>
 
               </div><!--/.tab-content-->

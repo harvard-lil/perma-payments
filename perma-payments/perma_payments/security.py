@@ -7,6 +7,13 @@ from nacl.public import Box, PrivateKey, PublicKey
 
 from django.conf import settings
 
+import logging
+logger = logging.getLogger(__name__)
+
+
+class InvalidPOSTException(Exception):
+    pass
+
 
 def data_to_string(data, sort=True):
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
@@ -73,13 +80,9 @@ def unpack_data(data):
     """
     Reverses pack_data.
 
-    Takes a bytestring, returns a dict or raises ValueError.
+    Takes a bytestring, returns a dict
     """
-    try:
-        dictionary = json.loads(str(data, 'utf-8'))
-    except:
-        raise ValueError
-    return dictionary
+    return json.loads(str(data, 'utf-8'))
 
 
 def is_valid_timestamp(stamp, max_age):
@@ -102,6 +105,47 @@ def decrypt_from_perma(ciphertext):
     return box.decrypt(ciphertext)
 
 
+def verify_perma_post(post, fields):
+    # POST should contain a single field, 'encrypted data', which
+    # must be a JSON dict, encrypted by Perma and base64-encoded.
+    try:
+        encrypted_data = base64.b64decode(post.__getitem__('encrypted_data'))
+        post_data = unpack_data(decrypt_from_perma(encrypted_data))
+    except Exception as e:
+        logger.warning('Encryption problem in POST: {}'.format(e))
+        raise InvalidPOSTException
+
+    # The encrypted data must include a valid timestamp.
+    try:
+        timestamp = post_data['timestamp']
+    except KeyError:
+        logger.warning('Missing timestamp in POST.')
+        raise InvalidPOSTException
+    if not is_valid_timestamp(timestamp, settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS):
+        logger.warning('Expired timestamp in POST.')
+        raise InvalidPOSTException
+
+    # The encrypted data must include all the fields in 'fields'.
+    try:
+        data = {}
+        for field in fields:
+            data[field] = post_data[field]
+    except KeyError as e:
+        logger.warning('Incomplete POST: missing {}'.format(e))
+        raise InvalidPOSTException
+
+    # All is well. Return the data.
+    return data
+
+
+def prep_for_perma(dictionary):
+    return base64.b64encode(encrypt_for_perma(pack_data(dictionary)))
+
+
+#
+# THESE ARE DUPLICATE FUNCTIONS, ALL OF WHICH WILL LIVE IN PERMA
+#
+
 def encrypt_for_perma_payments(message):
     """
     Basic public key encryption ala pynacl.
@@ -120,3 +164,40 @@ def decrypt_from_perma_payments(ciphertext):
     """
     box = Box(PrivateKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_secret_key']), PublicKey(settings.SPOOF_PERMA_PAYMENTS_ENCRYPTION_KEYS['perma_payments_public_key']))
     return box.decrypt(ciphertext)
+
+
+def verify_perma_payments_post(post, fields):
+    # POST should contain a single field, 'encrypted data', which
+    # must be a JSON dict, encrypted by Perma-Payments and base64-encoded.
+    try:
+        encrypted_data = base64.b64decode(post.__getitem__('encrypted_data'))
+        post_data = unpack_data(decrypt_from_perma_payments(encrypted_data))
+    except Exception as e:
+        logger.warning('Encryption problem in POST: {}'.format(e))
+        raise InvalidPOSTException
+
+    # The encrypted data must include a valid timestamp.
+    try:
+        timestamp = post_data['timestamp']
+    except KeyError:
+        logger.warning('Missing timestamp in POST.')
+        raise InvalidPOSTException
+    if not is_valid_timestamp(timestamp, settings.PERMA_PAYMENTS_TIMESTAMP_MAX_AGE_SECONDS):
+        logger.warning('Expired timestamp in POST.')
+        raise InvalidPOSTException
+
+    # The encrypted data must include all the fields in 'fields'.
+    try:
+        data = {}
+        for field in fields:
+            data[field] = post_data[field]
+    except KeyError as e:
+        logger.warning('Incomplete POST: missing {}'.format(e))
+        raise InvalidPOSTException
+
+    # All is well. Return the data.
+    return data
+
+
+def prep_for_perma_payments(dictionary):
+    return base64.b64encode(encrypt_for_perma_payments(pack_data(dictionary)))
