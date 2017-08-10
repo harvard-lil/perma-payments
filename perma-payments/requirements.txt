@@ -7,7 +7,9 @@
 apipkg==1.4               # via execnet
 asn1crypto==0.22.0        # via cryptography
 bcrypt==3.1.3             # via paramiko
+certifi==2017.7.27.1      # via requests
 cffi==1.10.0              # via bcrypt, cryptography, pynacl
+chardet==3.0.4            # via requests
 click==6.7                # via pip-tools
 coverage==4.3.4           # via pytest-cov
 cryptography==1.9         # via paramiko
@@ -18,7 +20,7 @@ execnet==1.4.1            # via pytest-xdist
 fabric3==1.13.1.post1
 first==2.0.1              # via pip-tools
 flake8==2.5.4
-idna==2.5                 # via cryptography
+idna==2.5                 # via cryptography, requests
 ipaddress==1.0.18         # via cryptography
 mccabe==0.4.0             # via flake8
 paramiko==2.2.1           # via fabric3
@@ -35,5 +37,7 @@ pytest-django==3.1.2
 pytest-xdist==1.16.0
 pytest==3.1.2             # via pytest-cov, pytest-django, pytest-xdist
 pytz==2017.2              # via django
+requests==2.18.3
 six==1.10.0               # via bcrypt, cryptography, fabric3, pip-tools, pynacl
+urllib3==1.22             # via requests
 werkzeug==0.12.2

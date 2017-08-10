@@ -209,8 +209,22 @@ def cybersource_callback(request):
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 
 
-def current(request, registrar):
-    return JsonResponse({'registrar': registrar, 'current': SubscriptionAgreement.registrar_has_current(registrar)})
+@csrf_exempt
+@require_http_methods(["POST"])
+def current(request):
+    """
+    Returns whether a registrar has a paid-up subscription
+    """
+    try:
+        data = verify_perma_transmission(request.POST, ('registrar',))
+    except InvalidPOSTException:
+        return bad_request(request)
+    response = {
+        'registrar': data['registrar'],
+        'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
+        'timestamp': datetime.utcnow().timestamp()
+    }
+    return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
 
 def perma_spoof(request):
@@ -244,3 +258,20 @@ def perma_spoof(request):
         'data_gold': prep_for_perma_payments(gold)
     }
     return render(request, 'perma-spoof.html', context)
+
+
+def perma_spoof_is_current(request):
+    """
+    This logic will live in Perma; here now for simplicity.
+
+    In Perma, this won't be a view/route: it will be an api call,
+    made before each capture request associated with the registrar.
+    """
+    import requests
+    data = {
+        'timestamp': datetime.utcnow().timestamp(),
+        'registrar': "2"
+    }
+    r = requests.post('http://192.168.99.100/current/', data={'encrypted_data': prep_for_perma_payments(data)})
+    post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
+    return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
