@@ -6,14 +6,23 @@ import json
 from nacl.public import Box, PrivateKey, PublicKey
 
 from django.conf import settings
+from django.views.decorators.debug import sensitive_variables
 
 import logging
 logger = logging.getLogger(__name__)
 
 
+#
+# Classes
+#
+
 class InvalidTransmissionException(Exception):
     pass
 
+
+#
+# Functions
+#
 
 def data_to_string(data, sort=True):
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
@@ -29,6 +38,7 @@ def sign_data(data_string):
     return base64.b64encode(hash.digest())
 
 
+@sensitive_variables()
 def generate_public_private_keys():
     secret_a = PrivateKey.generate()
     public_a = secret_a.public_key
@@ -49,21 +59,26 @@ def generate_public_private_keys():
 def encrypt_for_storage(message, nonce):
     """
     Basic public key encryption ala pynacl.
+    N.B. This should be updated to SealedBox as soon as PyNacl 1.2.0 comes out.
     """
     box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['app_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['vault_public_key']))
     return box.encrypt(message, nonce)
 
 
+@sensitive_variables()
 def decrypt_from_storage(ciphertext):
     """
     Decrypt bytes encrypted via encrypt_for_storage
+    N.B. This should be updated to SealedBox as soon as PyNacl 1.2.0 comes out.
 
-    To use in real life: get the vault secret key, and add to settings.py:
-    python manage.py shell
-    >>> from perma_payments.models import *
-    >>> from perma_payments.security import *
-    >>> resp = SubscriptionRequestResponse.objects.get(pk=????????)
-    >>> decrypt_full_response(bytes(resp.full_response))
+    To use in real life:
+    -  get the vault secret key, and add to your local settings.py
+    -  configure your local app to connect to your production database
+    -  run python manage.py shell:
+        >>> from perma_payments.models import *
+        >>> from perma_payments.security import *
+        >>> resp = SubscriptionRequestResponse.objects.get(pk=????????)
+        >>> decrypt_from_storage(bytes(resp.full_response))
     """
     box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['vault_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['app_public_key']))
     return box.decrypt(ciphertext)
@@ -89,6 +104,7 @@ def is_valid_timestamp(stamp, max_age):
     return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
 
 
+@sensitive_variables()
 def encrypt_for_perma(message):
     """
     Basic public key encryption ala pynacl.
@@ -97,6 +113,7 @@ def encrypt_for_perma(message):
     return box.encrypt(message)
 
 
+@sensitive_variables()
 def decrypt_from_perma(ciphertext):
     """
     Decrypt bytes encrypted by perma.cc
@@ -146,6 +163,8 @@ def prep_for_perma(dictionary):
 # THESE ARE DUPLICATE FUNCTIONS, ALL OF WHICH WILL LIVE IN PERMA
 #
 
+
+@sensitive_variables()
 def encrypt_for_perma_payments(message):
     """
     Basic public key encryption ala pynacl.
@@ -156,6 +175,7 @@ def encrypt_for_perma_payments(message):
     return box.encrypt(message)
 
 
+@sensitive_variables()
 def decrypt_from_perma_payments(ciphertext):
     """
     Decrypt bytes encrypted by perma-payments.

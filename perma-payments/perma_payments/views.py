@@ -160,7 +160,7 @@ def cybersource_callback(request):
         reason_code=request.POST.__getitem__('reason_code'),
         message=request.POST.__getitem__('message'),
         payment_token=request.POST.get('payment_token', ''),
-        encryption_key_id=settings.STORAGE_SECRET_KEY['id'],
+        encryption_key_id=settings.STORAGE_ENCRYPTION_KEYS['id'],
         full_response=encrypt_for_storage(
             bytes(str(request.POST.dict()), 'utf-8'),
             # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
