@@ -270,8 +270,8 @@ def perma_spoof_is_current(request):
     import requests
     data = {
         'timestamp': datetime.utcnow().timestamp(),
-        'registrar': "2"
+        'registrar': "1"
     }
-    r = requests.post('http://192.168.99.100/current/', data={'encrypted_data': prep_for_perma_payments(data)})
+    r = requests.post('http://{}{}'.format(request.get_host(), reverse('current')), data={'encrypted_data': prep_for_perma_payments(data)})
     post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
     return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
