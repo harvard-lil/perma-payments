@@ -215,6 +215,7 @@ def current(request):
     """
     Returns whether a registrar has a paid-up subscription
     """
+    logger.info('Status request received.')
     try:
         data = verify_perma_transmission(request.POST, ('registrar',))
     except InvalidPOSTException:
@@ -272,6 +273,12 @@ def perma_spoof_is_current(request):
         'timestamp': datetime.utcnow().timestamp(),
         'registrar': "1"
     }
-    r = requests.post('http://{}{}'.format(request.get_host(), reverse('current')), data={'encrypted_data': prep_for_perma_payments(data)})
+    url = 'http://{}{}'.format(request.get_host(), reverse('current'))
+    logger.info('Requesting registrar {} subscription status from {}'.format(data['registrar'], url))
+    r = requests.post(url, data={'encrypted_data': prep_for_perma_payments(data)})
+    if r.status_code != 200:
+        logger.error('Communication with perma-payments failed. Status: {}'.format(r.status_code))
+        return JsonResponse({'registrar': data['registrar'], 'current': True })
+
     post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
     return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
