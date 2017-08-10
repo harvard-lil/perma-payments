@@ -1,10 +1,12 @@
+{% load static %}
 
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
     <title>Perma.cc | Settings</title>
 
-    <link type="text/css" href="https://perma.cc/static/bundles/global-styles.b6cf05da1b22.css" rel="stylesheet" />
+    <link type="text/css" href="{% static 'perma_spoof/global-styles.css' %}" rel="stylesheet" />
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'perma_payments/img/favicon.png' %}">
 
     <style>
       .payment-form button {
@@ -183,7 +185,7 @@
       </div><!--/container-->
     </footer>
 
-    <script type="text/javascript" src="https://perma.cc/static/bundles/global.975e6d42826e.js" ></script>
+    <script type="text/javascript" src="{% static 'perma_spoof/global.js' %}" ></script>
 
   </body>
 </html>
