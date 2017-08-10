@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class InvalidPOSTException(Exception):
+class InvalidTransmissionException(Exception):
     pass
 
 
@@ -105,25 +105,25 @@ def decrypt_from_perma(ciphertext):
     return box.decrypt(ciphertext)
 
 
-def verify_perma_post(post, fields):
-    # POST should contain a single field, 'encrypted data', which
+def verify_perma_transmission(transmitted_data, fields):
+    # Transmitted data should contain a single field, 'encrypted data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
     try:
-        encrypted_data = base64.b64decode(post.__getitem__('encrypted_data'))
+        encrypted_data = base64.b64decode(transmitted_data.__getitem__('encrypted_data'))
         post_data = unpack_data(decrypt_from_perma(encrypted_data))
     except Exception as e:
-        logger.warning('Encryption problem in POST: {}'.format(e))
-        raise InvalidPOSTException
+        logger.warning('Encryption problem with transmitted data: {}'.format(e))
+        raise InvalidTransmissionException
 
     # The encrypted data must include a valid timestamp.
     try:
         timestamp = post_data['timestamp']
     except KeyError:
-        logger.warning('Missing timestamp in POST.')
-        raise InvalidPOSTException
+        logger.warning('Missing timestamp in data.')
+        raise InvalidTransmissionException
     if not is_valid_timestamp(timestamp, settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS):
-        logger.warning('Expired timestamp in POST.')
-        raise InvalidPOSTException
+        logger.warning('Expired timestamp in data.')
+        raise InvalidTransmissionException
 
     # The encrypted data must include all the fields in 'fields'.
     try:
@@ -131,8 +131,8 @@ def verify_perma_post(post, fields):
         for field in fields:
             data[field] = post_data[field]
     except KeyError as e:
-        logger.warning('Incomplete POST: missing {}'.format(e))
-        raise InvalidPOSTException
+        logger.warning('Incomplete data: missing {}'.format(e))
+        raise InvalidTransmissionException
 
     # All is well. Return the data.
     return data
@@ -166,25 +166,25 @@ def decrypt_from_perma_payments(ciphertext):
     return box.decrypt(ciphertext)
 
 
-def verify_perma_payments_post(post, fields):
-    # POST should contain a single field, 'encrypted data', which
+def verify_perma_payments_transmission(transmitted_data, fields):
+    # Transmitted data should contain a single field, 'encrypted data', which
     # must be a JSON dict, encrypted by Perma-Payments and base64-encoded.
     try:
-        encrypted_data = base64.b64decode(post.__getitem__('encrypted_data'))
+        encrypted_data = base64.b64decode(transmitted_data.__getitem__('encrypted_data'))
         post_data = unpack_data(decrypt_from_perma_payments(encrypted_data))
     except Exception as e:
-        logger.warning('Encryption problem in POST: {}'.format(e))
-        raise InvalidPOSTException
+        logger.warning('Encryption problem with transmitted data: {}'.format(e))
+        raise InvalidTransmissionException
 
     # The encrypted data must include a valid timestamp.
     try:
         timestamp = post_data['timestamp']
     except KeyError:
-        logger.warning('Missing timestamp in POST.')
-        raise InvalidPOSTException
+        logger.warning('Missing timestamp in data.')
+        raise InvalidTransmissionException
     if not is_valid_timestamp(timestamp, settings.PERMA_PAYMENTS_TIMESTAMP_MAX_AGE_SECONDS):
-        logger.warning('Expired timestamp in POST.')
-        raise InvalidPOSTException
+        logger.warning('Expired timestamp in data.')
+        raise InvalidTransmissionException
 
     # The encrypted data must include all the fields in 'fields'.
     try:
@@ -192,8 +192,8 @@ def verify_perma_payments_post(post, fields):
         for field in fields:
             data[field] = post_data[field]
     except KeyError as e:
-        logger.warning('Incomplete POST: missing {}'.format(e))
-        raise InvalidPOSTException
+        logger.warning('Incomplete data: missing {}'.format(e))
+        raise InvalidTransmissionException
 
     # All is well. Return the data.
     return data

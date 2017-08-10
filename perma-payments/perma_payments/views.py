@@ -35,11 +35,11 @@ def subscribe(request):
     Redirects user to CyberSource for payment.
     """
     try:
-        data = verify_perma_post(request.POST, ('registrar',
-                                                'amount',
-                                                'recurring_amount',
-                                                'recurring_frequency'))
-    except InvalidPOSTException:
+        data = verify_perma_transmission(request.POST, ('registrar',
+                                                        'amount',
+                                                        'recurring_amount',
+                                                        'recurring_frequency'))
+    except InvalidTransmissionException:
         return bad_request(request)
 
     # The user must not already have a current subscription.
