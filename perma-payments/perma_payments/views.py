@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datetime import datetime
 from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
@@ -14,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .constants import *
 from .custom_errors import bad_request
 from .models import *
-from .security import data_to_string, sign_data, encrypt_for_storage
+from .security import *
 
 import logging
 logger = logging.getLogger(__name__)
@@ -27,28 +28,27 @@ def index(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@sensitive_post_parameters('signature')
+@sensitive_post_parameters('encrypted_data')
 def subscribe(request):
     """
     Processes user-initiated subscription requests from Perma.cc;
     Redirects user to CyberSource for payment.
     """
     try:
-        data = {
-            'registrar': request.POST.__getitem__('registrar'),
-            'amount': request.POST.__getitem__('amount'),
-            'recurring_amount': request.POST.__getitem__('recurring_amount'),
-            'recurring_frequency': request.POST.__getitem__('recurring_frequency')
-        }
-    except KeyError as e:
-        logger.warning('Incomplete POST from Perma.cc subscribe form: missing {}'.format(e))
+        data = verify_perma_transmission(request.POST, ('registrar',
+                                                        'amount',
+                                                        'recurring_amount',
+                                                        'recurring_frequency'))
+    except InvalidTransmissionException:
         return bad_request(request)
 
+    # The user must not already have a current subscription.
     if settings.PREVENT_MULTIPLE_SUBSCRIPTIONS and SubscriptionAgreement.registrar_has_current(data['registrar']):
         return render(request, 'generic.html', {'heading': "Good News!",
                                                 'message': "You already have an active subscription to Perma.cc, and your payments are current.<br>" +
                                                            "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
 
+    # The subscription request fields must each be valid.
     try:
         with transaction.atomic():
             s_agreement = SubscriptionAgreement(
@@ -69,6 +69,7 @@ def subscribe(request):
         logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
         return bad_request(request)
 
+    # If all that worked, we can finally bounce the user to CyberSource.
     signed_fields = {
         'access_key': settings.CS_ACCESS_KEY,
         'amount': s_request.amount,
@@ -159,7 +160,7 @@ def cybersource_callback(request):
         reason_code=request.POST.__getitem__('reason_code'),
         message=request.POST.__getitem__('message'),
         payment_token=request.POST.get('payment_token', ''),
-        encryption_key_id=settings.STORAGE_SECRET_KEY['id'],
+        encryption_key_id=settings.STORAGE_ENCRYPTION_KEYS['id'],
         full_response=encrypt_for_storage(
             bytes(str(request.POST.dict()), 'utf-8'),
             # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
@@ -208,16 +209,69 @@ def cybersource_callback(request):
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 
 
-def current(request, registrar):
-    return JsonResponse({'registrar': registrar, 'current': SubscriptionAgreement.registrar_has_current(registrar)})
+@csrf_exempt
+@require_http_methods(["POST"])
+def current(request):
+    """
+    Returns whether a registrar has a paid-up subscription
+    """
+    try:
+        data = verify_perma_transmission(request.POST, ('registrar',))
+    except InvalidPOSTException:
+        return bad_request(request)
+    response = {
+        'registrar': data['registrar'],
+        'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
+        'timestamp': datetime.utcnow().timestamp()
+    }
+    return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
 
 def perma_spoof(request):
     """
     This logic will live in Perma; here now for simplicity
     """
+    common = {
+        'recurring_frequency': "monthly",
+        'registrar': "1",
+        'timestamp': datetime.utcnow().timestamp()
+    }
+    bronze = {
+        'amount': "2.00",
+        'recurring_amount': "2.00",
+    }
+    silver = {
+        'amount': "4.00",
+        'recurring_amount': "4.00",
+    }
+    gold = {
+        'amount': "6.00",
+        'recurring_amount': "6.00",
+    }
+    bronze.update(common)
+    silver.update(common)
+    gold.update(common)
     context = {
-        'subscribe_url': reverse('subscribe')
+        'subscribe_url': reverse('subscribe'),
+        'data_bronze': prep_for_perma_payments(bronze),
+        'data_silver': prep_for_perma_payments(silver),
+        'data_gold': prep_for_perma_payments(gold)
     }
     return render(request, 'perma-spoof.html', context)
 
+
+def perma_spoof_is_current(request):
+    """
+    This logic will live in Perma; here now for simplicity.
+
+    In Perma, this won't be a view/route: it will be an api call,
+    made before each capture request associated with the registrar.
+    """
+    import requests
+    data = {
+        'timestamp': datetime.utcnow().timestamp(),
+        'registrar': "2"
+    }
+    r = requests.post('http://192.168.99.100/current/', data={'encrypted_data': prep_for_perma_payments(data)})
+    post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
+    return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
