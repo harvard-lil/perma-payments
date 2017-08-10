@@ -218,7 +218,7 @@ def current(request):
     logger.info('Status request received.')
     try:
         data = verify_perma_transmission(request.POST, ('registrar',))
-    except InvalidPOSTException:
+    except InvalidTransmissionException:
         return bad_request(request)
     response = {
         'registrar': data['registrar'],
@@ -273,7 +273,7 @@ def perma_spoof_is_current(request):
         'timestamp': datetime.utcnow().timestamp(),
         'registrar': "1"
     }
-    url = 'http://{}{}'.format(request.get_host(), reverse('current'))
+    url = '{}://{}{}'.format(request.scheme, request.get_host(), reverse('current'))
     logger.info('Requesting registrar {} subscription status from {}'.format(data['registrar'], url))
     r = requests.post(url, data={'encrypted_data': prep_for_perma_payments(data)})
     if r.status_code != 200:
