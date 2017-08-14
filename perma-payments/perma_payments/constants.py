@@ -35,6 +35,12 @@ CS_TEST_TOKEN_UPDATE_URL = {
     'prod': 'https://secureacceptance.cybersource.com/token/update'
 }
 
+# URL in the Business Center to find subscriptions
+CS_SUBSCRIPTION_SEARCH_URL = {
+    'test': 'https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchLoad.do',
+    'prod': ''
+}
+
 CS_CARD_TYPE = {
     'visa': '001',
     'mastercard': '002',

@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .constants import *
 from .custom_errors import bad_request
+from .email import send_admin_email
 from .models import *
 from .security import *
 
@@ -252,13 +253,25 @@ def cancel_request(request):
         data = verify_perma_transmission(request.POST, ('registrar',))
     except InvalidTransmissionException:
         return bad_request(request)
+
+    context = {
+        'registrar': data['registrar'],
+        'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
+        'perma_url': settings.PERMA_URL,
+        'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
+        'registrar_users_path': settings.REGISTRAR_USERS_PATH,
+        'merchant_reference_number': 'This should be the reference number!'
+    }
+    logger.info("Cancellation request received from registrar {} for {}".format(context['registrar'], context['merchant_reference_number']))
+    send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
+
     # response = {
     #     'registrar': data['registrar'],
     #     'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
     #     'timestamp': datetime.utcnow().timestamp()
     # }
     return render(request, 'generic.html', {'heading': "Cancelation Request Received",
-                                            'message': "for registrar {}".format(data['registrar'])})
+                                            'message': "for registrar {}".format(context['registrar'])})
 
 
 def perma_spoof(request):
