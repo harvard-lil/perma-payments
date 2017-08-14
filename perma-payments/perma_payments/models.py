@@ -107,6 +107,9 @@ class SubscriptionAgreement(models.Model):
         )
     )
     status_updated = models.DateTimeField(auto_now=True)
+    cancellation_requested = models.BooleanField(
+        default=False
+    )
 
     @classmethod
     def registrar_has_current(cls, registrar):
