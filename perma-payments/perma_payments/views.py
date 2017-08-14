@@ -227,6 +227,51 @@ def current(request):
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def cancel_request(request):
+    """
+    Records a cancelation request from Perma.cc
+
+    # log something
+    # send us an email
+    # update the subscription agreement to indicate that a cancel request has been received
+    # display something appropriate to the user....
+    # .... redirect the user to an appropriate page on Perma?
+    # .... show a barebones perma-payments page?
+
+    # And how do we want to handle the actual canceling, which has to be done
+    # in the Business Center? We'll need to update the status here.....
+    # Done by an admin via Perma? Or via Perma-Payments?
+    #
+    # If in Perma, expose something in the admin, maybe...
+    # (or maybe in the manage section, only visible to admins)...
+    # where we can update when we've actually canceled the subscription
+    # It will have to POST to perma-payments.
+    # Convenient, because Perma already has an admin that we are used to logging in to.
+    # But, it's kind of weird otherwise. It doesn't really belong there.
+    # And, not necessarily a great idea, because the POST could go missing, etc.
+    #
+    # If in Perma-Payments, how/where? We have no concept of users, and
+    # we don't plan to keep the admin on in production......
+    # Something we can post to from the command line? That's a little goofy...
+
+    # Either way, we're going to need something to send us regular emails about things that need canceling,
+    # and possibly need a page to log into where we can retrieve and check up on that info regularly.
+    """
+    try:
+        data = verify_perma_transmission(request.POST, ('registrar',))
+    except InvalidTransmissionException:
+        return bad_request(request)
+    # response = {
+    #     'registrar': data['registrar'],
+    #     'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
+    #     'timestamp': datetime.utcnow().timestamp()
+    # }
+    return render(request, 'generic.html', {'heading': "Cancelation Request Received",
+                                            'message': "for registrar {}".format(data['registrar'])})
+
+
 def perma_spoof(request):
     """
     This logic will live in Perma; here now for simplicity
@@ -283,3 +328,17 @@ def perma_spoof_is_current(request):
 
     post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
     return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
+
+
+def perma_spoof_cancel_confirm(request):
+    """
+    This logic will live in Perma; here now for simplicity
+    """
+    context = {
+        'cancel_url': reverse('cancel_request'),
+        'data': prep_for_perma_payments({
+            'registrar': "1",
+            'timestamp': datetime.utcnow().timestamp()
+        })
+    }
+    return render(request, 'perma-spoof-cancel-confirm.html', context)

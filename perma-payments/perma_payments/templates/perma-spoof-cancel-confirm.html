@@ -1,0 +1,159 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <title>Perma.cc | Settings</title>
+
+    <link type="text/css" href="{% static 'perma_spoof/global-styles.css' %}" rel="stylesheet" />
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'perma_payments/img/favicon.png' %}">
+
+    <style>
+    </style>
+
+  </head>
+  <body class="_admin">
+    <header class="_default">
+      <div class="navbar navbar-default navbar-static-top">
+        <div class="container cont-fixed">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <div class="navbar-brand logo">
+              <a href="/">Perma.cc<img alt="" class="infinity-logo" src="https://perma.cc/static/img/perma-logo-orange.svg"></a>
+            </div>
+          </div>
+          <div class="navbar-collapse collapse">
+            <ul class="nav navbar-nav navbar-right">
+              <li class="navbar-create-button"><a href="#" role="button" class="btn btn-large btn-info navbar-create navbar-btn" data-toggle="tooltip" title="Create new Perma archive">Create and manage Perma Links</a>
+              </li>
+
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle navbar-link needsclick" data-toggle="dropdown" role="button" aria-expanded="false">First Name</a>
+                <ul class="dropdown-menu" role="menu">
+
+                  <li><a href="#">Create and manage Perma Links</a></li>
+
+                  <li class="divider"></li>
+
+                  <li role="presentation" class="dropdown-header">Manage users</li>
+                  <li><a href="#">Admin users</a></li>
+                  <li><a href="#">Registrars</a></li>
+
+                  <li><a href="#">Registrar users</a></li>
+                  <li><a href="#">Organizations</a></li>
+                  <li><a href="#">Organization users</a></li>
+                  <li><a href="#">Users</a></li>
+
+                  <li class="divider"></li>
+
+                  <!-- Org users -->
+
+                  <li><a href="#">Admin console</a></li>
+                  <li><a href="#">Site stats</a></li>
+
+                  <li class="divider"></li>
+
+                  <li role="presentation" class="dropdown-header">Settings</li>
+                  <li><a href="#">Profile</a></li>
+                  <li><a href="#">Password</a></li>
+                  <li><a href="#">Tools</a></li>
+                  <li><a href="#">Upgrade</a></li>
+
+                  <li class="divider"></li>
+
+                  <li>
+                      <button>Log out</button>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div><!--/container -->
+      </div><!--/navbar -->
+    </header>
+
+    <section id="main" class="">
+      <div id="main-content" class="container cont-full-bleed">
+        <div id="dashboard-container" class="container cont-full-bleed cont-sm-fixed-bleed">
+          <div class="col-sm-12">
+            <div class="row">
+              <div class="col-sm-12">
+                <h1 class="page-title">Settings</h1>
+              </div>
+            </div> <!-- end row -->
+
+            <div class="row admin-content">
+              <div class="col-sm-3">
+
+                <!-- Dashboard tabs -->
+                <ul class="nav nav-pills nav-stacked">
+
+                  <li><a href="#"><span>Profile</span></a></li>
+
+                  <li><a href="#"><span>Password</span></a></li>
+
+                  <li><a href="#"><span>Tools</span></a></li>
+
+                  <li class="active"><a href="#"><span>Subscription</span></a></li>
+
+                </ul><!--/#dashboard-tabs-->
+              </div><!--/col-sm-3-->
+
+              <!-- Dashboard tab content -->
+              <div class="col-sm-9">
+
+
+                <h3 class="body-ah _hideMobile">Cancel Your Subscription</h3>
+                <p class="page-dek">Are you sure you want to cancel the (monthly, yearly) subscription for Dewey, Cheatem &amp; Howe?</p>
+
+                <form method="post" action="{{ cancel_url }}">
+                  <input type="hidden" name="encrypted_data" value={{ data }}>
+                  <button class="btn btn-primary" type="submit">
+                    Yes, cancel the subscription
+                  </button>
+                </form>
+
+              </div><!--/.tab-content-->
+            </div>
+
+          </div>
+        </div><!--/#dashboard-container-->
+      </div><!--/ #main-content"-->
+    </section><!--/#main-->
+
+
+    <footer>
+      <div class="container cont-fixed">
+        <div class="row">
+          <div class="col col-md-7">
+            <ul id="footer-nav">
+              <li class="footer-nav-item"><a href="/about">About</a></li>
+              <li class="footer-nav-item"><a href="/docs">Guide</a></li>
+              <li class="footer-nav-item"><a href="/docs/developer">Developers</a></li>
+              <li class="footer-nav-item"><a href="/stats">Stats</a></li>
+              <li class="footer-nav-item"><a href="/contact">Contact</a></li>
+              <li class="footer-nav-item"><a href="https://blogs.law.harvard.edu/perma/">Blog</a></li>
+              <li class="footer-nav-item"><a href="https://twitter.com/permacc">Twitter</a></li>
+              <li class="footer-nav-item"><a href="https://github.com/harvard-lil/perma">GitHub</a></li>
+              <li class="footer-nav-item"><a href="https://status.perma.cc/">Status</a></li>
+            </ul>
+          </div>
+          <div class="col col-md-5">
+            <ul id="boilerplate">
+              <li class="boilerplate-item"><a href="/terms-of-service">Terms of Service</a></li>
+              <li class="boilerplate-item"><a href="/privacy-policy">Privacy Policy</a></li>
+              <li class="boilerplate-item"><a href="/copyright-policy">Copyright Policy</a></li>
+            </ul>
+          </div>
+        </div>
+      </div><!--/container-->
+    </footer>
+
+    <script type="text/javascript" src="{% static 'perma_spoof/global.js' %}" ></script>
+
+  </body>
+</html>
