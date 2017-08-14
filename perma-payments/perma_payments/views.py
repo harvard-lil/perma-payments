@@ -234,8 +234,6 @@ def cancel_request(request):
     """
     Records a cancellation request from Perma.cc
 
-    # log something
-    # send us an email
     # update the subscription agreement to indicate that a cancellation request has been received
     # display something appropriate to the user....
     # .... redirect the user to an appropriate page on Perma?
@@ -243,10 +241,10 @@ def cancel_request(request):
 
     # Once we actually cancel the subscription in the Business Center,
     # whatever method we are using to regularly update the subscription status
-    # (manual csv, reporting api, etc.) will update the payment token status to "canceled"
+    # (manual csv, reporting api, etc.) will update the payment token status to "cancelled"
 
     # We're going to need something to send us regular emails about subscriptions with cancellation_requested=True,
-    # but status = anything but 'canceled'...
+    # but status = anything but 'cancelled'...
     # And possibly need a page to log into where we can retrieve and check up on that info regularly.
     """
     try:
