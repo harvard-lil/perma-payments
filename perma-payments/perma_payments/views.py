@@ -271,12 +271,8 @@ def cancel_request(request):
     }
     logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
-
-    # response = {
-    #     'registrar': data['registrar'],
-    #     'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
-    #     'timestamp': datetime.utcnow().timestamp()
-    # }
+    sa.cancellation_requested = True
+    sa.save()
     return render(request, 'generic.html', {'heading': "Cancelation Request Received",
                                             'message': "for registrar {}".format(context['registrar'])})
 
