@@ -128,7 +128,7 @@ class SubscriptionAgreement(models.Model):
         """
         try:
             sa = cls.objects.filter(registrar=registrar).latest('id')
-        except DoesNotExist:
+        except cls.DoesNotExist:
             sa = None
         return sa
 
