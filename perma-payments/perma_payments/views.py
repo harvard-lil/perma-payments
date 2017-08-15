@@ -240,7 +240,6 @@ def cancel_request(request):
 
     # We're going to need something to send us regular emails about subscriptions with cancellation_requested=True,
     # but status = anything but 'cancelled'...
-    # And possibly need a page to log into where we can retrieve and check up on that info regularly.
     """
     try:
         data = verify_perma_transmission(request.POST, ('registrar',))

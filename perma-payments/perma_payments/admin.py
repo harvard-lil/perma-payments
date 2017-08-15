@@ -9,6 +9,8 @@ from .models import SubscriptionAgreement, SubscriptionRequest, SubscriptionRequ
 # admin.site.unregister(Site)
 admin.site.unregister(Group)
 
+# Globally disable delete selected
+admin.site.disable_action('delete_selected')
 
 ## HELPERS ##
 
@@ -49,7 +51,27 @@ class SubscriptionRequestInline(ReadOnlyTabularInline):
 
 @admin.register(SubscriptionAgreement)
 class SubscriptionAgreementAdmin(NestedModelAdmin):
-    readonly_fields = list_display = ('id', 'registrar', 'status', 'status_updated')
+    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated')
+    list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated', 'get_reference_number')
+    list_filter = ('registrar', 'cancellation_requested', 'status')
+    search_fields = ['registrar','subscription_request__reference_number']
     inlines = [
         SubscriptionRequestInline,
     ]
+
+    def get_reference_number(self, obj):
+        return obj.subscription_request.reference_number
+    get_reference_number.short_description = 'Reference Number'
+    get_reference_number.admin_order_field  = 'subscription_request__reference_number'
+
+    def has_delete_permission(self, request, obj=None):
+        # Disable delete
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        # Disable manual creation of new instances
+        return False
+
+    def save_model(self, request, obj, form, change):
+        # Return nothing to make sure user can't update any data
+        pass
