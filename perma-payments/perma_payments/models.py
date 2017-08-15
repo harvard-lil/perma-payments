@@ -111,12 +111,26 @@ class SubscriptionAgreement(models.Model):
         default=False
     )
 
+
     @classmethod
     def registrar_has_current(cls, registrar):
         current = cls.objects.filter(registrar=registrar, status='Current').count()
         if current > 1:
             logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
         return bool(current)
+
+
+    @classmethod
+    def get_registrar_latest(cls, registrar):
+        """
+        Returns the most recently created Subscription Agreement for a registrar,
+        if any exist, or None.
+        """
+        try:
+            sa = cls.objects.filter(registrar=registrar).latest('id')
+        except DoesNotExist:
+            sa = None
+        return sa
 
 
 class SubscriptionRequest(models.Model):

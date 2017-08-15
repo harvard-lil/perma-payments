@@ -252,15 +252,17 @@ def cancel_request(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
+    registrar = data['registrar']
+    sa = SubscriptionAgreement.get_registrar_latest(registrar)
     context = {
-        'registrar': data['registrar'],
+        'registrar': registrar,
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
         'registrar_users_path': settings.REGISTRAR_USERS_PATH,
-        'merchant_reference_number': 'This should be the reference number!'
+        'merchant_reference_number': sa.subscription_request.reference_number
     }
-    logger.info("Cancellation request received from registrar {} for {}".format(context['registrar'], context['merchant_reference_number']))
+    logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
 
     # response = {
