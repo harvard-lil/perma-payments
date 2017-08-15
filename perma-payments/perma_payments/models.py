@@ -133,7 +133,7 @@ class SubscriptionRequest(models.Model):
 
     subscription_agreement = models.OneToOneField(
         SubscriptionAgreement,
-        related_name='subscription_agreement'
+        related_name='subscription_request'
     )
     reference_number = models.CharField(
         max_length=32,
@@ -208,7 +208,7 @@ class SubscriptionRequestResponse(models.Model):
 
     subscription_request = models.OneToOneField(
         SubscriptionRequest,
-        related_name='subscription_request'
+        related_name='subscription_request_response'
     )
     decision = models.CharField(
         max_length=7,
