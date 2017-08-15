@@ -342,7 +342,6 @@ def perma_spoof_cancel_confirm(request):
     }
     return render(request, 'perma-spoof-cancel-confirm.html', context)
 
+
 def perma_spoof_after_cancellation(request):
-    context = {
-    }
-    return render(request, 'perma-spoof-cancelled.html', context)
+    return render(request, 'perma-spoof-cancelled.html', {})
