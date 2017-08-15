@@ -107,6 +107,10 @@ class SubscriptionAgreement(models.Model):
         )
     )
     status_updated = models.DateTimeField(auto_now=True)
+    cancellation_requested = models.BooleanField(
+        default=False
+    )
+
 
     @classmethod
     def registrar_has_current(cls, registrar):
@@ -114,6 +118,23 @@ class SubscriptionAgreement(models.Model):
         if current > 1:
             logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
         return bool(current)
+
+
+    @classmethod
+    def get_registrar_latest(cls, registrar):
+        """
+        Returns the most recently created Subscription Agreement for a registrar,
+        if any exist, or None.
+        """
+        try:
+            sa = cls.objects.filter(registrar=registrar).latest('id')
+        except cls.DoesNotExist:
+            sa = None
+        return sa
+
+
+    def can_be_cancelled(self):
+        return self.status in ('Current', 'Hold') and not self.cancellation_requested
 
 
 class SubscriptionRequest(models.Model):
@@ -130,7 +151,7 @@ class SubscriptionRequest(models.Model):
 
     subscription_agreement = models.OneToOneField(
         SubscriptionAgreement,
-        related_name='subscription_agreement'
+        related_name='subscription_request'
     )
     reference_number = models.CharField(
         max_length=32,
@@ -205,7 +226,7 @@ class SubscriptionRequestResponse(models.Model):
 
     subscription_request = models.OneToOneField(
         SubscriptionRequest,
-        related_name='subscription_request'
+        related_name='subscription_request_response'
     )
     decision = models.CharField(
         max_length=7,

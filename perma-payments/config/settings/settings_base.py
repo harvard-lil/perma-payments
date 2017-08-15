@@ -116,7 +116,17 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+# Email
+DEFAULT_FROM_EMAIL = 'info@perma.cc'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Admin
 ADMIN_ENABLED = False
+
+# Direct all Perma.cc communications to perma dev by default
+PERMA_URL = 'https://perma-dev.org'
+REGISTRAR_DETAIL_PATH = '/manage/registrars/'
+REGISTRAR_USERS_PATH = '/manage/registrar-users?registrar='
 
 # Direct all CyberSource communications to their test server by default
 CS_MODE = 'test'

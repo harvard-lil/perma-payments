@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .constants import *
 from .custom_errors import bad_request
+from .email import send_admin_email
 from .models import *
 from .security import *
 
@@ -227,6 +228,49 @@ def current(request):
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def cancel_request(request):
+    """
+    Records a cancellation request from Perma.cc
+
+    # Once we actually cancel the subscription in the Business Center,
+    # whatever method we are using to regularly update the subscription status
+    # (manual csv, reporting api, etc.) will update the payment token status to "cancelled"
+
+    # We're going to need something to send us regular emails about subscriptions with cancellation_requested=True,
+    # but status = anything but 'cancelled'...
+    """
+    try:
+        data = verify_perma_transmission(request.POST, ('registrar',))
+    except InvalidTransmissionException:
+        return bad_request(request)
+
+    registrar = data['registrar']
+    sa = SubscriptionAgreement.get_registrar_latest(registrar)
+
+    # The user must have a subscription that can be cancelled.
+    if not sa or not sa.can_be_cancelled():
+        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
+                                                'message': "We can't find any active subscriptions associated with your account.<br>" +
+                                                           "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+
+    context = {
+        'registrar': registrar,
+        'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
+        'perma_url': settings.PERMA_URL,
+        'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
+        'registrar_users_path': settings.REGISTRAR_USERS_PATH,
+        'merchant_reference_number': sa.subscription_request.reference_number
+    }
+    logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
+    send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
+    sa.cancellation_requested = True
+    sa.save()
+    # URL should be in the config, rather than built, when this logic is in Perma
+    return redirect('perma_spoof_after_cancellation')
+
+
 def perma_spoof(request):
     """
     This logic will live in Perma; here now for simplicity
@@ -283,3 +327,22 @@ def perma_spoof_is_current(request):
 
     post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
     return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
+
+
+def perma_spoof_cancel_confirm(request):
+    """
+    This logic will live in Perma; here now for simplicity
+    """
+    context = {
+        'cancel_url': reverse('cancel_request'),
+        'data': prep_for_perma_payments({
+            'registrar': "1",
+            'timestamp': datetime.utcnow().timestamp()
+        })
+    }
+    return render(request, 'perma-spoof-cancel-confirm.html', context)
+
+def perma_spoof_after_cancellation(request):
+    context = {
+    }
+    return render(request, 'perma-spoof-cancelled.html', context)

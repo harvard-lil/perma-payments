@@ -20,7 +20,7 @@ from django.contrib import admin
 urlpatterns = []
 
 if settings.ADMIN_ENABLED:
-    urlpatterns.extend([url(r'^admin/', admin.site.urls)])
+    urlpatterns.extend([url(r'^lilushka/', admin.site.urls)])
 
 urlpatterns.extend([
     url(r'^', include('perma_payments.urls'))
