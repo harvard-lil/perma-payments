@@ -254,6 +254,13 @@ def cancel_request(request):
 
     registrar = data['registrar']
     sa = SubscriptionAgreement.get_registrar_latest(registrar)
+
+    # The user must have a subscription that can be cancelled.
+    if not sa or not sa.can_be_cancelled():
+        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
+                                                'message': "We can't find any active subscriptions associated with your account.<br>" +
+                                                           "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+
     context = {
         'registrar': registrar,
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
