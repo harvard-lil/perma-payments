@@ -19,8 +19,8 @@ def send_user_email(to_address, template, context):
 
 def send_admin_email(title, from_address, request, template="email/default.txt", context={}):
     """
-        Send a message on behalf of a user to the admins.
-        Use reply-to for the user address so we can use email services that require authenticated from addresses.
+    Send a message on behalf of a user to the admins.
+    Use reply-to for the user address so we can use email services that require authenticated from addresses.
     """
     EmailMessage(
         title,
