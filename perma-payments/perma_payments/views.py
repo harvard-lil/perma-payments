@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
@@ -234,11 +234,6 @@ def cancel_request(request):
     """
     Records a cancellation request from Perma.cc
 
-    # update the subscription agreement to indicate that a cancellation request has been received
-    # display something appropriate to the user....
-    # .... redirect the user to an appropriate page on Perma?
-    # .... show a barebones perma-payments page?
-
     # Once we actually cancel the subscription in the Business Center,
     # whatever method we are using to regularly update the subscription status
     # (manual csv, reporting api, etc.) will update the payment token status to "cancelled"
@@ -273,8 +268,8 @@ def cancel_request(request):
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
     sa.cancellation_requested = True
     sa.save()
-    return render(request, 'generic.html', {'heading': "Cancelation Request Received",
-                                            'message': "for registrar {}".format(context['registrar'])})
+    # URL should be in the config, rather than built, when this logic is in Perma
+    return redirect('perma_spoof_after_cancellation')
 
 
 def perma_spoof(request):
@@ -347,3 +342,8 @@ def perma_spoof_cancel_confirm(request):
         })
     }
     return render(request, 'perma-spoof-cancel-confirm.html', context)
+
+def perma_spoof_after_cancellation(request):
+    context = {
+    }
+    return render(request, 'perma-spoof-cancelled.html', context)
