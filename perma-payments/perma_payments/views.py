@@ -109,7 +109,7 @@ def subscribe(request):
     context['heading'] = "Redirecting"
     context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
-    return render(request, 'redirect.html', context)
+    return render(request, 'redirect-subscribe.html', context)
 
 
 SENSITIVE_POST_PARAMETERS = [
