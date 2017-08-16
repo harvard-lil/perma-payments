@@ -3,7 +3,7 @@ from datetime import datetime
 from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
@@ -125,17 +125,28 @@ def update(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
-    from uuid import uuid4
-    registrar = data['registrar']
-    sa = SubscriptionAgreement.get_registrar_latest(registrar)
-    s_request = sa.subscription_request
-    s_response = s_request.subscription_request_response
-
     # The user must have a subscription that can be updated.
-    if not sa or not sa.can_be_updated():
-        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
+    try:
+        sa = SubscriptionAgreement.get_registrar_latest(data['registrar'])
+        assert sa
+        s_request = sa.subscription_request
+        s_response = s_request.subscription_request_response
+        assert sa.can_be_updated()
+    except (ObjectDoesNotExist, AssertionError):
+        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+
+    # The subscription request fields must each be valid.
+    try:
+        u_request = UpdateRequest(
+            subscription_agreement=sa,
+        )
+        u_request.full_clean()
+        u_request.save()
+    except ValidationError as e:
+        logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
+        return bad_request(request)
 
     # Bounce the user to CyberSource.
     signed_fields = {
@@ -146,10 +157,10 @@ def update(request):
         'payment_token': s_response.payment_token,
         'profile_id': settings.CS_PROFILE_ID,
         'reference_number': s_request.reference_number,
-        'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        'signed_date_time': u_request.get_formatted_datetime(),
         'signed_field_names': '',
-        'transaction_type': 'update_payment_token',
-        'transaction_uuid': uuid4(),
+        'transaction_type': u_request.transaction_type,
+        'transaction_uuid': u_request.transaction_uuid,
         'unsigned_field_names': '',
     }
     unsigned_fields = {}

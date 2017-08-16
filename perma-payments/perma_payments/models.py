@@ -261,3 +261,37 @@ class SubscriptionRequestResponse(models.Model):
         help_text="The full response, encrypted, in case we ever need it."
     )
     encryption_key_id = models.IntegerField()
+
+
+class UpdateRequest(models.Model):
+    """
+    All (non-confidential) specifics of a customer's request to update their payment information.
+
+    Useful for:
+    1) reconstructing a customer's account history;
+    2) resending failed requests;
+    3) comparing notes with CyberSource records
+    """
+    def __str__(self):
+        return 'SubscriptionRequest {}'.format(self.id)
+
+    subscription_agreement = models.ForeignKey(
+        SubscriptionAgreement,
+        related_name='update_request'
+    )
+    request_datetime = models.DateTimeField(auto_now_add=True)
+    transaction_uuid = models.UUIDField(
+        default=uuid4,
+        help_text="A unique ID for this 'transaction'. " +
+                  "Intended to protect against duplicate transactions."
+    )
+    transaction_type = models.CharField(
+        max_length=30,
+        default='update_payment_token'
+    )
+
+    def get_formatted_datetime(self):
+        """
+        Returns the request_datetime in the format required by CyberSource
+        """
+        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")

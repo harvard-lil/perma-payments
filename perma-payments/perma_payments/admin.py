@@ -3,7 +3,7 @@ from nested_inline.admin import NestedTabularInline, NestedModelAdmin
 from django.contrib import admin
 from django.contrib.auth.models import Group
 
-from .models import SubscriptionAgreement, SubscriptionRequest, SubscriptionRequestResponse
+from .models import *
 
 # remove builtin models
 # admin.site.unregister(Site)
@@ -34,6 +34,10 @@ class ReadOnlyTabularInline(NestedTabularInline):
 
 ## Admin Models ##
 
+class UpdateRequestInline(ReadOnlyTabularInline):
+    model = UpdateRequest
+    fk_name = 'subscription_agreement'
+
 
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
     model = SubscriptionRequestResponse
@@ -57,6 +61,7 @@ class SubscriptionAgreementAdmin(NestedModelAdmin):
     search_fields = ['registrar','subscription_request__reference_number']
     inlines = [
         SubscriptionRequestInline,
+        UpdateRequestInline,
     ]
 
     def get_reference_number(self, obj):
