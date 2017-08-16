@@ -254,6 +254,11 @@ def cybersource_callback(request):
     )
     sub_resp.save()
 
+    # Perma-Payments does not support 16-digit format-preserving Payment Tokens.
+    # See docstring for SubscriptionAgreement model for details.
+    if len(request.POST.get('payment_token', '')) == 16:
+        logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(request.POST.__getitem__('req_reference_number')))
+
     decision = sub_resp.decision
     agreement = sub_req.subscription_agreement
     non_sensitive_params = {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS}
