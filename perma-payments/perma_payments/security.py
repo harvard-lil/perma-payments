@@ -38,6 +38,33 @@ def sign_data(data_string):
     return base64.b64encode(hash.digest())
 
 
+def prep_for_cybersource(signed_fields, unsigned_fields, target):
+    """
+    Adds signature and signature-related fields to (mutable) target dict.
+
+    Takes a dict of fields to sign, dict of fields not to sign, and
+    target dict. (Note: This function automatically adds 'unsigned_field_names'
+    to the list of fields to sign, and populates it for you, as required by CyberSource.)
+
+    After processing by prep_for_cybersource, the target dict is suitable
+    for passing to Django's render function as the "context" argument.
+
+    Added fields: all fields in signed_fields and unsigned_fields, plus
+    the fields "signed_field_names", "unsigned_field_names", and "signature".
+
+    These, and only these, fields must be POSTed to CyberSource.
+    If additional fields are POSTed, or if any of these fields fail to be POSTed,
+    CyberSource will reject the communication's signature and return
+    "Not Authorized (403)".
+    """
+    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
+    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+    data_to_sign = data_to_string(signed_fields)
+    target.update(signed_fields)
+    target.update(unsigned_fields)
+    target['signature'] = sign_data(data_to_sign)
+
+
 @sensitive_variables()
 def generate_public_private_keys():
     secret_a = PrivateKey.generate()

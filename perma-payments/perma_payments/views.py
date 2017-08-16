@@ -85,7 +85,6 @@ def subscribe(request):
         'signed_field_names': '',
         'transaction_type': s_request.transaction_type,
         'transaction_uuid': s_request.transaction_uuid,
-        'unsigned_field_names': '',
 
         # billing infomation
         'bill_to_forename': CS_TEST_CUSTOMER['first_name'],
@@ -98,16 +97,12 @@ def subscribe(request):
         'bill_to_address_country': CS_TEST_CUSTOMER['country'],
     }
     unsigned_fields = {}
+    # The following line should be removed as soon as is convenient
     unsigned_fields.update(CS_TEST_CARD['visa'])
-    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
-    data_to_sign = data_to_string(signed_fields)
-    context = {}
-    context.update(signed_fields)
-    context.update(unsigned_fields)
-    context['signature'] = sign_data(data_to_sign)
-    context['heading'] = "Redirecting"
-    context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
+    context = {
+        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE]
+    }
+    prep_for_cybersource(signed_fields, unsigned_fields, context)
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
     return render(request, 'redirect-subscribe.html', context)
 
@@ -161,18 +156,11 @@ def update(request):
         'signed_field_names': '',
         'transaction_type': u_request.transaction_type,
         'transaction_uuid': u_request.transaction_uuid,
-        'unsigned_field_names': '',
     }
-    unsigned_fields = {}
-    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
-    data_to_sign = data_to_string(signed_fields)
-    context = {}
-    context.update(signed_fields)
-    context.update(unsigned_fields)
-    context['signature'] = sign_data(data_to_sign)
-    context['heading'] = "Redirecting"
-    context['post_to_url'] = CS_TOKEN_UPDATE_URL[settings.CS_MODE]
+    context = {
+        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE]
+    }
+    prep_for_cybersource(signed_fields, {}, context)
     logger.info("Update payment information request received for registrar {}".format(data['registrar']))
     return render(request, 'redirect-update.html', context)
 

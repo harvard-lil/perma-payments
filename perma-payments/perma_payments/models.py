@@ -49,6 +49,13 @@ def get_canonical_reference_number(rn, prefix):
     return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
 
 
+def get_formatted_datetime(obj):
+    """
+    Returns the request_datetime in the format required by CyberSource
+    """
+    return obj.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 #
 # CLASSES
 #
@@ -226,7 +233,7 @@ class SubscriptionRequest(models.Model):
         """
         Returns the request_datetime in the format required by CyberSource
         """
-        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return get_formatted_datetime(self)
 
 
 class SubscriptionRequestResponse(models.Model):
@@ -294,4 +301,4 @@ class UpdateRequest(models.Model):
         """
         Returns the request_datetime in the format required by CyberSource
         """
-        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return get_formatted_datetime(self)
