@@ -348,7 +348,7 @@ def perma_spoof(request):
     """
     common = {
         'recurring_frequency': "monthly",
-        'registrar': "1",
+        'registrar': "2",
         'timestamp': datetime.utcnow().timestamp()
     }
     bronze = {
@@ -407,7 +407,7 @@ def perma_spoof_cancel_confirm(request):
     context = {
         'cancel_url': reverse('cancel_request'),
         'data': prep_for_perma_payments({
-            'registrar': "1",
+            'registrar': "2",
             'timestamp': datetime.utcnow().timestamp()
         })
     }
