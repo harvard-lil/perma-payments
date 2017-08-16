@@ -82,16 +82,15 @@ def subscribe(request):
         'recurring_frequency': s_request.recurring_frequency,
         'reference_number': s_request.reference_number,
         'signed_date_time': s_request.get_formatted_datetime(),
-        'signed_field_names': '',
         'transaction_type': s_request.transaction_type,
         'transaction_uuid': s_request.transaction_uuid,
     }
     context = {
-        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE]
+        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE],
+        'fields_to_post': prep_for_cybersource(signed_fields)
     }
-    prep_for_cybersource(signed_fields, {}, context)
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
-    return render(request, 'redirect-subscribe.html', context)
+    return render(request, 'redirect.html', context)
 
 
 @csrf_exempt
@@ -140,16 +139,15 @@ def update(request):
         'profile_id': settings.CS_PROFILE_ID,
         'reference_number': s_request.reference_number,
         'signed_date_time': u_request.get_formatted_datetime(),
-        'signed_field_names': '',
         'transaction_type': u_request.transaction_type,
         'transaction_uuid': u_request.transaction_uuid,
     }
     context = {
-        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE]
+        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE],
+        'fields_to_post': prep_for_cybersource(signed_fields)
     }
-    prep_for_cybersource(signed_fields, {}, context)
     logger.info("Update payment information request received for registrar {}".format(data['registrar']))
-    return render(request, 'redirect-update.html', context)
+    return render(request, 'redirect.html', context)
 
 
 SENSITIVE_POST_PARAMETERS = [

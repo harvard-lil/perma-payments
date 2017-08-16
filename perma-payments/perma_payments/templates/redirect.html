@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block heading %}
+  <h1 class="sr-only">Redirecting</h1>
+{% endblock heading %}
+
+{% block content %}
+<form id="payment_form" action="{{ post_to_url }}" method="post">
+  {% for key, value in fields_to_post.items %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+  {% endfor %}
+  <button class="btn-link" type="submit">If you are not redirected in a few seconds, please click here.</button>
+</form>
+{% endblock content %}
+
+{% block scripts %}
+  <script>
+    document.getElementById("payment_form").submit();
+  </script>
+{% endblock scripts%}
