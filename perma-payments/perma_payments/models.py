@@ -60,15 +60,20 @@ class SubscriptionAgreement(models.Model):
         b) CyberSource's initial response to the request.
            If CyberSource approves the subscription request,
            a 'Payment Token', also known as a 'Subscription ID', will be included in the response.
-        c) Any subsequent updates from CyberSource about scheduled payments
-           associated with the Subscription ID. Indicates whether the agreement
-           still stands.
+        c) Any subsequent updates from CyberSource about attempted scheduled payments
+           associated with the Subscription ID. Indicates whether payments were successful and
+           the agreement still stands.
 
-    If any of the values from the initial request are updated (the schedule, the card, the address, etc.)
-    the Subscription Agreement becomes obsolete ("superseded") and is replaced by
-    an entirely new Subscription Agreement, with a new Payment Token/Subscription ID.
+    N.B. Perma-Payments does NOT support 16-digit format-preserving subscription IDs.
 
-    This is a feature of CyberSource; it is not a perma-payments design decision.
+    If a CyberSource account is configured to use a 16-digit format-preserving Payment Token/Subscription ID,
+    and if the customer subsequently updates the card number, CyberSource will mark the original Payment Token
+    as obsolete ("superseded") and issue a new Payment Token/Subscription ID.
+
+    Perma-Payments only supports unchanging, updateable Payment Tokens,
+    which are the CyberSource default as of 8/16/17.
+
+    Perma-Payments will log an error if any 16-digit Payment Tokens are received.
     """
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
@@ -93,6 +98,7 @@ class SubscriptionAgreement(models.Model):
             ('Cancelled', 'Cancelled'),
             # All payments have been processed (installments subscriptions).
             # You see this status one or two days after the last payment is processed.
+            # (As of 8/16/17, should never be returned to Perma Payments, since we are not selling installment plans.)
             ('Completed', 'Completed'),
             # The subscription is active, and the payments are up to date.
             ('Current', 'Current'),
@@ -103,6 +109,8 @@ class SubscriptionAgreement(models.Model):
             # http://apps.cybersource.com/library/documentation/dev_guides/Payment_Tokenization/html
             ('Hold', 'Hold'),
             # The subscription has been updated and a new subscription ID has been assigned to it.
+            # (As of 8/16/17, should never be returned to Perma Payments, since our account is not
+            # configured to use 16-digit format-preserving payment tokens.)
             ('Superseded', 'Superseded')
         )
     )
