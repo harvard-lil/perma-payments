@@ -30,7 +30,10 @@ CS_TOKEN_URL = {
 #
 # Supported transaction type:
 # - update_payment_token
-CS_TEST_TOKEN_UPDATE_URL = {
+#
+# You can update all fields except
+# the recurring_frequency, recurring_start_date and recurring_number_of_payments fields.
+CS_TOKEN_UPDATE_URL = {
     'test': 'https://testsecureacceptance.cybersource.com/token/update',
     'prod': 'https://secureacceptance.cybersource.com/token/update'
 }
