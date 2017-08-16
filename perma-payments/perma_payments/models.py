@@ -138,14 +138,9 @@ class SubscriptionAgreement(models.Model):
     @classmethod
     def get_registrar_latest(cls, registrar):
         """
-        Returns the most recently created Subscription Agreement for a registrar,
-        if any exist, or None.
+        Returns the most recently created Subscription Agreement for a registrar.
         """
-        try:
-            sa = cls.objects.filter(registrar=registrar).latest('id')
-        except cls.DoesNotExist:
-            sa = None
-        return sa
+        return cls.objects.filter(registrar=registrar).latest('id')
 
 
     def can_be_cancelled(self):

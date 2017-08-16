@@ -71,23 +71,22 @@ def subscribe(request):
         return bad_request(request)
 
     # If all that worked, we can finally bounce the user to CyberSource.
-    signed_fields = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'amount': s_request.amount,
-        'currency': s_request.currency,
-        'locale': s_request.locale,
-        'payment_method': s_request.payment_method,
-        'profile_id': settings.CS_PROFILE_ID,
-        'recurring_amount': s_request.recurring_amount,
-        'recurring_frequency': s_request.recurring_frequency,
-        'reference_number': s_request.reference_number,
-        'signed_date_time': s_request.get_formatted_datetime(),
-        'transaction_type': s_request.transaction_type,
-        'transaction_uuid': s_request.transaction_uuid,
-    }
     context = {
         'post_to_url': CS_PAYMENT_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource(signed_fields)
+        'fields_to_post': prep_for_cybersource({
+            'access_key': settings.CS_ACCESS_KEY,
+            'amount': s_request.amount,
+            'currency': s_request.currency,
+            'locale': s_request.locale,
+            'payment_method': s_request.payment_method,
+            'profile_id': settings.CS_PROFILE_ID,
+            'recurring_amount': s_request.recurring_amount,
+            'recurring_frequency': s_request.recurring_frequency,
+            'reference_number': s_request.reference_number,
+            'signed_date_time': s_request.get_formatted_datetime(),
+            'transaction_type': s_request.transaction_type,
+            'transaction_uuid': s_request.transaction_uuid,
+        })
     }
     logger.info("Subscription request received for registrar {}".format(data['registrar']))
     return render(request, 'redirect.html', context)
@@ -109,7 +108,6 @@ def update(request):
     # The user must have a subscription that can be updated.
     try:
         sa = SubscriptionAgreement.get_registrar_latest(data['registrar'])
-        assert sa
         s_request = sa.subscription_request
         s_response = s_request.subscription_request_response
         assert sa.can_be_updated()
@@ -118,7 +116,7 @@ def update(request):
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
 
-    # The subscription request fields must each be valid.
+    # The update request fields must each be valid.
     try:
         u_request = UpdateRequest(
             subscription_agreement=sa,
@@ -130,21 +128,20 @@ def update(request):
         return bad_request(request)
 
     # Bounce the user to CyberSource.
-    signed_fields = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'allow_payment_token_update': 'true',
-        'locale': s_request.locale,
-        'payment_method': s_request.payment_method,
-        'payment_token': s_response.payment_token,
-        'profile_id': settings.CS_PROFILE_ID,
-        'reference_number': s_request.reference_number,
-        'signed_date_time': u_request.get_formatted_datetime(),
-        'transaction_type': u_request.transaction_type,
-        'transaction_uuid': u_request.transaction_uuid,
-    }
     context = {
         'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource(signed_fields)
+        'fields_to_post': prep_for_cybersource({
+            'access_key': settings.CS_ACCESS_KEY,
+            'allow_payment_token_update': 'true',
+            'locale': s_request.locale,
+            'payment_method': s_request.payment_method,
+            'payment_token': s_response.payment_token,
+            'profile_id': settings.CS_PROFILE_ID,
+            'reference_number': s_request.reference_number,
+            'signed_date_time': u_request.get_formatted_datetime(),
+            'transaction_type': u_request.transaction_type,
+            'transaction_uuid': u_request.transaction_uuid,
+        })
     }
     logger.info("Update payment information request received for registrar {}".format(data['registrar']))
     return render(request, 'redirect.html', context)
@@ -291,10 +288,12 @@ def cancel_request(request):
         return bad_request(request)
 
     registrar = data['registrar']
-    sa = SubscriptionAgreement.get_registrar_latest(registrar)
 
     # The user must have a subscription that can be cancelled.
-    if not sa or not sa.can_be_cancelled():
+    try:
+        sa = SubscriptionAgreement.get_registrar_latest(registrar)
+        assert sa.can_be_cancelled()
+    except (ObjectDoesNotExist, AssertionError):
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
@@ -380,7 +379,7 @@ def perma_spoof_cancel_confirm(request):
     context = {
         'cancel_url': reverse('cancel_request'),
         'data': prep_for_perma_payments({
-            'registrar': "2",
+            'registrar': "1",
             'timestamp': datetime.utcnow().timestamp()
         })
     }
