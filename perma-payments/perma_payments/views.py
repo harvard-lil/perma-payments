@@ -125,75 +125,46 @@ def update(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
-    # # The user must not already have a current subscription.
-    # if settings.PREVENT_MULTIPLE_SUBSCRIPTIONS and SubscriptionAgreement.registrar_has_current(data['registrar']):
-    #     return render(request, 'generic.html', {'heading': "Good News!",
-    #                                             'message': "You already have an active subscription to Perma.cc, and your payments are current.<br>" +
-    #                                                        "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+    from uuid import uuid4
+    registrar = data['registrar']
+    sa = SubscriptionAgreement.get_registrar_latest(registrar)
+    s_request = sa.subscription_request
+    s_response = s_request.subscription_request_response
 
-    # # The subscription request fields must each be valid.
-    # try:
-    #     with transaction.atomic():
-    #         s_agreement = SubscriptionAgreement(
-    #             registrar=data['registrar'],
-    #             status='Pending'
-    #         )
-    #         s_agreement.full_clean()
-    #         s_agreement.save()
-    #         s_request = SubscriptionRequest(
-    #             subscription_agreement=s_agreement,
-    #             amount=data['amount'],
-    #             recurring_amount=data['recurring_amount'],
-    #             recurring_frequency=data['recurring_frequency']
-    #         )
-    #         s_request.full_clean()
-    #         s_request.save()
-    # except ValidationError as e:
-    #     logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
-    #     return bad_request(request)
+    # The user must have a subscription that can be updated.
+    if not sa or not sa.can_be_updated():
+        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
+                                                'message': "We can't find any active subscriptions associated with your account.<br>" +
+                                                           "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
 
-    # # If all that worked, we can finally bounce the user to CyberSource.
-    # signed_fields = {
-    #     'access_key': settings.CS_ACCESS_KEY,
-    #     'amount': s_request.amount,
-    #     'currency': s_request.currency,
-    #     'locale': s_request.locale,
-    #     'payment_method': s_request.payment_method,
-    #     'profile_id': settings.CS_PROFILE_ID,
-    #     'recurring_amount': s_request.recurring_amount,
-    #     'recurring_frequency': s_request.recurring_frequency,
-    #     'reference_number': s_request.reference_number,
-    #     'signed_date_time': s_request.get_formatted_datetime(),
-    #     'signed_field_names': '',
-    #     'transaction_type': s_request.transaction_type,
-    #     'transaction_uuid': s_request.transaction_uuid,
-    #     'unsigned_field_names': '',
+    # Bounce the user to CyberSource.
+    signed_fields = {
+        'access_key': settings.CS_ACCESS_KEY,
+        'allow_payment_token_update': 'true',
+        'locale': s_request.locale,
+        'payment_method': s_request.payment_method,
+        'payment_token': s_response.payment_token,
+        'profile_id': settings.CS_PROFILE_ID,
+        'reference_number': s_request.reference_number,
+        'signed_date_time': datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        'signed_field_names': '',
+        'transaction_type': 'update_payment_token',
+        'transaction_uuid': uuid4(),
+        'unsigned_field_names': '',
+    }
+    unsigned_fields = {}
+    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
+    data_to_sign = data_to_string(signed_fields)
+    context = {}
+    context.update(signed_fields)
+    context.update(unsigned_fields)
+    context['signature'] = sign_data(data_to_sign)
+    context['heading'] = "Redirecting"
+    context['post_to_url'] = CS_TOKEN_UPDATE_URL[settings.CS_MODE]
+    logger.info("Update payment information request received for registrar {}".format(data['registrar']))
+    return render(request, 'redirect-update.html', context)
 
-    #     # billing infomation
-    #     'bill_to_forename': CS_TEST_CUSTOMER['first_name'],
-    #     'bill_to_surname': CS_TEST_CUSTOMER['last_name'],
-    #     'bill_to_email': CS_TEST_CUSTOMER['email'],
-    #     'bill_to_address_line1': CS_TEST_CUSTOMER['street1'],
-    #     'bill_to_address_city': CS_TEST_CUSTOMER['city'],
-    #     'bill_to_address_state': CS_TEST_CUSTOMER['state'],
-    #     'bill_to_address_postal_code': CS_TEST_CUSTOMER['postal_code'],
-    #     'bill_to_address_country': CS_TEST_CUSTOMER['country'],
-    # }
-    # unsigned_fields = {}
-    # unsigned_fields.update(CS_TEST_CARD['visa'])
-    # signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-    # signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
-    # data_to_sign = data_to_string(signed_fields)
-    # context = {}
-    # context.update(signed_fields)
-    # context.update(unsigned_fields)
-    # context['signature'] = sign_data(data_to_sign)
-    # context['heading'] = "Redirecting"
-    # context['post_to_url'] = CS_PAYMENT_URL[settings.CS_MODE]
-    # logger.info("Subscription request received for registrar {}".format(data['registrar']))
-    # return render(request, 'redirect-update.html', context)
-    return render(request, 'generic.html', {'heading': "perma-payments",
-                                            'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
 
 SENSITIVE_POST_PARAMETERS = [
     'payment_token',

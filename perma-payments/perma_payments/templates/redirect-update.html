@@ -6,37 +6,19 @@
 
 {% block content %}
 <form id="payment_form" action="{{ post_to_url }}" method="post">
-  <input type="hidden" name="amount" value="{{ amount }}">
+
   <input type="hidden" name="access_key" value="{{ access_key }}">
-  <input type="hidden" name="currency" value="{{ currency }}">
+  <input type="hidden" name="allow_payment_token_update" value="{{ allow_payment_token_update }}">
   <input type="hidden" name="locale" value="{{ locale }}">
   <input type="hidden" name="payment_method" value="{{ payment_method }}">
+  <input type="hidden" name="payment_token" value="{{ payment_token }}">
   <input type="hidden" name="profile_id" value="{{ profile_id }}">
-  <input type="hidden" name="recurring_amount" value="{{ recurring_amount }}">
-  <input type="hidden" name="recurring_frequency" value="{{ recurring_frequency }}">
   <input type="hidden" name="reference_number" value="{{ reference_number }}">
   <input type="hidden" name="signed_date_time" value="{{ signed_date_time }}">
   <input type="hidden" name="signed_field_names" value="{{ signed_field_names }}">
   <input type="hidden" name="transaction_type" value="{{ transaction_type }}">
   <input type="hidden" name="transaction_uuid" value="{{ transaction_uuid }}">
   <input type="hidden" name="unsigned_field_names" value="{{ unsigned_field_names}}">
-
-  <!-- Card information -->
-  <input type="hidden" name="card_cvn" value="{{ card_cvn }}">
-  <input type="hidden" name="card_expiry_date" size="25" value="{{ card_expiry_date }}">
-  <input type="hidden" name="card_number" size="25" value="{{ card_number }}">
-  <input type="hidden" name="card_type" value="{{ card_type }}">
-
-
-  <!-- Billing information -->
-  <input type="hidden" name="bill_to_forename" value="{{ bill_to_forename }}">
-  <input type="hidden" name="bill_to_surname" value="{{ bill_to_surname }}">
-  <input type="hidden" name="bill_to_email" value="{{ bill_to_email }}">
-  <input type="hidden" name="bill_to_address_line1" value="{{ bill_to_address_line1 }}">
-  <input type="hidden" name="bill_to_address_city" value="{{ bill_to_address_city }}"/>
-  <input type="hidden" name="bill_to_address_postal_code" value="{{ bill_to_address_postal_code }}">
-  <input type="hidden" name="bill_to_address_state" value="{{ bill_to_address_state }}">
-  <input type="hidden" name="bill_to_address_country" value="{{ bill_to_address_country }}">
 
   <input type="hidden" name="signature" value="{{ signature }}">
   <button class="btn-link" type="submit">If you are not redirected in a few seconds, please click here.</button>

@@ -145,6 +145,10 @@ class SubscriptionAgreement(models.Model):
         return self.status in ('Current', 'Hold') and not self.cancellation_requested
 
 
+    def can_be_updated(self):
+        return self.status in ('Current', 'Hold')
+
+
 class SubscriptionRequest(models.Model):
     """
     All (non-confidential) specifics of a customer's request for a subscription.
