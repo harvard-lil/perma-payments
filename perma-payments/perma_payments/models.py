@@ -285,6 +285,3 @@ class UpdateRequest(OutgoingTransaction):
         max_length=30,
         default='update_payment_token'
     )
-    outgoingtransaction_ptr = models.OneToOneField(
-        OutgoingTransaction,
-    )
