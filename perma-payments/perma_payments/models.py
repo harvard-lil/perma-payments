@@ -231,40 +231,6 @@ class SubscriptionRequest(OutgoingTransaction):
     )
 
 
-class SubscriptionRequestResponse(models.Model):
-    """
-    All (non-confidential) specifics of CyberSource's response to a subscription request.
-    """
-    def __str__(self):
-        return 'SubscriptionRequestResponse {}'.format(self.id)
-
-    subscription_request = models.OneToOneField(
-        SubscriptionRequest,
-        related_name='subscription_request_response'
-    )
-    decision = models.CharField(
-        max_length=7,
-        choices=(
-            ('ACCEPT', 'ACCEPT'),
-            ('REVIEW', 'REVIEW'),
-            ('DECLINE', 'DECLINE'),
-            ('ERROR', 'ERROR'),
-            ('CANCEL', 'CANCEL'),
-        )
-    )
-    reason_code = models.IntegerField()
-    message = models.TextField()
-    payment_token = models.CharField(
-        max_length=26,
-        blank=True,
-        default=''
-    )
-    full_response = models.BinaryField(
-        help_text="The full response, encrypted, in case we ever need it."
-    )
-    encryption_key_id = models.IntegerField()
-
-
 class UpdateRequest(OutgoingTransaction):
     """
     All (non-confidential) specifics of a customer's request to update their payment information.
@@ -284,4 +250,46 @@ class UpdateRequest(OutgoingTransaction):
     transaction_type = models.CharField(
         max_length=30,
         default='update_payment_token'
+    )
+
+
+class Response(PolymorphicModel):
+    """
+    Base model for all responses we receive from CyberSource.
+    """
+    decision = models.CharField(
+        null=True,
+        max_length=7,
+        choices=(
+            ('ACCEPT', 'ACCEPT'),
+            ('REVIEW', 'REVIEW'),
+            ('DECLINE', 'DECLINE'),
+            ('ERROR', 'ERROR'),
+            ('CANCEL', 'CANCEL'),
+        )
+    )
+    reason_code = models.IntegerField(null=True)
+    message = models.TextField(null=True)
+    full_response = models.BinaryField(
+        null=True,
+        help_text="The full response, encrypted, in case we ever need it."
+    )
+    encryption_key_id = models.IntegerField(null=True)
+
+
+class SubscriptionRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to a subscription request.
+    """
+    def __str__(self):
+        return 'SubscriptionRequestResponse {}'.format(self.id)
+
+    subscription_request = models.OneToOneField(
+        SubscriptionRequest,
+        related_name='subscription_request_response'
+    )
+    payment_token = models.CharField(
+        max_length=26,
+        blank=True,
+        default=''
     )

@@ -43,7 +43,7 @@ class UpdateRequestInline(ReadOnlyTabularInline):
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
     model = SubscriptionRequestResponse
     fk_name = 'subscription_request'
-    exclude = ['full_response']
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
 
 
 class SubscriptionRequestInline(ReadOnlyTabularInline):
