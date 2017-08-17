@@ -1,5 +1,6 @@
 import random
 from uuid import uuid4
+from polymorphic.models import PolymorphicModel
 
 from django.db import models
 
@@ -47,13 +48,6 @@ def get_canonical_reference_number(rn, prefix):
 
     # stick together parts with '-'
     return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
-
-
-def get_formatted_datetime(obj):
-    """
-    Returns the request_datetime in the format required by CyberSource
-    """
-    return obj.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 #
@@ -151,7 +145,25 @@ class SubscriptionAgreement(models.Model):
         return self.status in ('Current', 'Hold')
 
 
-class SubscriptionRequest(models.Model):
+class OutgoingTransaction(PolymorphicModel):
+    """
+    Base model for all requests we send to CyberSource.
+    """
+    transaction_uuid = models.UUIDField(
+        default=uuid4,
+        help_text="A unique ID for this 'transaction'. " +
+                  "Intended to protect against duplicate transactions."
+    )
+    request_datetime = models.DateTimeField(auto_now_add=True, null=True)
+
+    def get_formatted_datetime(self):
+        """
+        Returns the request_datetime in the format required by CyberSource
+        """
+        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class SubscriptionRequest(OutgoingTransaction):
     """
     All (non-confidential) specifics of a customer's request for a subscription.
 
@@ -175,12 +187,6 @@ class SubscriptionRequest(models.Model):
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
     )
-    transaction_uuid = models.UUIDField(
-        default=uuid4,
-        help_text="A unique ID for this 'transaction'. " +
-                  "Intended to protect against duplicate transactions."
-    )
-    request_datetime = models.DateTimeField(auto_now_add=True)
     amount = models.DecimalField(
         max_digits=19,
         decimal_places=2,
@@ -224,12 +230,6 @@ class SubscriptionRequest(models.Model):
         default='sale,create_payment_token'
     )
 
-    def get_formatted_datetime(self):
-        """
-        Returns the request_datetime in the format required by CyberSource
-        """
-        return get_formatted_datetime(self)
-
 
 class SubscriptionRequestResponse(models.Model):
     """
@@ -265,7 +265,7 @@ class SubscriptionRequestResponse(models.Model):
     encryption_key_id = models.IntegerField()
 
 
-class UpdateRequest(models.Model):
+class UpdateRequest(OutgoingTransaction):
     """
     All (non-confidential) specifics of a customer's request to update their payment information.
 
@@ -281,19 +281,10 @@ class UpdateRequest(models.Model):
         SubscriptionAgreement,
         related_name='update_request'
     )
-    request_datetime = models.DateTimeField(auto_now_add=True)
-    transaction_uuid = models.UUIDField(
-        default=uuid4,
-        help_text="A unique ID for this 'transaction'. " +
-                  "Intended to protect against duplicate transactions."
-    )
     transaction_type = models.CharField(
         max_length=30,
         default='update_payment_token'
     )
-
-    def get_formatted_datetime(self):
-        """
-        Returns the request_datetime in the format required by CyberSource
-        """
-        return get_formatted_datetime(self)
+    outgoingtransaction_ptr = models.OneToOneField(
+        OutgoingTransaction,
+    )

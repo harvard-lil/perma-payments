@@ -37,6 +37,7 @@ class ReadOnlyTabularInline(NestedTabularInline):
 class UpdateRequestInline(ReadOnlyTabularInline):
     model = UpdateRequest
     fk_name = 'subscription_agreement'
+    exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
 
 
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
@@ -48,6 +49,7 @@ class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
 class SubscriptionRequestInline(ReadOnlyTabularInline):
     model = SubscriptionRequest
     fk_name = 'subscription_agreement'
+    exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
     inlines = [
         SubscriptionRequestResponseInline,
     ]
