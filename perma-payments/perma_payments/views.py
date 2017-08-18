@@ -1,6 +1,4 @@
-from collections import OrderedDict
 from datetime import datetime
-from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -160,6 +158,7 @@ SENSITIVE_POST_PARAMETERS = [
     'req_bill_to_surname',
     'req_card_expiry_date',
     'req_card_number',
+    'req_payment_token',
     'req_profile_id',
     'signature'
 ]
@@ -172,81 +171,80 @@ def cybersource_callback(request):
     """
     In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
     """
-    try:
-        signature = request.POST.__getitem__('signature')
-        signed_field_names = request.POST.__getitem__('signed_field_names')
-        signed_fields = OrderedDict()
-        for field in signed_field_names.split(','):
-            signed_fields[field] = request.POST.__getitem__(field)
-    except KeyError as e:
-        logger.warning('Incomplete POST to CyberSource callback route: missing {}'.format(e))
-        return bad_request(request)
+    data = verify_cybersource_transmission(request.POST, (
+        'req_transaction_uuid',
+        'decision',
+        'reason_code',
+        'message'
+    ))
 
-    data_to_sign = data_to_string(signed_fields, sort=False)
-    if not safe_str_cmp(signature, sign_data(data_to_sign)):
-        logger.warning('Data with invalid signature POSTed to CyberSource callback route')
-        return bad_request(request)
-
-    sub_req = SubscriptionRequest.objects.get(
-        reference_number=request.POST.__getitem__('req_reference_number'),
-        transaction_uuid=request.POST.__getitem__('req_transaction_uuid')
-    )
-    sub_resp = SubscriptionRequestResponse(
-        subscription_request=sub_req,
-        decision=request.POST.__getitem__('decision'),
-        reason_code=request.POST.__getitem__('reason_code'),
-        message=request.POST.__getitem__('message'),
-        payment_token=request.POST.get('payment_token', ''),
-        encryption_key_id=settings.STORAGE_ENCRYPTION_KEYS['id'],
-        full_response=encrypt_for_storage(
-            bytes(str(request.POST.dict()), 'utf-8'),
-            # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
-            (sub_req.pk).to_bytes(24, byteorder='big')
-        )
-    )
-    sub_resp.save()
-
-    # Perma-Payments does not support 16-digit format-preserving Payment Tokens.
-    # See docstring for SubscriptionAgreement model for details.
-    if len(request.POST.get('payment_token', '')) == 16:
-        logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(request.POST.__getitem__('req_reference_number')))
-
-    decision = sub_resp.decision
-    agreement = sub_req.subscription_agreement
+    related_request = OutgoingTransaction.objects.get(transaction_uuid=data['req_transaction_uuid'])
+    subscription_agreement = related_request.subscription_agreement
+    registrar = related_request.registrar
+    decision = data['decision']
+    reason_code = data['reason_code']
+    message = data['message']
     non_sensitive_params = {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS}
-    if decision == 'ACCEPT':
-        # Successful transaction. Reason codes 100 and 110.
-        agreement.status = 'Current'
-        agreement.save()
-        logger.info("Subscription request for registrar {} (subscription request {}) accepted.".format(agreement.registrar, sub_req.pk))
-    elif decision == 'REVIEW':
-        # Authorization was declined; however, the capture may still be possible.
-        # Review payment details. See reason codes 200, 201, 230, and 520.
-        # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
-        agreement.status = 'Current'
-        agreement.save()
-        logger.error("Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(agreement.registrar, sub_req.pk, non_sensitive_params))
-    elif decision == 'CANCEL':
-        # The customer did not accept the service fee conditions,
-        # or the customer cancelled the transaction.
-        agreement.status = 'Aborted'
-        agreement.save()
-        logger.info("Subscription request {} aborted by registrar {}.".format(sub_req.pk, agreement.registrar))
-    elif decision == 'DECLINE':
-        # Transaction was declined.See reason codes 102, 200, 202, 203,
-        # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
-        # 234, 236, 240, 475, 476, and 481.
-        agreement.status = 'Rejected'
-        agreement.save()
-        logger.warning("Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(agreement.registrar, sub_req.pk, non_sensitive_params))
-    elif decision == 'ERROR':
-        # Access denied, page not found, or internal server error.
-        # See reason codes 102, 104, 150, 151 and 152.
-        agreement.status = 'Rejected'
-        agreement.save()
-        logger.error("Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(sub_req.pk, agreement.registrar, non_sensitive_params))
+
+    if isinstance(related_request, SubscriptionRequest):
+        payment_token = request.POST.get('payment_token', '')
+
+        # Perma-Payments does not support 16-digit format-preserving Payment Tokens.
+        # See docstring for SubscriptionAgreement model for details.
+        if len(payment_token) == 16:
+            logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(related_request.pk))
+
+        sub_resp = SubscriptionRequestResponse(
+            subscription_request=related_request,
+            decision=decision,
+            reason_code=reason_code,
+            message=message,
+            payment_token=payment_token,
+            encryption_key_id=settings.STORAGE_ENCRYPTION_KEYS['id'],
+            full_response=encrypt_for_storage(
+                bytes(str(request.POST.dict()), 'utf-8'),
+                # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
+                (related_request.pk).to_bytes(24, byteorder='big')
+            )
+        )
+        sub_resp.save()
+
+        if decision == 'ACCEPT':
+            # Successful transaction. Reason codes 100 and 110.
+            subscription_agreement.status = 'Current'
+            subscription_agreement.save()
+            logger.info("Subscription request for registrar {} (subscription request {}) accepted.".format(registrar, related_request.pk))
+        elif decision == 'REVIEW':
+            # Authorization was declined; however, the capture may still be possible.
+            # Review payment details. See reason codes 200, 201, 230, and 520.
+            # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
+            subscription_agreement.status = 'Current'
+            subscription_agreement.save()
+            logger.error("Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(registrar, related_request.pk, non_sensitive_params))
+        elif decision == 'CANCEL':
+            # The customer did not accept the service fee conditions,
+            # or the customer cancelled the transaction.
+            subscription_agreement.status = 'Aborted'
+            subscription_agreement.save()
+            logger.info("Subscription request {} aborted by registrar {}.".format(related_request.pk, registrar))
+        elif decision == 'DECLINE':
+            # Transaction was declined.See reason codes 102, 200, 202, 203,
+            # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
+            # 234, 236, 240, 475, 476, and 481.
+            subscription_agreement.status = 'Rejected'
+            subscription_agreement.save()
+            logger.warning("Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(registrar, related_request.pk, non_sensitive_params))
+        elif decision == 'ERROR':
+            # Access denied, page not found, or internal server error.
+            # See reason codes 102, 104, 150, 151 and 152.
+            subscription_agreement.status = 'Rejected'
+            subscription_agreement.save()
+            logger.error("Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(related_request.pk, registrar, non_sensitive_params))
+        else:
+            logger.error("Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(related_request.pk, registrar, non_sensitive_params))
+
     else:
-        logger.error("Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(sub_req.pk, agreement.registrar, non_sensitive_params))
+        raise NotImplementedError("Can't handle a response of type {}, returned in reponse to outgoing transaction {}".format(type(related_request), related_request.pk))
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 

@@ -230,6 +230,10 @@ class SubscriptionRequest(OutgoingTransaction):
         default='sale,create_payment_token'
     )
 
+    @property
+    def registrar(self):
+        return self.subscription_agreement.registrar
+
 
 class UpdateRequest(OutgoingTransaction):
     """
@@ -251,6 +255,10 @@ class UpdateRequest(OutgoingTransaction):
         max_length=30,
         default='update_payment_token'
     )
+
+    @property
+    def registrar(self):
+        return self.subscription_agreement.registrar
 
 
 class Response(PolymorphicModel):
@@ -276,6 +284,20 @@ class Response(PolymorphicModel):
     )
     encryption_key_id = models.IntegerField(null=True)
 
+    @property
+    def subscription_agreement(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
+
+    @property
+    def registrar(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
+
 
 class SubscriptionRequestResponse(Response):
     """
@@ -293,3 +315,12 @@ class SubscriptionRequestResponse(Response):
         blank=True,
         default=''
     )
+
+    @property
+    def subscription_agreement(self):
+        return self.subscription_request.subscription_agreement
+
+    @property
+    def registrar(self):
+        return self.subscription_request.subscription_agreement.registrar
+
