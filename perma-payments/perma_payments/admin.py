@@ -34,15 +34,24 @@ class ReadOnlyTabularInline(NestedTabularInline):
 
 ## Admin Models ##
 
+class UpdateRequestResponseInline(ReadOnlyTabularInline):
+    model = UpdateRequestResponse
+    fk_name = 'related_request'
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
+
+
 class UpdateRequestInline(ReadOnlyTabularInline):
     model = UpdateRequest
     fk_name = 'subscription_agreement'
     exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
+    inlines = [
+        UpdateRequestResponseInline,
+    ]
 
 
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
     model = SubscriptionRequestResponse
-    fk_name = 'subscription_request'
+    fk_name = 'related_request'
     exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
 
 

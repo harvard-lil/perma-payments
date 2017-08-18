@@ -2,7 +2,10 @@ import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
 
+from django.conf import settings
 from django.db import models
+
+from .security import encrypt_for_storage
 
 import logging
 logger = logging.getLogger(__name__)
@@ -299,6 +302,25 @@ class Response(PolymorphicModel):
         raise NotImplementedError
 
 
+    @classmethod
+    def save_new_w_encryped_full_response(cls, response_class, full_response, fields):
+        """
+        Saves a new instance of type response_class, encrypting the
+        'full_response' field
+        """
+        data = {
+            'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
+            'full_response': encrypt_for_storage(
+                bytes(str(full_response.dict()), 'utf-8'),
+                # use the OutgoingTransaction pk as the nonce, to ensure uniqueness
+                (fields['related_request'].pk).to_bytes(24, byteorder='big')
+            )
+        }
+        data.update(fields)
+        response = response_class(**data)
+        response.save()
+
+
 class SubscriptionRequestResponse(Response):
     """
     All (non-confidential) specifics of CyberSource's response to a subscription request.
@@ -306,7 +328,7 @@ class SubscriptionRequestResponse(Response):
     def __str__(self):
         return 'SubscriptionRequestResponse {}'.format(self.id)
 
-    subscription_request = models.OneToOneField(
+    related_request = models.OneToOneField(
         SubscriptionRequest,
         related_name='subscription_request_response'
     )
@@ -318,9 +340,29 @@ class SubscriptionRequestResponse(Response):
 
     @property
     def subscription_agreement(self):
-        return self.subscription_request.subscription_agreement
+        return self.related_request.subscription_agreement
 
     @property
     def registrar(self):
-        return self.subscription_request.subscription_agreement.registrar
+        return self.related_request.subscription_agreement.registrar
 
+
+class UpdateRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to an update request.
+    """
+    def __str__(self):
+        return 'UpdateRequestResponse {}'.format(self.id)
+
+    related_request = models.OneToOneField(
+        UpdateRequest,
+        related_name='update_request_response'
+    )
+
+    @property
+    def subscription_agreement(self):
+        return self.related_request.subscription_agreement
+
+    @property
+    def registrar(self):
+        return self.related_request.subscription_agreement.registrar

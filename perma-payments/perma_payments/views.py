@@ -186,7 +186,19 @@ def cybersource_callback(request):
     message = data['message']
     non_sensitive_params = {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS}
 
-    if isinstance(related_request, SubscriptionRequest):
+    if isinstance(related_request, UpdateRequest):
+        Response.save_new_w_encryped_full_response(
+            UpdateRequestResponse,
+            request.POST,
+            {
+                'related_request': related_request,
+                'decision': decision,
+                'reason_code': reason_code,
+                'message': message,
+            }
+        )
+
+    elif isinstance(related_request, SubscriptionRequest):
         payment_token = request.POST.get('payment_token', '')
 
         # Perma-Payments does not support 16-digit format-preserving Payment Tokens.
@@ -194,20 +206,17 @@ def cybersource_callback(request):
         if len(payment_token) == 16:
             logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(related_request.pk))
 
-        sub_resp = SubscriptionRequestResponse(
-            subscription_request=related_request,
-            decision=decision,
-            reason_code=reason_code,
-            message=message,
-            payment_token=payment_token,
-            encryption_key_id=settings.STORAGE_ENCRYPTION_KEYS['id'],
-            full_response=encrypt_for_storage(
-                bytes(str(request.POST.dict()), 'utf-8'),
-                # use the SubscriptionRequest pk as the nonce, to ensure uniqueness
-                (related_request.pk).to_bytes(24, byteorder='big')
-            )
+        Response.save_new_w_encryped_full_response(
+            SubscriptionRequestResponse,
+            request.POST,
+            {
+                'related_request': related_request,
+                'decision': decision,
+                'reason_code': reason_code,
+                'message': message,
+                'payment_token': payment_token,
+            }
         )
-        sub_resp.save()
 
         if decision == 'ACCEPT':
             # Successful transaction. Reason codes 100 and 110.
