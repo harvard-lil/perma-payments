@@ -1,9 +1,11 @@
 import base64
+from collections import OrderedDict
 from datetime import timedelta, datetime
 import hashlib
 import hmac
 import json
 from nacl.public import Box, PrivateKey, PublicKey
+from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
 from django.views.decorators.debug import sensitive_variables
@@ -24,6 +26,22 @@ class InvalidTransmissionException(Exception):
 # Functions
 #
 
+
+# Helpers
+
+def retrieve_fields(transmitted_data, fields):
+    try:
+        data = {}
+        for field in fields:
+            data[field] = transmitted_data[field]
+    except KeyError as e:
+        logger.warning('Incomplete data received: missing {}'.format(e))
+        raise InvalidTransmissionException
+    return data
+
+
+# CyberSource
+
 def data_to_string(data, sort=True):
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
 
@@ -36,6 +54,47 @@ def sign_data(data_string):
     secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
+
+
+def prep_for_cybersource(signed_fields, unsigned_fields={}):
+    """
+    Takes a dict of fields to sign, and optionally a dict of fields not to sign.
+    Returns a dict of fields to POST to CyberSource.
+
+    Note: if additional fields are POSTed, or if any of these fields fail to be POSTed,
+    CyberSource will reject the communication's signature and return 403 Forbidden.
+    """
+    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
+    signed_fields['signed_field_names'] = ''
+    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+    data_to_sign = data_to_string(signed_fields)
+    to_post = {}
+    to_post.update(signed_fields)
+    to_post.update(unsigned_fields)
+    to_post['signature'] = sign_data(data_to_sign)
+    return to_post
+
+
+def verify_cybersource_transmission(transmitted_data, fields):
+    # Transmitted data must include signature, signed_field_names,
+    # and all fields listed in signed_field_names
+    try:
+        signature = transmitted_data.__getitem__('signature')
+        signed_field_names = transmitted_data.__getitem__('signed_field_names')
+        signed_fields = OrderedDict()
+        for field in signed_field_names.split(','):
+            signed_fields[field] = transmitted_data.__getitem__(field)
+    except KeyError as e:
+        logger.warning('Incomplete POST to CyberSource callback route: missing {}'.format(e))
+        raise InvalidTransmissionException
+
+    # The signature must be valid
+    data_to_sign = data_to_string(signed_fields, sort=False)
+    if not safe_str_cmp(signature, sign_data(data_to_sign)):
+        logger.warning('Data with invalid signature POSTed to CyberSource callback route')
+        raise InvalidTransmissionException
+
+    return retrieve_fields(transmitted_data, fields)
 
 
 @sensitive_variables()
@@ -142,17 +201,7 @@ def verify_perma_transmission(transmitted_data, fields):
         logger.warning('Expired timestamp in data.')
         raise InvalidTransmissionException
 
-    # The encrypted data must include all the fields in 'fields'.
-    try:
-        data = {}
-        for field in fields:
-            data[field] = post_data[field]
-    except KeyError as e:
-        logger.warning('Incomplete data: missing {}'.format(e))
-        raise InvalidTransmissionException
-
-    # All is well. Return the data.
-    return data
+    return retrieve_fields(post_data, fields)
 
 
 def prep_for_perma(dictionary):
@@ -206,17 +255,7 @@ def verify_perma_payments_transmission(transmitted_data, fields):
         logger.warning('Expired timestamp in data.')
         raise InvalidTransmissionException
 
-    # The encrypted data must include all the fields in 'fields'.
-    try:
-        data = {}
-        for field in fields:
-            data[field] = post_data[field]
-    except KeyError as e:
-        logger.warning('Incomplete data: missing {}'.format(e))
-        raise InvalidTransmissionException
-
-    # All is well. Return the data.
-    return data
+    return retrieve_fields(post_data, fields)
 
 
 def prep_for_perma_payments(dictionary):

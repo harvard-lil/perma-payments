@@ -3,7 +3,7 @@ from nested_inline.admin import NestedTabularInline, NestedModelAdmin
 from django.contrib import admin
 from django.contrib.auth.models import Group
 
-from .models import SubscriptionAgreement, SubscriptionRequest, SubscriptionRequestResponse
+from .models import *
 
 # remove builtin models
 # admin.site.unregister(Site)
@@ -34,16 +34,31 @@ class ReadOnlyTabularInline(NestedTabularInline):
 
 ## Admin Models ##
 
+class UpdateRequestResponseInline(ReadOnlyTabularInline):
+    model = UpdateRequestResponse
+    fk_name = 'related_request'
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
+
+
+class UpdateRequestInline(ReadOnlyTabularInline):
+    model = UpdateRequest
+    fk_name = 'subscription_agreement'
+    exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
+    inlines = [
+        UpdateRequestResponseInline,
+    ]
+
 
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
     model = SubscriptionRequestResponse
-    fk_name = 'subscription_request'
-    exclude = ['full_response']
+    fk_name = 'related_request'
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
 
 
 class SubscriptionRequestInline(ReadOnlyTabularInline):
     model = SubscriptionRequest
     fk_name = 'subscription_agreement'
+    exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
     inlines = [
         SubscriptionRequestResponseInline,
     ]
@@ -57,6 +72,7 @@ class SubscriptionAgreementAdmin(NestedModelAdmin):
     search_fields = ['registrar','subscription_request__reference_number']
     inlines = [
         SubscriptionRequestInline,
+        UpdateRequestInline,
     ]
 
     def get_reference_number(self, obj):

@@ -1,7 +1,11 @@
 import random
 from uuid import uuid4
+from polymorphic.models import PolymorphicModel
 
+from django.conf import settings
 from django.db import models
+
+from .security import encrypt_for_storage
 
 import logging
 logger = logging.getLogger(__name__)
@@ -60,15 +64,20 @@ class SubscriptionAgreement(models.Model):
         b) CyberSource's initial response to the request.
            If CyberSource approves the subscription request,
            a 'Payment Token', also known as a 'Subscription ID', will be included in the response.
-        c) Any subsequent updates from CyberSource about scheduled payments
-           associated with the Subscription ID. Indicates whether the agreement
-           still stands.
+        c) Any subsequent updates from CyberSource about attempted scheduled payments
+           associated with the Subscription ID. Indicates whether payments were successful and
+           the agreement still stands.
 
-    If any of the values from the initial request are updated (the schedule, the card, the address, etc.)
-    the Subscription Agreement becomes obsolete ("superseded") and is replaced by
-    an entirely new Subscription Agreement, with a new Payment Token/Subscription ID.
+    N.B. Perma-Payments does NOT support 16-digit format-preserving subscription IDs.
 
-    This is a feature of CyberSource; it is not a perma-payments design decision.
+    If a CyberSource account is configured to use a 16-digit format-preserving Payment Token/Subscription ID,
+    and if the customer subsequently updates the card number, CyberSource will mark the original Payment Token
+    as obsolete ("superseded") and issue a new Payment Token/Subscription ID.
+
+    Perma-Payments only supports unchanging, updateable Payment Tokens,
+    which are the CyberSource default as of 8/16/17.
+
+    Perma-Payments will log an error if any 16-digit Payment Tokens are received.
     """
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
@@ -93,6 +102,7 @@ class SubscriptionAgreement(models.Model):
             ('Cancelled', 'Cancelled'),
             # All payments have been processed (installments subscriptions).
             # You see this status one or two days after the last payment is processed.
+            # (As of 8/16/17, should never be returned to Perma Payments, since we are not selling installment plans.)
             ('Completed', 'Completed'),
             # The subscription is active, and the payments are up to date.
             ('Current', 'Current'),
@@ -103,6 +113,8 @@ class SubscriptionAgreement(models.Model):
             # http://apps.cybersource.com/library/documentation/dev_guides/Payment_Tokenization/html
             ('Hold', 'Hold'),
             # The subscription has been updated and a new subscription ID has been assigned to it.
+            # (As of 8/16/17, should never be returned to Perma Payments, since our account is not
+            # configured to use 16-digit format-preserving payment tokens.)
             ('Superseded', 'Superseded')
         )
     )
@@ -123,21 +135,38 @@ class SubscriptionAgreement(models.Model):
     @classmethod
     def get_registrar_latest(cls, registrar):
         """
-        Returns the most recently created Subscription Agreement for a registrar,
-        if any exist, or None.
+        Returns the most recently created Subscription Agreement for a registrar.
         """
-        try:
-            sa = cls.objects.filter(registrar=registrar).latest('id')
-        except cls.DoesNotExist:
-            sa = None
-        return sa
+        return cls.objects.filter(registrar=registrar).latest('id')
 
 
     def can_be_cancelled(self):
         return self.status in ('Current', 'Hold') and not self.cancellation_requested
 
 
-class SubscriptionRequest(models.Model):
+    def can_be_updated(self):
+        return self.status in ('Current', 'Hold')
+
+
+class OutgoingTransaction(PolymorphicModel):
+    """
+    Base model for all requests we send to CyberSource.
+    """
+    transaction_uuid = models.UUIDField(
+        default=uuid4,
+        help_text="A unique ID for this 'transaction'. " +
+                  "Intended to protect against duplicate transactions."
+    )
+    request_datetime = models.DateTimeField(auto_now_add=True, null=True)
+
+    def get_formatted_datetime(self):
+        """
+        Returns the request_datetime in the format required by CyberSource
+        """
+        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class SubscriptionRequest(OutgoingTransaction):
     """
     All (non-confidential) specifics of a customer's request for a subscription.
 
@@ -161,12 +190,6 @@ class SubscriptionRequest(models.Model):
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
     )
-    transaction_uuid = models.UUIDField(
-        default=uuid4,
-        help_text="A unique ID for this 'transaction'. " +
-                  "Intended to protect against duplicate transactions."
-    )
-    request_datetime = models.DateTimeField(auto_now_add=True)
     amount = models.DecimalField(
         max_digits=19,
         decimal_places=2,
@@ -210,25 +233,43 @@ class SubscriptionRequest(models.Model):
         default='sale,create_payment_token'
     )
 
-    def get_formatted_datetime(self):
-        """
-        Returns the request_datetime in the format required by CyberSource
-        """
-        return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+    @property
+    def registrar(self):
+        return self.subscription_agreement.registrar
 
 
-class SubscriptionRequestResponse(models.Model):
+class UpdateRequest(OutgoingTransaction):
     """
-    All (non-confidential) specifics of CyberSource's response to a subscription request.
+    All (non-confidential) specifics of a customer's request to update their payment information.
+
+    Useful for:
+    1) reconstructing a customer's account history;
+    2) resending failed requests;
+    3) comparing notes with CyberSource records
     """
     def __str__(self):
-        return 'SubscriptionRequestResponse {}'.format(self.id)
+        return 'SubscriptionRequest {}'.format(self.id)
 
-    subscription_request = models.OneToOneField(
-        SubscriptionRequest,
-        related_name='subscription_request_response'
+    subscription_agreement = models.ForeignKey(
+        SubscriptionAgreement,
+        related_name='update_request'
     )
+    transaction_type = models.CharField(
+        max_length=30,
+        default='update_payment_token'
+    )
+
+    @property
+    def registrar(self):
+        return self.subscription_agreement.registrar
+
+
+class Response(PolymorphicModel):
+    """
+    Base model for all responses we receive from CyberSource.
+    """
     decision = models.CharField(
+        null=True,
         max_length=7,
         choices=(
             ('ACCEPT', 'ACCEPT'),
@@ -238,14 +279,90 @@ class SubscriptionRequestResponse(models.Model):
             ('CANCEL', 'CANCEL'),
         )
     )
-    reason_code = models.IntegerField()
-    message = models.TextField()
+    reason_code = models.IntegerField(null=True)
+    message = models.TextField(null=True)
+    full_response = models.BinaryField(
+        null=True,
+        help_text="The full response, encrypted, in case we ever need it."
+    )
+    encryption_key_id = models.IntegerField(null=True)
+
+    @property
+    def subscription_agreement(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
+
+    @property
+    def registrar(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
+
+
+    @classmethod
+    def save_new_w_encryped_full_response(cls, response_class, full_response, fields):
+        """
+        Saves a new instance of type response_class, encrypting the
+        'full_response' field
+        """
+        data = {
+            'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
+            'full_response': encrypt_for_storage(
+                bytes(str(full_response.dict()), 'utf-8'),
+                # use the OutgoingTransaction pk as the nonce, to ensure uniqueness
+                (fields['related_request'].pk).to_bytes(24, byteorder='big')
+            )
+        }
+        data.update(fields)
+        response = response_class(**data)
+        response.save()
+
+
+class SubscriptionRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to a subscription request.
+    """
+    def __str__(self):
+        return 'SubscriptionRequestResponse {}'.format(self.id)
+
+    related_request = models.OneToOneField(
+        SubscriptionRequest,
+        related_name='subscription_request_response'
+    )
     payment_token = models.CharField(
         max_length=26,
         blank=True,
         default=''
     )
-    full_response = models.BinaryField(
-        help_text="The full response, encrypted, in case we ever need it."
+
+    @property
+    def subscription_agreement(self):
+        return self.related_request.subscription_agreement
+
+    @property
+    def registrar(self):
+        return self.related_request.subscription_agreement.registrar
+
+
+class UpdateRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to an update request.
+    """
+    def __str__(self):
+        return 'UpdateRequestResponse {}'.format(self.id)
+
+    related_request = models.OneToOneField(
+        UpdateRequest,
+        related_name='update_request_response'
     )
-    encryption_key_id = models.IntegerField()
+
+    @property
+    def subscription_agreement(self):
+        return self.related_request.subscription_agreement
+
+    @property
+    def registrar(self):
+        return self.related_request.subscription_agreement.registrar

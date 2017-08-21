@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # extras
     'nested_inline',
+    'polymorphic',
 
     # ours
     'perma_payments'
