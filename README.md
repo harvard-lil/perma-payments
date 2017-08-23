@@ -63,3 +63,20 @@ The app and its relationship with Perma
 Communication with CyberSource
 - passes the user to CyberSource via a redirect
 (more to come here)
+
+
+## How to
+
+### Update Subscription Statuses
+
+1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the production Business Center).
+
+2) Verify that you can see all the subscriptions. (If there are no pagination buttons, then you can see all the subscriptions.)
+
+3) Scroll to the bottom of the page and click the "Export CSV" button.
+
+4) Log in to the Perma Payments admin.
+
+5) Upload the CSV to the "Update Subscription Statuses" form. Submit.
+
+Et voilà.

@@ -1,0 +1,63 @@
+{% extends "admin/index.html" %}
+
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}" />{% endblock %}
+
+{% block content %}
+<div id="content-main">
+
+{% if app_list %}
+    {% for app in app_list %}
+        <div class="app-{{ app.app_label }} module">
+        <table>
+        <caption>
+            <a href="{{ app.app_url }}" class="section" title="{% blocktrans with name=app.name %}Models in the {{ name }} application{% endblocktrans %}">{{ app.name }}</a>
+        </caption>
+        {% for model in app.models %}
+            <tr class="model-{{ model.object_name|lower }}">
+            {% if model.admin_url %}
+                <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
+            {% else %}
+                <th scope="row">{{ model.name }}</th>
+            {% endif %}
+
+            {% if model.add_url %}
+                <td><a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a></td>
+            {% else %}
+                <td>&nbsp;</td>
+            {% endif %}
+
+            {% if model.admin_url %}
+                <td><a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a></td>
+            {% else %}
+                <td>&nbsp;</td>
+            {% endif %}
+            </tr>
+        {% endfor %}
+        </table>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>{% trans "You don't have permission to edit anything." %}</p>
+{% endif %}
+
+<div class="inline-group">
+  <h2>Update Subscription Statuses</h2>
+  <form method="POST" enctype="multipart/form-data" action="/update-statuses/">
+    {% csrf_token %}
+    <div class="form-row">
+      <p>See <a href="https://github.com/harvard-lil/perma-payments/blob/develop/README.md#Update%20Subscription%20Statuses">README</a> for step-by-step instructions on how to produce the required report in the CyberSource Business Center.</p>
+    </div>
+    <div class="form-row">
+      <div>
+        <label for="csv_file">CSV</label>
+        <input id="csv_file" name="csv_file" type="file" required>
+      </div>
+    </div>
+    <input type="submit" value="Upload file and update statuses" style="margin-top: 15px;">
+  </form>
+</div>
+
+</div>
+{% endblock %}
