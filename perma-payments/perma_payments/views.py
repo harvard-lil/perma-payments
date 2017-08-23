@@ -321,6 +321,10 @@ def cancel_request(request):
     return redirect('perma_spoof_after_cancellation')
 
 
+def update_statuses(request):
+    pass
+
+
 def perma_spoof(request):
     """
     This logic will live in Perma; here now for simplicity
