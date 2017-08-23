@@ -1,4 +1,6 @@
+import csv
 from datetime import datetime
+import io
 
 from django.conf import settings
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -321,8 +323,32 @@ def cancel_request(request):
     return redirect('perma_spoof_after_cancellation')
 
 
+@require_http_methods(["POST"])
 def update_statuses(request):
-    pass
+    csv_file = request.FILES['csv_file']
+    for i in range(4):
+        csv_file.readline()
+    reader = csv.DictReader(io.StringIO(csv_file.read().decode('utf-8')))
+    for row in reader:
+        try:
+            sa = SubscriptionAgreement.objects.filter(subscription_request__reference_number=row['Merchant Reference Code']).get()
+        except ObjectDoesNotExist:
+            logger.error("CyberSource reports a subscription {}: no corresponding record found".format(row['Merchant Reference Code']))
+            if settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND:
+                raise
+            continue
+        except SubscriptionAgreement.MultipleObjectsReturned:
+            logger.error("Multiple subscription requests associated with {}.".format(row['Merchant Reference Code']))
+            if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
+                raise
+            continue
+
+        sa.status = row['Status']
+        sa.save()
+        logger.info("Updated subscription status for {} to {}".format(row['Merchant Reference Code'], row['Status']))
+
+    return render(request, 'generic.html', {'heading': "Statuses Updated",
+                                            'message': "Check the application log for details."})
 
 
 def perma_spoof(request):
