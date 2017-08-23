@@ -79,4 +79,4 @@ Communication with CyberSource
 
 5) Upload the CSV to the "Update Subscription Statuses" form. Submit.
 
-Et voila.
+Et voilà.
