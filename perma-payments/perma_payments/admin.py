@@ -89,6 +89,6 @@ class SubscriptionAgreementAdmin(NestedModelAdmin):
         # Disable manual creation of new instances
         return False
 
-    def save_model(self, request, obj, form, change):
-        # Return nothing to make sure user can't update any data
-        pass
+    # def save_model(self, request, obj, form, change):
+    #     # Return nothing to make sure user can't update any data
+    #     pass
