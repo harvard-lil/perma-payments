@@ -262,17 +262,27 @@ def cybersource_callback(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def current(request):
+def status(request):
     """
-    Returns whether a registrar has a paid-up subscription
+    Returns a simplified version of a registrar's subscription status,
+    as needed for making decisions in Perma.
     """
     try:
         data = verify_perma_transmission(request.POST, ('registrar',))
     except InvalidTransmissionException:
         return bad_request(request)
+
+    standing_subscription = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
+    if not standing_subscription:
+        subscription = None
+    if standing_subscription.cancellation_requested:
+        subscription = 'Cancellation Requested'
+    else:
+        subscription = standing_subscription.status
+
     response = {
         'registrar': data['registrar'],
-        'current': SubscriptionAgreement.registrar_has_current(data['registrar']),
+        'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp()
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})

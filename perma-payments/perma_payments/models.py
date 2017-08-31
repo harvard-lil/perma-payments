@@ -133,6 +133,17 @@ class SubscriptionAgreement(models.Model):
 
 
     @classmethod
+    def registrar_standing_subscription(cls, registrar):
+        standing = cls.objects.filter(registrar=registrar, status__in=['Current', 'Hold'])
+        count = len(standing)
+        if count == 0:
+            return None
+        if count > 1:
+            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, len(count)))
+        return standing.first()
+
+
+    @classmethod
     def get_registrar_latest(cls, registrar):
         """
         Returns the most recently created Subscription Agreement for a registrar.
