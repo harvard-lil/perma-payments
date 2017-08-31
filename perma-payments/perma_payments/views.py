@@ -275,7 +275,7 @@ def status(request):
     standing_subscription = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
     if not standing_subscription:
         subscription = None
-    if standing_subscription.cancellation_requested:
+    elif standing_subscription.cancellation_requested:
         subscription = 'Cancellation Requested'
     else:
         subscription = standing_subscription.status
