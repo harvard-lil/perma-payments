@@ -11,14 +11,14 @@ admin.site.unregister(Group)
 admin.site.unregister(User)
 
 # Globally disable delete selected
-admin.site.disable_action('delete_selected')
+# admin.site.disable_action('delete_selected')
 
 ## HELPERS ##
 
 
 class ReadOnlyTabularInline(NestedTabularInline):
     extra = 0
-    can_delete = False
+    # can_delete = False
     editable_fields = []
     readonly_fields = []
     exclude = []
