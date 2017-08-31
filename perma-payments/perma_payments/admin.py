@@ -81,9 +81,9 @@ class SubscriptionAgreementAdmin(NestedModelAdmin):
     get_reference_number.short_description = 'Reference Number'
     get_reference_number.admin_order_field  = 'subscription_request__reference_number'
 
-    def has_delete_permission(self, request, obj=None):
-        # Disable delete
-        return False
+    # def has_delete_permission(self, request, obj=None):
+    #     # Disable delete
+    #     return False
 
     def has_add_permission(self, request, obj=None):
         # Disable manual creation of new instances
