@@ -43,10 +43,10 @@ def subscribe(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
-    # The user must not already have a current subscription.
-    if settings.PREVENT_MULTIPLE_SUBSCRIPTIONS and SubscriptionAgreement.registrar_has_current(data['registrar']):
+    # The user must not already have a standing subscription.
+    if SubscriptionAgreement.registrar_standing_subscription(data['registrar']):
         return render(request, 'generic.html', {'heading': "Good News!",
-                                                'message': "You already have an active subscription to Perma.cc, and your payments are current.<br>" +
+                                                'message': "You already have a subscription to Perma.cc.<br>" +
                                                            "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
 
     # The subscription request fields must each be valid.
@@ -107,14 +107,15 @@ def update(request):
 
     # The user must have a subscription that can be updated.
     try:
-        sa = SubscriptionAgreement.get_registrar_latest(data['registrar'])
-        s_request = sa.subscription_request
-        s_response = s_request.subscription_request_response
-        assert sa.can_be_updated()
-    except (ObjectDoesNotExist, AssertionError):
+        sa = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
+        assert sa and sa.can_be_updated()
+    except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+
+    s_request = sa.subscription_request
+    s_response = s_request.subscription_request_response
 
     # The update request fields must each be valid.
     try:
@@ -310,9 +311,9 @@ def cancel_request(request):
 
     # The user must have a subscription that can be cancelled.
     try:
-        sa = SubscriptionAgreement.get_registrar_latest(registrar)
-        assert sa.can_be_cancelled()
-    except (ObjectDoesNotExist, AssertionError):
+        sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
+        assert sa and sa.can_be_cancelled()
+    except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})

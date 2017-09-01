@@ -135,9 +135,6 @@ REGISTRAR_USERS_PATH = '/manage/registrar-users?registrar='
 # Direct all CyberSource communications to their test server by default
 CS_MODE = 'test'
 
-# Prevent duplicate subscriptions by default; override if desired for easier testing
-PREVENT_MULTIPLE_SUBSCRIPTIONS = True
-
 # Exception handling for bulk updating subscription statuses;
 # override if desired for easier testing (e.g., in dev)
 RAISE_IF_SUBSCRIPTION_NOT_FOUND = True
