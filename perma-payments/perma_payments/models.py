@@ -125,14 +125,6 @@ class SubscriptionAgreement(models.Model):
 
 
     @classmethod
-    def registrar_has_current(cls, registrar):
-        current = cls.objects.filter(registrar=registrar, status='Current').count()
-        if current > 1:
-            logger.error("Registrar {} has multiple current subscriptions ({})".format(registrar, current))
-        return bool(current)
-
-
-    @classmethod
     def registrar_standing_subscription(cls, registrar):
         standing = cls.objects.filter(registrar=registrar, status__in=['Current', 'Hold'])
         count = len(standing)
@@ -140,15 +132,9 @@ class SubscriptionAgreement(models.Model):
             return None
         if count > 1:
             logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, len(count)))
+            if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
+                raise cls.MultipleObjectsReturned
         return standing.first()
-
-
-    @classmethod
-    def get_registrar_latest(cls, registrar):
-        """
-        Returns the most recently created Subscription Agreement for a registrar.
-        """
-        return cls.objects.filter(registrar=registrar).latest('id')
 
 
     def can_be_cancelled(self):
