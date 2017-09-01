@@ -76,9 +76,3 @@ def test_perma_encrypt_and_decrypt():
     message = 'hi there'
     ci = encrypt_for_perma(bytes(message, 'utf-8'))
     assert str(decrypt_from_perma(ci), 'utf-8') == message
-
-
-def test_perma_payments_encrypt_and_decrypt():
-    message = 'hi there'
-    ci = encrypt_for_perma_payments(bytes(message, 'utf-8'))
-    assert str(decrypt_from_perma_payments(ci), 'utf-8') == message
