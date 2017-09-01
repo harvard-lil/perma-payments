@@ -137,12 +137,8 @@ class SubscriptionAgreement(models.Model):
         return standing.first()
 
 
-    def can_be_cancelled(self):
+    def can_be_altered(self):
         return self.status in ('Current', 'Hold') and not self.cancellation_requested
-
-
-    def can_be_updated(self):
-        return self.status in ('Current', 'Hold')
 
 
 class OutgoingTransaction(PolymorphicModel):
