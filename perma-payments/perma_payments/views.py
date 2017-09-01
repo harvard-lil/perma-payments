@@ -108,7 +108,7 @@ def update(request):
     # The user must have a subscription that can be updated.
     try:
         sa = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
-        assert sa and sa.can_be_updated()
+        assert sa and sa.can_be_altered()
     except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
@@ -312,7 +312,7 @@ def cancel_request(request):
     # The user must have a subscription that can be cancelled.
     try:
         sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
-        assert sa and sa.can_be_cancelled()
+        assert sa and sa.can_be_altered()
     except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
@@ -330,8 +330,7 @@ def cancel_request(request):
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
     sa.cancellation_requested = True
     sa.save()
-    # URL should be in the config, rather than built, when this logic is in Perma
-    return redirect('perma_spoof_after_cancellation')
+    return redirect(settings.PERMA_SUBSCRIPTION_CANCELLED_URL)
 
 
 @require_http_methods(["POST"])
