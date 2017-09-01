@@ -129,6 +129,7 @@ ADMIN_ENABLED = False
 
 # Direct all Perma.cc communications to perma dev by default
 PERMA_URL = 'https://perma-dev.org'
+PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL = 'https://perma-dev.org/settings/subscription/'
 REGISTRAR_DETAIL_PATH = '/manage/registrars/'
 REGISTRAR_USERS_PATH = '/manage/registrar-users?registrar='
 

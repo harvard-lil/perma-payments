@@ -7,7 +7,6 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.urls import reverse
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -359,93 +358,3 @@ def update_statuses(request):
 
     return render(request, 'generic.html', {'heading': "Statuses Updated",
                                             'message': "Check the application log for details."})
-
-
-def perma_spoof(request):
-    """
-    This logic will live in Perma; here now for simplicity
-    """
-    common = {
-        'recurring_frequency': "monthly",
-        'registrar': "2",
-        'timestamp': datetime.utcnow().timestamp()
-    }
-    bronze = {
-        'amount': "2.00",
-        'recurring_amount': "2.00",
-    }
-    silver = {
-        'amount': "4.00",
-        'recurring_amount': "4.00",
-    }
-    gold = {
-        'amount': "6.00",
-        'recurring_amount': "6.00",
-    }
-    bronze.update(common)
-    silver.update(common)
-    gold.update(common)
-    context = {
-        'subscribe_url': reverse('subscribe'),
-        'data_bronze': prep_for_perma_payments(bronze),
-        'data_silver': prep_for_perma_payments(silver),
-        'data_gold': prep_for_perma_payments(gold)
-    }
-    return render(request, 'perma-spoof.html', context)
-
-
-def perma_spoof_is_current(request):
-    """
-    This logic will live in Perma; here now for simplicity.
-
-    In Perma, this won't be a view/route: it will be an api call,
-    made before each capture request associated with the registrar.
-    """
-    import requests
-    data = {
-        'timestamp': datetime.utcnow().timestamp(),
-        'registrar': "1"
-    }
-    # URL should be in the config, rather than built, when this logic is in Perma
-    url = '{}://{}{}'.format(request.scheme, request.get_host(), reverse('current'))
-    r = requests.post(url, data={'encrypted_data': prep_for_perma_payments(data)})
-
-    if r.status_code != 200:
-        logger.error('Communication with perma-payments failed. Status: {}'.format(r.status_code))
-        # Give people the benefit of the doubt? Put a boolean in config when this logic is in Perma
-        return JsonResponse({'registrar': data['registrar'], 'current': True })
-
-    post_data = verify_perma_payments_transmission(r.json(), ('registrar', 'current'))
-    return JsonResponse({'registrar': post_data['registrar'], 'current': post_data['current']})
-
-
-def perma_spoof_cancel_confirm(request):
-    """
-    This logic will live in Perma; here now for simplicity
-    """
-    context = {
-        'cancel_url': reverse('cancel_request'),
-        'data': prep_for_perma_payments({
-            'registrar': "1",
-            'timestamp': datetime.utcnow().timestamp()
-        })
-    }
-    return render(request, 'perma-spoof-cancel-confirm.html', context)
-
-
-def perma_spoof_after_cancellation(request):
-    return render(request, 'perma-spoof-cancelled.html', {})
-
-
-def perma_spoof_update_payment(request):
-    """
-    This logic will live in Perma; here now for simplicity
-    """
-    context = {
-        'update_url': reverse('update'),
-        'data': prep_for_perma_payments({
-            'registrar': "1",
-            'timestamp': datetime.utcnow().timestamp()
-        })
-    }
-    return render(request, 'perma-spoof-update-payment.html', context)
