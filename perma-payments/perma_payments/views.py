@@ -38,7 +38,8 @@ def subscribe(request):
         data = verify_perma_transmission(request.POST, ('registrar',
                                                         'amount',
                                                         'recurring_amount',
-                                                        'recurring_frequency'))
+                                                        'recurring_frequency',
+                                                        'recurring_start_date'))
     except InvalidTransmissionException:
         return bad_request(request)
 
@@ -61,7 +62,8 @@ def subscribe(request):
                 subscription_agreement=s_agreement,
                 amount=data['amount'],
                 recurring_amount=data['recurring_amount'],
-                recurring_frequency=data['recurring_frequency']
+                recurring_frequency=data['recurring_frequency'],
+                recurring_start_date=data['recurring_start_date']
             )
             s_request.full_clean()
             s_request.save()
@@ -81,6 +83,7 @@ def subscribe(request):
             'profile_id': settings.CS_PROFILE_ID,
             'recurring_amount': s_request.recurring_amount,
             'recurring_frequency': s_request.recurring_frequency,
+            'recurring_start_date': s_request.recurring_start_date,
             'reference_number': s_request.reference_number,
             'signed_date_time': s_request.get_formatted_datetime(),
             'transaction_type': s_request.transaction_type,
