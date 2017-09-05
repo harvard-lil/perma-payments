@@ -83,7 +83,7 @@ def subscribe(request):
             'profile_id': settings.CS_PROFILE_ID,
             'recurring_amount': s_request.recurring_amount,
             'recurring_frequency': s_request.recurring_frequency,
-            'recurring_start_date': s_request.recurring_start_date,
+            'recurring_start_date': s_request.get_formatted_start_date(),
             'reference_number': s_request.reference_number,
             'signed_date_time': s_request.get_formatted_datetime(),
             'transaction_type': s_request.transaction_type,
