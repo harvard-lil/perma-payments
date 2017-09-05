@@ -183,6 +183,9 @@ class SubscriptionRequest(OutgoingTransaction):
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
     )
+    # N.B. the Cybersource test environment returns error codes for certain amounts, by design.
+    # The docs are very unclear about the specifics.
+    # Try to charge under $1,000 or over $10,000 when testing to avoid.
     amount = models.DecimalField(
         max_digits=19,
         decimal_places=2,
