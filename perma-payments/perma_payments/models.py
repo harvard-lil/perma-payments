@@ -193,9 +193,9 @@ class SubscriptionRequest(OutgoingTransaction):
         decimal_places=2,
         help_text="Amount to be charged repeatedly, beginning on recurring_start_date"
     )
-    # recurring_start_date = models.DateField(
-    #     help_text="Date on which to commence charging recurring_amount"
-    # )
+    recurring_start_date = models.DateField(
+        help_text="Date on which to commence charging recurring_amount"
+    )
     recurring_frequency = models.CharField(
         max_length=20,
         choices=(
