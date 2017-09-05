@@ -231,6 +231,13 @@ class SubscriptionRequest(OutgoingTransaction):
         return self.subscription_agreement.registrar
 
 
+    def get_formatted_start_date(self):
+        """
+        Returns the recurring_start_date in the format required by CyberSource
+        """
+        return self.recurring_start_date.strftime("%Y%m%d")
+
+
 class UpdateRequest(OutgoingTransaction):
     """
     All (non-confidential) specifics of a customer's request to update their payment information.
