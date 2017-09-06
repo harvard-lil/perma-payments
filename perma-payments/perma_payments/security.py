@@ -8,6 +8,7 @@ from nacl.public import Box, PrivateKey, PublicKey
 from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.debug import sensitive_variables
 
 import logging
@@ -147,7 +148,7 @@ def pack_data(dictionary):
     """
     Takes a dict. Converts to a bytestring, suitable for passing to an encryption function.
     """
-    return bytes(json.dumps(dictionary), 'utf-8')
+    return bytes(json.dumps(dictionary, cls=DjangoJSONEncoder), 'utf-8')
 
 
 def unpack_data(data):
