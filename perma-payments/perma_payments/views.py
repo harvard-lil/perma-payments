@@ -265,7 +265,7 @@ def cybersource_callback(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def status(request):
+def subscription(request):
     """
     Returns a simplified version of a registrar's subscription status,
     as needed for making decisions in Perma.
@@ -278,10 +278,16 @@ def status(request):
     standing_subscription = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
     if not standing_subscription:
         subscription = None
-    elif standing_subscription.cancellation_requested:
-        subscription = 'Cancellation Requested'
     else:
-        subscription = standing_subscription.status
+        subscription = {
+            'rate': standing_subscription.subscription_request.recurring_amount,
+            'frequency': standing_subscription.subscription_request.recurring_frequency
+        }
+
+        if standing_subscription.cancellation_requested:
+            subscription['status'] = 'Cancellation Requested'
+        else:
+            subscription['status'] = standing_subscription.status
 
     response = {
         'registrar': data['registrar'],
