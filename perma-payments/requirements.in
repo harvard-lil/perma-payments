@@ -18,6 +18,7 @@ pytest-django==3.1.2        # testing
 pytest-xdist==1.16.0        # run tests in parallel with pytest -n
 flake8==2.5.4               # code linting
 pytest-cov==2.5.1           # record code coverage
+hypothesis==3.24.1          # smarter tests
 
 # perma-spoof requirements
 requests                    # for api calls to perma-payments

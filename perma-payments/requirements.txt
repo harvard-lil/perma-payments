@@ -20,6 +20,7 @@ execnet==1.4.1            # via pytest-xdist
 fabric3==1.13.1.post1
 first==2.0.1              # via pip-tools
 flake8==2.5.4
+hypothesis==3.24.1
 idna==2.5                 # via cryptography, requests
 mccabe==0.4.0             # via flake8
 paramiko==2.2.1           # via fabric3

@@ -27,40 +27,14 @@ class InvalidTransmissionException(Exception):
 # Functions
 #
 
-
-# Helpers
-
-def retrieve_fields(transmitted_data, fields):
-    try:
-        data = {}
-        for field in fields:
-            data[field] = transmitted_data[field]
-    except KeyError as e:
-        logger.warning('Incomplete data received: missing {}'.format(e))
-        raise InvalidTransmissionException
-    return data
-
-
-# CyberSource
-
-def data_to_string(data, sort=True):
-    return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
-
-
-def sign_data(data_string):
-    """
-    Sign with HMAC sha256 and base64 encode
-    """
-    message = bytes(data_string, 'utf-8')
-    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
-    hash = hmac.new(secret, message, hashlib.sha256)
-    return base64.b64encode(hash.digest())
-
+# Communicate with CyberSource
 
 def prep_for_cybersource(signed_fields, unsigned_fields={}):
     """
     Takes a dict of fields to sign, and optionally a dict of fields not to sign.
-    Returns a dict of fields to POST to CyberSource.
+    Creates the appropriate signature, adds some required administrative fields,
+    and packages everything up, returning a dict of data to POST to CyberSource
+    via form inputs. (e.g. <input type="hidden" name="KEY" value="VALUE"> for KEY,VALUE in returned_dict)
 
     Note: if additional fields are POSTed, or if any of these fields fail to be POSTed,
     CyberSource will reject the communication's signature and return 403 Forbidden.
@@ -68,7 +42,7 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
     signed_fields['signed_field_names'] = ''
     signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-    data_to_sign = data_to_string(signed_fields)
+    data_to_sign = stringify_for_signature(signed_fields)
     to_post = {}
     to_post.update(signed_fields)
     to_post.update(unsigned_fields)
@@ -90,12 +64,95 @@ def verify_cybersource_transmission(transmitted_data, fields):
         raise InvalidTransmissionException
 
     # The signature must be valid
-    data_to_sign = data_to_string(signed_fields, sort=False)
-    if not safe_str_cmp(signature, sign_data(data_to_sign)):
+    if not is_valid_signature(signed_fields, signature):
         logger.warning('Data with invalid signature POSTed to CyberSource callback route')
         raise InvalidTransmissionException
 
+    # Great! Return the subset of fields we want
     return retrieve_fields(transmitted_data, fields)
+
+
+# Communicate with Perma
+
+def prep_for_perma(dictionary):
+    return base64.b64encode(encrypt_for_perma(stringify_data(dictionary)))
+
+
+def verify_perma_transmission(transmitted_data, fields):
+    # Transmitted data should contain a single field, 'encrypted data', which
+    # must be a JSON dict, encrypted by Perma and base64-encoded.
+    try:
+        encrypted_data = base64.b64decode(transmitted_data.__getitem__('encrypted_data'))
+        post_data = unstringify_data(decrypt_from_perma(encrypted_data))
+    except Exception as e:
+        logger.warning('Encryption problem with transmitted data: {}'.format(e))
+        raise InvalidTransmissionException
+
+    # The encrypted data must include a valid timestamp.
+    try:
+        timestamp = post_data['timestamp']
+    except KeyError:
+        logger.warning('Missing timestamp in data.')
+        raise InvalidTransmissionException
+    if not is_valid_timestamp(timestamp, settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS):
+        logger.warning('Expired timestamp in data.')
+        raise InvalidTransmissionException
+
+    return retrieve_fields(post_data, fields)
+
+
+# Helpers
+
+def retrieve_fields(transmitted_data, fields):
+    try:
+        data = {}
+        for field in fields:
+            data[field] = transmitted_data[field]
+    except KeyError as e:
+        logger.warning('Incomplete data received: missing {}'.format(e))
+        raise InvalidTransmissionException
+    return data
+
+
+def is_valid_timestamp(stamp, max_age):
+    return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
+
+
+def stringify_data(dictionary):
+    """
+    Takes a dict. Converts to a bytestring, suitable for passing to an encryption function.
+    """
+    return bytes(json.dumps(dictionary, cls=DjangoJSONEncoder), 'utf-8')
+
+
+def unstringify_data(data):
+    """
+    Reverses stringify_data. Takes a bytestring, returns a dict
+    """
+    return json.loads(str(data, 'utf-8'))
+
+
+def stringify_for_signature(data, sort=True):
+    """
+    Takes a dict. Converts to a specially-formatted unicode string, suitable for
+    generating a signature that Cybersource can verify.
+    """
+    return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
+
+
+def sign_data(data_string):
+    """
+    Sign with HMAC sha256 and base64 encode
+    """
+    message = bytes(data_string, 'utf-8')
+    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
+    hash = hmac.new(secret, message, hashlib.sha256)
+    return base64.b64encode(hash.digest())
+
+
+def is_valid_signature(data, signature):
+    data_to_sign = stringify_for_signature(data, sort=False)
+    return safe_str_cmp(signature, sign_data(data_to_sign))
 
 
 @sensitive_variables()
@@ -144,26 +201,6 @@ def decrypt_from_storage(ciphertext):
     return box.decrypt(ciphertext)
 
 
-def pack_data(dictionary):
-    """
-    Takes a dict. Converts to a bytestring, suitable for passing to an encryption function.
-    """
-    return bytes(json.dumps(dictionary, cls=DjangoJSONEncoder), 'utf-8')
-
-
-def unpack_data(data):
-    """
-    Reverses pack_data.
-
-    Takes a bytestring, returns a dict
-    """
-    return json.loads(str(data, 'utf-8'))
-
-
-def is_valid_timestamp(stamp, max_age):
-    return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
-
-
 @sensitive_variables()
 def encrypt_for_perma(message):
     """
@@ -180,30 +217,3 @@ def decrypt_from_perma(ciphertext):
     """
     box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
     return box.decrypt(ciphertext)
-
-
-def verify_perma_transmission(transmitted_data, fields):
-    # Transmitted data should contain a single field, 'encrypted data', which
-    # must be a JSON dict, encrypted by Perma and base64-encoded.
-    try:
-        encrypted_data = base64.b64decode(transmitted_data.__getitem__('encrypted_data'))
-        post_data = unpack_data(decrypt_from_perma(encrypted_data))
-    except Exception as e:
-        logger.warning('Encryption problem with transmitted data: {}'.format(e))
-        raise InvalidTransmissionException
-
-    # The encrypted data must include a valid timestamp.
-    try:
-        timestamp = post_data['timestamp']
-    except KeyError:
-        logger.warning('Missing timestamp in data.')
-        raise InvalidTransmissionException
-    if not is_valid_timestamp(timestamp, settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS):
-        logger.warning('Expired timestamp in data.')
-        raise InvalidTransmissionException
-
-    return retrieve_fields(post_data, fields)
-
-
-def prep_for_perma(dictionary):
-    return base64.b64encode(encrypt_for_perma(pack_data(dictionary)))
