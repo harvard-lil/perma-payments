@@ -1,5 +1,5 @@
 import base64
-from collections import OrderedDict
+from collections import OrderedDict, Mapping
 from datetime import timedelta, datetime
 import hashlib
 import hmac
@@ -118,25 +118,27 @@ def is_valid_timestamp(stamp, max_age):
     return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
 
 
-def stringify_data(dictionary):
+def stringify_data(data):
     """
-    Takes a dict. Converts to a bytestring, suitable for passing to an encryption function.
+    Takes any json-serializable data. Converts to a bytestring, suitable for passing to an encryption function.
     """
-    return bytes(json.dumps(dictionary, cls=DjangoJSONEncoder), 'utf-8')
+    return bytes(json.dumps(data, cls=DjangoJSONEncoder), 'utf-8')
 
 
 def unstringify_data(data):
     """
-    Reverses stringify_data. Takes a bytestring, returns a dict
+    Reverses stringify_data. Takes a bytestring, returns deserialized json.
     """
     return json.loads(str(data, 'utf-8'))
 
 
 def stringify_for_signature(data, sort=True):
     """
-    Takes a dict. Converts to a specially-formatted unicode string, suitable for
+    Takes a dict/mapping. Converts to a specially-formatted unicode string, suitable for
     generating a signature that Cybersource can verify.
     """
+    if not isinstance(data, Mapping):
+        raise TypeError
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
 
 

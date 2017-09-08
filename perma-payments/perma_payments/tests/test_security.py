@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import decimal
 from nacl.public import PrivateKey, PublicKey
 from hypothesis import given
-from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary
+from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
 
 import pytest
 
@@ -90,21 +90,26 @@ def test_is_valid_timestamp():
 
 
 preserved = text() | integers() | booleans()
-@given(preserved, preserved)
-def test_stringify_and_unstringify_data_types_preserved(x, y):
-    data = {'a': x, 'b': y}
+@given(preserved | dictionaries(keys=text(), values=preserved))
+def test_stringify_and_unstringify_data_types_preserved(data):
     assert unstringify_data(stringify_data(data)) == data
 
 
 oneway = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False) | datetimes() | dates() | uuids()
-@given(oneway, oneway)
-def test_stringify_types_lost(x, y):
+@given(oneway | dictionaries(keys=text(), values=oneway))
+def test_stringify_types_lost(data):
     # Some types can be serialized, but not recovered from strings by json.loads.
     # Instead, you have to manually attempt to convert, by field, if you are expecting one of these types.
     #
     # If something can't be serialized, or unserialized,
     # this test will raise an Exception, rather than failing with an assertion error.
-    unstringify_data(stringify_data({'a': x, 'b': y}))
+    unstringify_data(stringify_data(data))
+
+
+@given(text() | integers() | booleans() | datetimes() | decimals() | binary() | lists(elements=text()))
+def test_stringify_for_signature_fails_if_not_dict(x):
+    with pytest.raises(TypeError):
+        stringify_for_signature(x)
 
 
 def test_stringify_for_signature_sorted(signed_field_names_sorted):
