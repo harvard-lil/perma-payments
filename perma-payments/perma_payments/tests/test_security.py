@@ -1,12 +1,19 @@
 from datetime import datetime, timedelta
 import decimal
 from nacl.public import PrivateKey, PublicKey
+
 from hypothesis import given
 from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
-
 import pytest
 
 from perma_payments.security import *
+
+#
+# UTILS
+#
+class SentinalException(Exception):
+    pass
+
 
 #
 # FIXTURES
@@ -64,6 +71,204 @@ def signed_data():
         "string": "bar=bamph,foo=baz,signed_field_names=bar,foo,signed_field_names",
         "signature": b"wmEE0YLoDwXHf6kRe1e8AV9OcaFGNI+2qRQ8t9gS1Fk="
     }
+
+
+@pytest.fixture
+def spoof_cybersource_post():
+    data = {
+        'signature': '',
+        'signed_field_names': 'foo,bar',
+        'foo': 'foo',
+        'bar': 'bar',
+        'desired_field': 'desired_field'
+    }
+    assert 'signature' in data
+    assert 'signed_field_names' in data
+    for field in data['signed_field_names'].split(','):
+        assert field in data
+    assert 'desired_field' in data
+    return data
+
+
+@pytest.fixture
+def spoof_perma_post():
+    # For convenience, spoofed data is not b64 encoded, encrypted or stringified
+    data = {
+        'encrypted_data': {"timestamp": 1504884268.560902, "desired_field": "desired_field"},
+    }
+    assert 'encrypted_data' in data
+    assert 'timestamp' in data['encrypted_data']
+    assert 'desired_field' in data['encrypted_data']
+    return data
+
+
+#
+# TESTS
+#
+
+# Communicate with CyberSource
+
+# def test_prep_for_cybersource_appropriate_fields_signed():
+#     # blank signs {'unsigned_field_names': ''}
+#     assert prep_for_cybersource({})['signature'] == b'6HuduuUJKfhKa8TR5qhELv+8uCdAPsJfkzIpNU88qEk='
+
+
+# def test_prep_for_cybersource_unsigned_fields_are_not_signed():
+#     pass
+
+
+# def test_prep_for_cybersource_field_names_added_correctly():
+#     assert prep_for_cybersource({})['signed_field_names'] == 'signed_field_names,unsigned_field_names'
+#     assert prep_for_cybersource({})['unsigned_field_names'] is ''
+
+
+# def test_prep_for_cybersource_unsigned_fields_optional():
+#     assert prep_for_cybersource({})['unsigned_field_names'] is ''
+
+# def prep_for_cybersource(signed_fields, unsigned_fields={}):
+#     signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
+#     signed_fields['signed_field_names'] = ''
+#     signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
+#     data_to_sign = stringify_for_signature(signed_fields)
+#     to_post = {}
+#     to_post.update(signed_fields)
+#     to_post.update(unsigned_fields)
+#     to_post['signature'] = sign_data(data_to_sign)
+#     return to_post
+
+
+def test_verify_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
+    is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=True)
+    assert verify_cybersource_transmission(spoof_cybersource_post, ['desired_field']) == {'desired_field': 'desired_field'}
+    is_valid.assert_called_once()
+
+
+def test_verify_cybersource_transmission_missing_signature(spoof_cybersource_post):
+    del spoof_cybersource_post['signature']
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_cybersource_transmission(spoof_cybersource_post, [])
+    assert 'Incomplete POST' in str(excinfo)
+    assert 'signature' in str(excinfo)
+
+
+def test_verify_cybersource_transmission_missing_signed_field_names(spoof_cybersource_post):
+    del spoof_cybersource_post['signed_field_names']
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_cybersource_transmission(spoof_cybersource_post, [])
+    assert 'Incomplete POST' in str(excinfo)
+    assert 'signed_field_names' in str(excinfo)
+
+
+def test_verify_cybersource_transmission_missing_field_in_signed_field_names(spoof_cybersource_post):
+    signed_field = spoof_cybersource_post['signed_field_names'].split(',').pop()
+    del spoof_cybersource_post[signed_field]
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_cybersource_transmission(spoof_cybersource_post, [])
+    assert 'Incomplete POST' in str(excinfo)
+
+
+def test_verify_cybersource_transmission_invalid_signature(spoof_cybersource_post, mocker):
+    is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=False)
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_cybersource_transmission(spoof_cybersource_post, [])
+    is_valid.assert_called_once()
+    assert 'Data with invalid signature' in str(excinfo)
+
+
+def test_verify_cybersource_transmission_missing_arbitrary_field_we_require(spoof_cybersource_post, mocker):
+    is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=True)
+    del spoof_cybersource_post['desired_field']
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_cybersource_transmission(spoof_cybersource_post, ['desired_field'])
+    is_valid.assert_called_once()
+    assert 'Incomplete data' in str(excinfo)
+    assert 'desired_field' in str(excinfo)
+
+
+# Communicate with Perma
+
+
+def test_prep_for_perma():
+    pass
+
+
+# def prep_for_perma(dictionary):
+#     return base64.b64encode(encrypt_for_perma(pack_data(dictionary)))
+
+
+def test_verify_perma_transmission_encrypted_data_not_in_post():
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        assert verify_perma_transmission({}, [])
+    assert 'No encrypted_data in POST.' in str(excinfo)
+
+
+def test_verify_perma_transmission_encrypted_data_none():
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        assert verify_perma_transmission({'encrypted_data': None}, [])
+    assert 'No encrypted_data in POST.' in str(excinfo)
+
+
+def test_verify_perma_transmission_encrypted_data_empty():
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        assert verify_perma_transmission({'encrypted_data': ''}, [])
+    assert 'No encrypted_data in POST.' in str(excinfo)
+
+
+def test_verify_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
+    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinalException)
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_perma_transmission(spoof_perma_post, [])
+    assert 'SentinalException' in str(excinfo)
+    b64.assert_called_once()
+
+def test_verify_perma_transmission_encryption_problem(spoof_perma_post, mocker):
+    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
+    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinalException)
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_perma_transmission(spoof_perma_post, [])
+    assert 'SentinalException' in str(excinfo)
+    decrypt.assert_called_once()
+
+def test_verify_perma_transmission_not_valid_json(spoof_perma_post, mocker):
+    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
+    mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
+    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinalException)
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_perma_transmission(spoof_perma_post, [])
+    assert 'SentinalException' in str(excinfo)
+    unstringify.assert_called_once()
+
+def test_verify_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
+    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
+    mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
+    mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
+    del spoof_perma_post['encrypted_data']['timestamp']
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_perma_transmission(spoof_perma_post, [])
+    assert 'Missing timestamp in data.' in str(excinfo)
+
+
+def test_verify_perma_transmission_expired_timestamp(spoof_perma_post, mocker):
+    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
+    mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
+    mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
+    mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=False)
+    with pytest.raises(InvalidTransmissionException) as excinfo:
+        verify_perma_transmission(spoof_perma_post, [])
+    assert 'Expired timestamp in data.' in str(excinfo)
+
+
+def test_verify_perma_transmission_happy_path(spoof_perma_post, mocker):
+    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, return_value=mocker.sentinel.encrypted)
+    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, return_value=mocker.sentinel.decrypted)
+    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
+    timestamp = mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=True)
+
+    assert verify_perma_transmission(spoof_perma_post, ['desired_field']) == {'desired_field': 'desired_field'}
+    b64.assert_called_once_with(spoof_perma_post['encrypted_data'])
+    decrypt.assert_called_once_with(mocker.sentinel.encrypted)
+    unstringify.assert_called_once_with(mocker.sentinel.decrypted)
+    timestamp.assert_called_once_with(spoof_perma_post['encrypted_data']['timestamp'], settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS)
 
 
 # Helpers

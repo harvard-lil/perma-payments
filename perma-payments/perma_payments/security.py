@@ -60,13 +60,15 @@ def verify_cybersource_transmission(transmitted_data, fields):
         for field in signed_field_names.split(','):
             signed_fields[field] = transmitted_data.__getitem__(field)
     except KeyError as e:
-        logger.warning('Incomplete POST to CyberSource callback route: missing {}'.format(e))
-        raise InvalidTransmissionException
+        msg = 'Incomplete POST to CyberSource callback route: missing {}'.format(e)
+        logger.warning(msg)
+        raise InvalidTransmissionException(msg)
 
     # The signature must be valid
     if not is_valid_signature(signed_fields, signature):
-        logger.warning('Data with invalid signature POSTed to CyberSource callback route')
-        raise InvalidTransmissionException
+        msg = 'Data with invalid signature POSTed to CyberSource callback route'
+        logger.warning(msg)
+        raise InvalidTransmissionException(msg)
 
     # Great! Return the subset of fields we want
     return retrieve_fields(transmitted_data, fields)
@@ -79,29 +81,35 @@ def prep_for_perma(dictionary):
 
 
 def verify_perma_transmission(transmitted_data, fields):
-    # Transmitted data should contain a single field, 'encrypted data', which
+    # Transmitted data should contain a single field, 'encrypted_data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
+
+    encrypted_data = transmitted_data.get('encrypted_data','')
+    if not encrypted_data:
+        raise InvalidTransmissionException('No encrypted_data in POST.')
     try:
-        encrypted_data = base64.b64decode(transmitted_data.__getitem__('encrypted_data'))
-        post_data = unstringify_data(decrypt_from_perma(encrypted_data))
+        post_data = unstringify_data(decrypt_from_perma(base64.b64decode(encrypted_data)))
     except Exception as e:
-        logger.warning('Encryption problem with transmitted data: {}'.format(e))
-        raise InvalidTransmissionException
+        logger.warning('Problem with transmitted data. {}'.format(format_exception(e)))
+        raise InvalidTransmissionException(format_exception(e))
 
     # The encrypted data must include a valid timestamp.
     try:
         timestamp = post_data['timestamp']
     except KeyError:
         logger.warning('Missing timestamp in data.')
-        raise InvalidTransmissionException
+        raise InvalidTransmissionException('Missing timestamp in data.')
     if not is_valid_timestamp(timestamp, settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS):
         logger.warning('Expired timestamp in data.')
-        raise InvalidTransmissionException
+        raise InvalidTransmissionException('Expired timestamp in data.')
 
     return retrieve_fields(post_data, fields)
 
 
 # Helpers
+def format_exception(e):
+    return "{}: {}".format(type(e).__name__, e)
+
 
 def retrieve_fields(transmitted_data, fields):
     try:
@@ -109,8 +117,9 @@ def retrieve_fields(transmitted_data, fields):
         for field in fields:
             data[field] = transmitted_data[field]
     except KeyError as e:
-        logger.warning('Incomplete data received: missing {}'.format(e))
-        raise InvalidTransmissionException
+        msg = 'Incomplete data received: missing {}'.format(e)
+        logger.warning(msg)
+        raise InvalidTransmissionException(msg)
     return data
 
 
