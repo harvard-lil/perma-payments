@@ -12,11 +12,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 #
-# HELPERS
+# CONSTANTS
 #
 
 RN_SET = "0123456789"
 REFERENCE_NUMBER_PREFIX = "PERMA"
+STANDING_STATUSES = ['Current', 'Hold']
+
+#
+# HELPERS
+#
+
 
 def generate_reference_number():
     """
@@ -129,19 +135,19 @@ class SubscriptionAgreement(models.Model):
 
     @classmethod
     def registrar_standing_subscription(cls, registrar):
-        standing = cls.objects.filter(registrar=registrar, status__in=['Current', 'Hold'])
+        standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES)
         count = len(standing)
         if count == 0:
             return None
         if count > 1:
-            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, len(count)))
+            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, count))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
                 raise cls.MultipleObjectsReturned
         return standing.first()
 
 
     def can_be_altered(self):
-        return self.status in ('Current', 'Hold') and not self.cancellation_requested
+        return self.status in STANDING_STATUSES and not self.cancellation_requested
 
 
 class OutgoingTransaction(PolymorphicModel):

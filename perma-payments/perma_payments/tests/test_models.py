@@ -11,8 +11,57 @@ from perma_payments.models import *
 
 
 #
-# HELPERS
+# FIXTURES
 #
+
+@pytest.fixture(params=STANDING_STATUSES)
+@pytest.mark.django_db
+def standing_sa(request):
+    sa = SubscriptionAgreement(
+       registrar=1,
+       status=request.param
+    )
+    sa.save()
+    return sa
+
+
+@pytest.fixture(params=[status[0] for status in SubscriptionAgreement._meta.get_field('status').choices if status[0] not in STANDING_STATUSES])
+@pytest.mark.django_db
+def not_standing_sa(request):
+    sa = SubscriptionAgreement(
+       registrar=1,
+       status=request.param
+    )
+    sa.save()
+    return sa
+
+
+@pytest.fixture(params=STANDING_STATUSES)
+@pytest.mark.django_db
+def multiple_standing_sa(request):
+    sa1 = SubscriptionAgreement(
+       registrar=1,
+       status=request.param
+    )
+    sa1.save()
+    sa2 = SubscriptionAgreement(
+       registrar=1,
+       status=request.param
+    )
+    sa2.save()
+    return sa1
+
+
+@pytest.fixture(params=STANDING_STATUSES)
+@pytest.mark.django_db
+def standing_sa_cancellation_requested(request):
+    sa = SubscriptionAgreement(
+       registrar=1,
+       status=request.param,
+       cancellation_requested=True
+    )
+    sa.save()
+    return sa
 
 
 #
@@ -70,4 +119,50 @@ def test_get_formatted_reference_number_hyphenated(rn, prefix):
     assert prefix in formatted
     for char in rn:
         assert char in formatted
+
+
+# classes
+
+@pytest.mark.django_db
+def test_sa_registrar_standing_subscription_true(standing_sa):
+    assert SubscriptionAgreement.registrar_standing_subscription(standing_sa.registrar)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_subscription_not_standing(not_standing_sa):
+    assert not SubscriptionAgreement.registrar_standing_subscription(not_standing_sa.registrar)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_subscription_no_subscription():
+    assert SubscriptionAgreement.objects.count() == 0
+    assert not SubscriptionAgreement.registrar_standing_subscription(1)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_subscription_multiple_with_raise(settings, multiple_standing_sa):
+    settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
+    with pytest.raises(SubscriptionAgreement.MultipleObjectsReturned):
+        SubscriptionAgreement.registrar_standing_subscription(multiple_standing_sa.registrar)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_subscription_multiple_without_raise(settings, multiple_standing_sa):
+    settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = False
+    assert SubscriptionAgreement.registrar_standing_subscription(multiple_standing_sa.registrar) == multiple_standing_sa
+
+
+@pytest.mark.django_db
+def test_sa_can_be_altered_true(standing_sa):
+    assert standing_sa.can_be_altered()
+
+
+@pytest.mark.django_db
+def test_sa_can_be_altered_false_if_cancellation_requested(standing_sa_cancellation_requested):
+    assert not standing_sa_cancellation_requested.can_be_altered()
+
+
+@pytest.mark.django_db
+def test_sa_can_be_altered_false_if_not_standing(not_standing_sa):
+    assert not not_standing_sa.can_be_altered()
 
