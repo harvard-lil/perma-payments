@@ -1,6 +1,6 @@
 
 from hypothesis import given
-from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries, tuples, sets, just
+from hypothesis.strategies import text, integers, booleans, datetimes, decimals, lists, tuples, sets, just
 import pytest
 
 from perma_payments.models import *
@@ -23,9 +23,9 @@ from perma_payments.models import *
 
 def test_generate_reference_number_valid(mocker):
     formatted = mocker.patch('perma_payments.models.get_formatted_reference_number', autospec=True, return_value=mocker.sentinel.formatted)
-    available = mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
+    mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
 
-    rn = generate_reference_number()
+    generate_reference_number()
     formatted.assert_called_once()
     for c in formatted.call_args[0][0]:
         assert c in RN_SET
@@ -42,7 +42,7 @@ def test_generate_reference_number_fails_after_100_tries(mocker):
 
 
 non_characters = just('-') | integers() | booleans() | datetimes() | decimals(allow_nan=False, allow_infinity=False)
-@given(non_characters | tuples(non_characters | text(), non_characters | text(), non_characters | text()) | lists(elements=non_characters | text()) | sets(elements=non_characters | text()))
+@given(non_characters | tuples(non_characters | text(min_size=2), non_characters | text(min_size=2), non_characters | text(min_size=2)) | lists(elements=non_characters | text(min_size=2)) | sets(elements=non_characters | text(min_size=2)))
 def test_get_formatted_reference_number_invalid_rn(rn):
     with pytest.raises(TypeError) as excinfo:
         get_formatted_reference_number(rn, 'notempty')
