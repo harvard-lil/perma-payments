@@ -8,8 +8,9 @@ language: python
 python:
   - "3.6"
 
+# postgresql: "9.6" not available in precise env
 addons:
-  postgresql: "9.6"
+  postgresql: "9.4"
 
 services:
   - postgresql
@@ -19,6 +20,7 @@ cache:
 
 before_install:
   - cd perma-payments
+  - cp config/settings/settings_travis.py config/settings/settings.py
 
 install:
   - pip install -U pip wheel
