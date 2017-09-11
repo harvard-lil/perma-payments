@@ -1,6 +1,8 @@
+from collections import OrderedDict
 from datetime import datetime, timedelta
 import decimal
 from nacl.public import PrivateKey, PublicKey
+from string import ascii_lowercase
 
 from hypothesis import given
 from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
@@ -30,6 +32,13 @@ def one_two_three_dict():
     assert 'two' in data
     assert 'three' in data
     assert 'four' not in data
+    return data
+
+
+@pytest.fixture
+def reverse_ascii_ordered_dict():
+    data = OrderedDict((c, c) for c in ascii_lowercase[::-1])
+    assert list(data.keys()) != sorted(list(data.keys()))
     return data
 
 
@@ -108,33 +117,49 @@ def spoof_perma_post():
 
 # Communicate with CyberSource
 
-# def test_prep_for_cybersource_appropriate_fields_signed():
-#     # blank signs {'unsigned_field_names': ''}
-#     assert prep_for_cybersource({})['signature'] == b'6HuduuUJKfhKa8TR5qhELv+8uCdAPsJfkzIpNU88qEk='
+def test_prep_for_cybersource_unsigned_fields_optional():
+    assert prep_for_cybersource({}) == prep_for_cybersource({}, {})
 
 
-# def test_prep_for_cybersource_unsigned_fields_are_not_signed():
-#     pass
+def test_prep_for_cybersource_signed_and_unsigned_field_names_added_and_listed_as_signed(one_two_three_dict, reverse_ascii_ordered_dict):
+    assert prep_for_cybersource({})['signed_field_names'] == 'signed_field_names,unsigned_field_names'
+    assert prep_for_cybersource({})['unsigned_field_names'] is ''
 
 
-# def test_prep_for_cybersource_field_names_added_correctly():
-#     assert prep_for_cybersource({})['signed_field_names'] == 'signed_field_names,unsigned_field_names'
-#     assert prep_for_cybersource({})['unsigned_field_names'] is ''
+def test_prep_for_cybersource_signed_and_unsigned_fields_names_added(one_two_three_dict, reverse_ascii_ordered_dict):
+    prepped = prep_for_cybersource(one_two_three_dict, reverse_ascii_ordered_dict)
+    signed = prepped['signed_field_names'].split(',')
+    unsigned = prepped['unsigned_field_names'].split(',')
+    for key in one_two_three_dict:
+        assert key in signed
+        assert key not in unsigned
+    for key in reverse_ascii_ordered_dict:
+        assert key not in signed
+        assert key in unsigned
 
 
-# def test_prep_for_cybersource_unsigned_fields_optional():
-#     assert prep_for_cybersource({})['unsigned_field_names'] is ''
+def test_prep_for_cybersource_signed_and_unsigned_field_names_sorted(reverse_ascii_ordered_dict):
+    prepped = prep_for_cybersource(reverse_ascii_ordered_dict, reverse_ascii_ordered_dict)
+    signed = prepped['signed_field_names'].split(',')
+    unsigned = prepped['unsigned_field_names'].split(',')
+    assert signed == sorted(signed)
+    assert unsigned == sorted(unsigned)
 
-# def prep_for_cybersource(signed_fields, unsigned_fields={}):
-#     signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
-#     signed_fields['signed_field_names'] = ''
-#     signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-#     data_to_sign = stringify_for_signature(signed_fields)
-#     to_post = {}
-#     to_post.update(signed_fields)
-#     to_post.update(unsigned_fields)
-#     to_post['signature'] = sign_data(data_to_sign)
-#     return to_post
+
+def test_prep_for_cybersource_all_input_fields_in_returned_data(one_two_three_dict, reverse_ascii_ordered_dict):
+    prepped = prep_for_cybersource(one_two_three_dict, reverse_ascii_ordered_dict)
+    for key, value in one_two_three_dict.items():
+        assert prepped[key] == value
+    for key, value in reverse_ascii_ordered_dict.items():
+        assert prepped[key] == value
+
+
+def test_prep_for_cybersource_signature(one_two_three_dict, reverse_ascii_ordered_dict, mocker):
+    stringify = mocker.patch('perma_payments.security.stringify_for_signature', autospec=True, return_value=mocker.sentinel.stringified)
+    sign = mocker.patch('perma_payments.security.sign_data', autospec=True, return_value=mocker.sentinel.signed)
+    assert prep_for_cybersource(one_two_three_dict, reverse_ascii_ordered_dict)['signature'] == mocker.sentinel.signed
+    stringify.assert_called_once_with(one_two_three_dict)
+    sign.assert_called_once_with(mocker.sentinel.stringified)
 
 
 def test_verify_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
@@ -188,12 +213,15 @@ def test_verify_cybersource_transmission_missing_arbitrary_field_we_require(spoo
 # Communicate with Perma
 
 
-def test_prep_for_perma():
-    pass
+def test_prep_for_perma(mocker):
+    stringify = mocker.patch('perma_payments.security.stringify_data', autospec=True, return_value=mocker.sentinel.stringified)
+    encrypt = mocker.patch('perma_payments.security.encrypt_for_perma', autospec=True, return_value=mocker.sentinel.encrypted)
+    b64 = mocker.patch('perma_payments.security.base64.b64encode', autospec=True, return_value=mocker.sentinel.encoded)
 
-
-# def prep_for_perma(dictionary):
-#     return base64.b64encode(encrypt_for_perma(pack_data(dictionary)))
+    assert prep_for_perma({}) == mocker.sentinel.encoded
+    stringify.assert_called_once_with({})
+    encrypt.assert_called_once_with(mocker.sentinel.stringified)
+    b64.assert_called_once_with(mocker.sentinel.encrypted)
 
 
 def test_verify_perma_transmission_encrypted_data_not_in_post():
@@ -221,6 +249,7 @@ def test_verify_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
     assert 'SentinalException' in str(excinfo)
     b64.assert_called_once()
 
+
 def test_verify_perma_transmission_encryption_problem(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinalException)
@@ -228,6 +257,7 @@ def test_verify_perma_transmission_encryption_problem(spoof_perma_post, mocker):
         verify_perma_transmission(spoof_perma_post, [])
     assert 'SentinalException' in str(excinfo)
     decrypt.assert_called_once()
+
 
 def test_verify_perma_transmission_not_valid_json(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
@@ -237,6 +267,7 @@ def test_verify_perma_transmission_not_valid_json(spoof_perma_post, mocker):
         verify_perma_transmission(spoof_perma_post, [])
     assert 'SentinalException' in str(excinfo)
     unstringify.assert_called_once()
+
 
 def test_verify_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
