@@ -9,3 +9,8 @@ perma-payments/config/settings/settings.py
 *,cover
 .coverage
 *.log
+
+# Ignore files cached by Hypothesis...
+.hypothesis/
+# except for the examples directory
+!.hypothesis/examples/
