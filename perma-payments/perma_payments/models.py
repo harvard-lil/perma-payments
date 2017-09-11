@@ -1,3 +1,4 @@
+from collections import Sequence
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 # HELPERS
 #
 
+RN_SET = "0123456789"
+REFERENCE_NUMBER_PREFIX = "PERMA"
 
 def generate_reference_number():
     """
@@ -22,35 +25,35 @@ def generate_reference_number():
     Only make 100 attempts:
     If there are requent collisions, expand the keyspace or change the prefix.
     """
-    rn_set = "0123456789"
-    reference_number_prefix = "PERMA"
     for i in range(100):
-        # Generate an 8-character random string like "91276803"
-        rn = ''.join(random.choice(rn_set) for _ in range(8))
-
-        # apply standard formatting
-        rn = get_canonical_reference_number(rn, reference_number_prefix)
-
-        # see if reference number is unique
-        if not SubscriptionRequest.objects.filter(reference_number=rn).exists():
+        rn = get_formatted_reference_number(random.choices(RN_SET, k=8), REFERENCE_NUMBER_PREFIX)
+        if is_ref_number_available(rn):
             break
-        break
     else:
         raise Exception("No valid reference_number found in 100 attempts.")
     return rn
 
 
-def get_canonical_reference_number(rn, prefix):
+def get_formatted_reference_number(rn, prefix):
     """
-    Given a string of digits, return the canonical version (prefixed and with hyphens every 4 chars).
+    Given a sequence of non-hyphen characters, returns the formatted string (prefixed and with hyphens every 4 chars).
     E.g "12345678" -> "PERMA-1234-5678".
+    E.g "12345" -> "PERMA-1-2345".
     """
+    if not rn or not isinstance(rn, Sequence) or not all(isinstance(c, str) and len(c)==1 and c!='-'for c in rn):
+        raise TypeError("Provide a sequence of non-hyphen characters")
+    if not prefix or not isinstance(prefix, str) or '-' in prefix:
+        raise TypeError("Provide a string with no hyphens.")
+
     # split reference number into 4-char chunks, starting from the end
-    rn_parts = [rn[max(i - 4, 0):i] for i in
-                range(len(rn), 0, -4)]
+    rn_parts = ["".join(rn[max(i - 4, 0):i]) for i in range(len(rn), 0, -4)]
 
     # stick together parts with '-'
     return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
+
+
+def is_ref_number_available(rn):
+    return not SubscriptionRequest.objects.filter(reference_number=rn).exists()
 
 
 #
