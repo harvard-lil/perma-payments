@@ -1,12 +1,16 @@
+from ast import literal_eval
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import decimal
-from nacl.public import PrivateKey, PublicKey
+from django.http import QueryDict
+from nacl.public import PrivateKey, PublicKey, Box
+from random import randint
 from string import ascii_lowercase
 
 from hypothesis import given
-from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
+from hypothesis.strategies import characters, text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
 import pytest
+from unittest.mock import Mock
 
 from perma_payments.security import *
 
@@ -16,6 +20,7 @@ from perma_payments.security import *
 class SentinalException(Exception):
     pass
 
+post = QueryDict('a=1,b=2,c=3')
 
 #
 # FIXTURES
@@ -325,14 +330,14 @@ def test_is_valid_timestamp():
     assert not is_valid_timestamp(invalid, max_age)
 
 
-preserved = text() | integers() | booleans()
-@given(preserved | dictionaries(keys=text(), values=preserved))
+preserved = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))) | integers() | booleans()
+@given(preserved | dictionaries(keys=text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))), values=preserved))
 def test_stringify_and_unstringify_data_types_preserved(data):
     assert unstringify_data(stringify_data(data)) == data
 
 
 oneway = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False) | datetimes() | dates() | uuids()
-@given(oneway | dictionaries(keys=text(), values=oneway))
+@given(oneway | dictionaries(keys=text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))), values=oneway))
 def test_stringify_types_lost(data):
     # Some types can be serialized, but not recovered from strings by json.loads.
     # Instead, you have to manually attempt to convert, by field, if you are expecting one of these types.
@@ -385,6 +390,19 @@ def test_generate_public_private_keys():
         assert keys[key]['secret'] != keys[key]['public']
         assert isinstance(PrivateKey(keys[key]['secret']), PrivateKey)
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)
+
+
+def test_stringify_request_post_for_encryption():
+    stringified = stringify_request_post_for_encryption(post)
+    assert isinstance(stringified, bytes)
+    assert literal_eval(str(stringified, 'utf-8')) == post.dict()
+
+
+def test_nonce_from_pk():
+    m = Mock(pk=randint(1,1000))
+    nonce = nonce_from_pk(m)
+    assert len(nonce) == Box.NONCE_SIZE
+    assert int.from_bytes(nonce, 'big') == m.pk
 
 
 @given(binary())

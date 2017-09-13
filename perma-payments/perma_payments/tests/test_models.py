@@ -1,14 +1,14 @@
 from ast import literal_eval
 from datetime import datetime, timezone
 import decimal
-from random import randint
+from random import randint, choice
 
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.http import QueryDict
 
 from hypothesis import given
-from hypothesis.strategies import text, integers, booleans, datetimes, decimals, lists, tuples, sets, just
+from hypothesis.strategies import characters, text, integers, booleans, datetimes, decimals, lists, tuples, sets, just
 import pytest
 
 from perma_payments.models import *
@@ -27,9 +27,9 @@ reason_code = randint(1, 1000)
 recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
 amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
 recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-message = text().example()
+message = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).example()
 payment_token = text(alphabet="0123456789", min_size=26, max_size=26).example()
-
+post = QueryDict('a=1,b=2,c=3')
 
 def absent_required_fields_raise_validation_error(o, fields):
     # If it doesn't work, you might need to add custom validation to the model.
@@ -203,10 +203,10 @@ def test_get_formatted_reference_number_invalid_prefix(prefix):
     assert "string with no hyphens." in str(excinfo)
 
 
-no_hypen_string = text(min_size=1).filter(lambda s: '-' not in s)
-no_hypen_char = text(min_size=1, max_size=1).filter(lambda s: '-' not in s)
-no_hypen_sequences = no_hypen_string | tuples(no_hypen_char, no_hypen_char, no_hypen_char) | lists(elements=no_hypen_char, min_size=1)
-@given(no_hypen_sequences, no_hypen_string)
+no_hyphen_string = text(min_size=1, alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).filter(lambda s: '-' not in s)
+no_hyphen_char = text(min_size=1, max_size=1, alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).filter(lambda s: '-' not in s)
+no_hyphen_sequences = no_hyphen_string | tuples(no_hyphen_char, no_hyphen_char, no_hyphen_char) | lists(elements=no_hyphen_char, min_size=1)
+@given(no_hyphen_sequences, no_hyphen_string)
 def test_get_formatted_reference_number_hyphenated(rn, prefix):
     formatted = get_formatted_reference_number(rn, prefix)
     chars = len(rn)
@@ -423,7 +423,6 @@ def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscrip
     encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     # call
-    post = QueryDict('a=1,b=2,c=3')
     fields = {
         'related_request': complete_subscription_request,
         'decision': random.choice([choice[0] for choice in Response._meta.get_field('decision').choices]),
@@ -455,7 +454,6 @@ def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_
 
     # call
     barebones_update_request.save()
-    post = QueryDict('a=1,b=2,c=3')
     fields = {
         'related_request': barebones_update_request,
         'decision': random.choice([choice[0] for choice in Response._meta.get_field('decision').choices]),
