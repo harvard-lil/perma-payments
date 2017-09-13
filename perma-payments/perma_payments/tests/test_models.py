@@ -1,7 +1,7 @@
 from ast import literal_eval
 from datetime import datetime, timezone
 import decimal
-from random import randint, choice
+import random
 
 from django.apps import apps
 from django.core.exceptions import ValidationError
@@ -22,8 +22,8 @@ genesis = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
 # If we could combine hypothesis with pytest fixtures, these would be
 # straight up strategies passed to fixtures/tests instead
 
-registrar_id = randint(1, 1000)
-reason_code = randint(1, 1000)
+registrar_id = random.randint(1, 1000)
+reason_code = random.randint(1, 1000)
 recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
 amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
 recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
