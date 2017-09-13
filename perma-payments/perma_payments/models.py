@@ -4,9 +4,10 @@ from uuid import uuid4
 from polymorphic.models import PolymorphicModel
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from .security import encrypt_for_storage
+from .security import encrypt_for_storage, stringify_request_post_for_encryption, nonce_from_pk
 
 import logging
 logger = logging.getLogger(__name__)
@@ -154,6 +155,9 @@ class OutgoingTransaction(PolymorphicModel):
     """
     Base model for all requests we send to CyberSource.
     """
+    def __str__(self):
+        return 'OutgoingTransaction {}'.format(self.id)
+
     transaction_uuid = models.UUIDField(
         default=uuid4,
         help_text="A unique ID for this 'transaction'. " +
@@ -279,8 +283,21 @@ class UpdateRequest(OutgoingTransaction):
 class Response(PolymorphicModel):
     """
     Base model for all responses we receive from CyberSource.
+
+    Most fields are null, just in case CyberSource sends us something ill-formed.
     """
+    def __str__(self):
+        return 'Response {}'.format(self.id)
+
+    def clean(self, *args, **kwargs):
+        super(Response, self).clean(*args, **kwargs)
+        if not self.full_response:
+            raise ValidationError({'full_response': 'This field cannot be blank.'})
+
+
+    # we can't guarantee cybersource will send us these fields, though we sure hope so
     decision = models.CharField(
+        blank=True,
         null=True,
         max_length=7,
         choices=(
@@ -291,13 +308,20 @@ class Response(PolymorphicModel):
             ('CANCEL', 'CANCEL'),
         )
     )
-    reason_code = models.IntegerField(null=True)
-    message = models.TextField(null=True)
+    reason_code = models.IntegerField(blank=True, null=True)
+    message = models.TextField(blank=True, null=True)
+    # required
     full_response = models.BinaryField(
-        null=True,
         help_text="The full response, encrypted, in case we ever need it."
     )
-    encryption_key_id = models.IntegerField(null=True)
+    encryption_key_id = models.IntegerField()
+
+    @property
+    def related_request(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
 
     @property
     def subscription_agreement(self):
@@ -323,13 +347,20 @@ class Response(PolymorphicModel):
         data = {
             'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
             'full_response': encrypt_for_storage(
-                bytes(str(full_response.dict()), 'utf-8'),
+                stringify_request_post_for_encryption(full_response),
                 # use the OutgoingTransaction pk as the nonce, to ensure uniqueness
-                (fields['related_request'].pk).to_bytes(24, byteorder='big')
+                nonce_from_pk(fields['related_request'])
             )
         }
         data.update(fields)
         response = response_class(**data)
+        # I'm not sure it makes sense to validate before saving here.
+        # If there's some problem, what do we want to do?
+        # Might as well just wait for any db integrity errors, right?
+        # It's not like CyberSource will listen for a 400 response, and
+        # we should be notified, which will happen automatically if save fails.
+        #
+        # response.full_clean()
         response.save()
 
 

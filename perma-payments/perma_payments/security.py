@@ -184,6 +184,14 @@ def generate_public_private_keys():
     }
 
 
+def stringify_request_post_for_encryption(post):
+    return bytes(str(post.dict()), 'utf-8')
+
+
+def nonce_from_pk(o):
+    return (o.pk).to_bytes(24, byteorder='big')
+
+
 def encrypt_for_storage(message, nonce):
     """
     Basic public key encryption ala pynacl.
