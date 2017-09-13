@@ -21,6 +21,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+@require_http_methods(["GET"])
 def index(request):
     return render(request, 'generic.html', {'heading': "perma-payments",
                                             'message': "a window to CyberSource Secure Acceptance Web/Mobile"})

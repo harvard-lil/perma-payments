@@ -17,7 +17,7 @@ def run_django():
 
 @task
 def test():
-    local("pytest --cov --cov-report= ")
+    local("pytest --fail-on-template-vars --cov --cov-report= ")
 
 
 @task
