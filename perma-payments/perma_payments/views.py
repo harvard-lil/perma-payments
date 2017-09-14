@@ -20,6 +20,40 @@ from .security import *
 import logging
 logger = logging.getLogger(__name__)
 
+#
+# UTILS
+#
+
+FIELDS_REQUIRED_FROM_PERMA = {
+    'subscribe': [
+        'registrar',
+        'amount',
+        'recurring_amount',
+        'recurring_frequency',
+        'recurring_start_date'
+    ]
+}
+FIELDS_REQUIRED_FOR_CYBERSOURCE = {
+    'subscribe': [
+        'access_key',
+        'amount',
+        'currency',
+        'locale',
+        'payment_method',
+        'profile_id',
+        'recurring_amount',
+        'recurring_frequency',
+        'recurring_start_date',
+        'reference_number',
+        'signed_date_time',
+        'transaction_type',
+        'transaction_uuid',
+    ]
+}
+
+#
+# VIEWS
+#
 
 @require_http_methods(["GET"])
 def index(request):
@@ -36,11 +70,7 @@ def subscribe(request):
     Redirects user to CyberSource for payment.
     """
     try:
-        data = verify_perma_transmission(request.POST, ('registrar',
-                                                        'amount',
-                                                        'recurring_amount',
-                                                        'recurring_frequency',
-                                                        'recurring_start_date'))
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['subscribe'])
     except InvalidTransmissionException:
         return bad_request(request)
 
@@ -104,7 +134,7 @@ def update(request):
     Redirects user to CyberSource for payment.
     """
     try:
-        data = verify_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, ('registrar',))
     except InvalidTransmissionException:
         return bad_request(request)
 
@@ -177,7 +207,7 @@ def cybersource_callback(request):
     """
     In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
     """
-    data = verify_cybersource_transmission(request.POST, (
+    data = process_cybersource_transmission(request.POST, (
         'req_transaction_uuid',
         'decision',
         'reason_code',
@@ -272,7 +302,7 @@ def subscription(request):
     as needed for making decisions in Perma.
     """
     try:
-        data = verify_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, ('registrar',))
     except InvalidTransmissionException:
         return bad_request(request)
 
@@ -312,7 +342,7 @@ def cancel_request(request):
     # but status = anything but 'cancelled'...
     """
     try:
-        data = verify_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, ('registrar',))
     except InvalidTransmissionException:
         return bad_request(request)
 
