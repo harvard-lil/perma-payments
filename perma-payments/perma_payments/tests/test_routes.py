@@ -32,6 +32,8 @@ recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan
 # payment_token = text(alphabet="0123456789", min_size=26, max_size=26).example()
 # post = QueryDict('a=1,b=2,c=3')
 
+sentinel_bytes = b'sentinel_bytes'
+
 def expected_template_used(response, expected):
     template_list = [template.name for template in response.templates]
     assert expected in template_list
@@ -126,6 +128,9 @@ def cybersource_callback():
 def subscription():
     return {
         'route': '/subscription/',
+        'valid_data': {
+            'registrar': registrar_id
+        }
     }
 
 
@@ -542,6 +547,87 @@ def test_cancel_request_other_methods(client, cancel_request):
 
 
 # subscription
+
+def test_subscription_post_invalid_transmission(client, subscription, mocker):
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, side_effect=InvalidTransmissionException)
+
+    # request
+    response = client.post(subscription['route'], subscription['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(subscription['valid_data']), FIELDS_REQUIRED_FROM_PERMA['subscription'])
+
+
+def test_subscription_post_no_standing_subscription(client, subscription, mocker):
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa.registrar_standing_subscription.return_value = None
+    d = mocker.patch('perma_payments.views.datetime', autospec=True)
+    d.utcnow.return_value.timestamp.return_value = mocker.sentinel.timestamp
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    d.utcnow.return_value.timestamp.assert_called_once()
+    sa.registrar_standing_subscription.assert_called_once_with(subscription['valid_data']['registrar'])
+    prepped.assert_called_once_with({
+        'registrar': subscription['valid_data']['registrar'],
+        'subscription': None,
+        'timestamp': mocker.sentinel.timestamp
+    })
+    r = response.json()
+    assert r and list(r.keys()) == ['encrypted_data']
+    assert r['encrypted_data'] == sentinel_bytes.decode('utf-8')
+
+
+def test_subscription_post_standing_subscription(client, subscription, mocker):
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.cancellation_requested = False
+    sa.registrar_standing_subscription.return_value = sa_instance
+    d = mocker.patch('perma_payments.views.datetime', autospec=True)
+    d.utcnow.return_value.timestamp.return_value = mocker.sentinel.timestamp
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    sa.registrar_standing_subscription.assert_called_once_with(subscription['valid_data']['registrar'])
+    prepped.assert_called_once_with({
+        'registrar': subscription['valid_data']['registrar'],
+        'subscription': {
+            'rate': sa_instance.subscription_request.recurring_amount,
+            'frequency': sa_instance.subscription_request.recurring_frequency,
+            'status': sa_instance.status
+        },
+        'timestamp': mocker.sentinel.timestamp
+    })
+    r = response.json()
+    assert r and list(r.keys()) == ['encrypted_data']
+    assert r['encrypted_data'] == sentinel_bytes.decode('utf-8')
+
+
+def test_subscription_post_standing_subscription_cancellation_status(client, subscription, mocker):
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.cancellation_requested = True
+    sa.registrar_standing_subscription.return_value = sa_instance
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    assert prepped.mock_calls[0][1][0]['subscription']['status'] == 'Cancellation Requested'
+
 
 def test_subscription_other_methods(client, subscription):
     get_not_allowed(client, subscription['route'])

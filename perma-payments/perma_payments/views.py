@@ -34,8 +34,12 @@ FIELDS_REQUIRED_FROM_PERMA = {
     ],
     'update': [
         'registrar'
+    ],
+    'subscription': [
+        'registrar'
     ]
 }
+
 FIELDS_REQUIRED_FOR_CYBERSOURCE = {
     'subscribe': [
         'access_key',
@@ -317,7 +321,7 @@ def subscription(request):
     as needed for making decisions in Perma.
     """
     try:
-        data = process_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['subscription'])
     except InvalidTransmissionException:
         return bad_request(request)
 
