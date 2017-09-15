@@ -177,8 +177,8 @@ def test_subscribe_post_already_standing_subscription(client, subscribe, mocker)
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value=mocker.sentinel.some_subscription_agreement
     sa_instance = sa.return_value
+    sa.registrar_standing_subscription.return_value=sa_instance
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
 
