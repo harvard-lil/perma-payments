@@ -177,7 +177,7 @@ def test_subscribe_post_already_standing_subscription(client, subscribe, mocker)
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value=True
+    sa.registrar_standing_subscription.return_value=mocker.sentinel.some_subscription_agreement
     sa_instance = sa.return_value
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
@@ -199,12 +199,12 @@ def test_subscribe_post_sa_validation_fails(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = False
+    sa.registrar_standing_subscription.return_value = None
     sa_instance = sa.return_value
     sa_instance.full_clean.side_effect=ValidationError('oh no!')
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
-    log = mocker.patch('perma_payments.views.logger.warning', autospec=True, return_value=mocker.sentinel.logger)
+    log = mocker.patch('perma_payments.views.logger.warning', autospec=True)
 
     # request
     response = client.post(subscribe['route'])
@@ -224,11 +224,11 @@ def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = False
+    sa.registrar_standing_subscription.return_value = None
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     sr_instance.full_clean.side_effect=ValidationError('oh no!')
-    log = mocker.patch('perma_payments.views.logger.warning', autospec=True, return_value=mocker.sentinel.logger)
+    log = mocker.patch('perma_payments.views.logger.warning', autospec=True)
 
     # request
     response = client.post(subscribe['route'])
@@ -247,7 +247,7 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = False
+    sa.registrar_standing_subscription.return_value = None
     sa_instance = sa.return_value
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
@@ -279,7 +279,7 @@ def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = False
+    sa.registrar_standing_subscription.return_value = None
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
@@ -314,7 +314,7 @@ def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, sub
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = False
+    sa.registrar_standing_subscription.return_value = None
     mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=subscribe_redirect_fields)
 
