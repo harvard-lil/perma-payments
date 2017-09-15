@@ -541,6 +541,13 @@ def test_cancel_request_other_methods(client, cancel_request):
     put_patch_delete_not_allowed(client, cancel_request['route'])
 
 
+# subscription
+
+def test_subscription_other_methods(client, subscription):
+    get_not_allowed(client, subscription['route'])
+    put_patch_delete_not_allowed(client, subscription['route'])
+
+
 # update_statuses
 
 def test_update_statuses_post(update_statuses):
