@@ -31,6 +31,9 @@ FIELDS_REQUIRED_FROM_PERMA = {
         'recurring_amount',
         'recurring_frequency',
         'recurring_start_date'
+    ],
+    'update': [
+        'registrar'
     ]
 }
 FIELDS_REQUIRED_FOR_CYBERSOURCE = {
@@ -47,7 +50,19 @@ FIELDS_REQUIRED_FOR_CYBERSOURCE = {
         'reference_number',
         'signed_date_time',
         'transaction_type',
-        'transaction_uuid',
+        'transaction_uuid'
+    ],
+    'update': [
+        'access_key',
+        'allow_payment_token_update',
+        'locale',
+        'payment_method',
+        'payment_token',
+        'profile_id',
+        'reference_number',
+        'signed_date_time',
+        'transaction_type',
+        'transaction_uuid'
     ]
 }
 
@@ -134,7 +149,7 @@ def update(request):
     Redirects user to CyberSource for payment.
     """
     try:
-        data = process_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['update'])
     except InvalidTransmissionException:
         return bad_request(request)
 

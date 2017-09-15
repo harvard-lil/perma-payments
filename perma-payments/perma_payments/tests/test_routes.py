@@ -97,10 +97,21 @@ def subscribe_redirect_fields():
 
 @pytest.fixture
 def update():
-    return {
+    data = {
         'route': '/update/',
-        'template': 'redirect.html'
+        'template': 'redirect.html',
+        'valid_data': {
+            'registrar': registrar_id
+        }
     }
+    for field in FIELDS_REQUIRED_FROM_PERMA['update']:
+        assert field in data['valid_data']
+    return data
+
+
+@pytest.fixture
+def update_redirect_fields():
+    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']}
 
 
 @pytest.fixture
@@ -137,6 +148,8 @@ def update_statuses():
 # TESTS
 #
 
+# OMG these are ridiculous. Maybe I should break these views out into smaller functions.......
+
 # index
 
 def test_index_get(client, index):
@@ -151,7 +164,6 @@ def test_index_other_methods(client, index):
 
 
 # subscribe
-# OMG these are ridiculous. Maybe I should break these views out into smaller functions.......
 
 def test_subscribe_post_invalid_perma_transmission(client, subscribe, mocker):
     # mocks
@@ -339,8 +351,174 @@ def test_subscribe_other_methods(client, subscribe):
 
 # update
 
-def test_update_post(update):
-    pass
+def test_update_post_invalid_perma_transmission(client, update, mocker):
+    # mocks
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, side_effect=InvalidTransmissionException)
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+
+    # request
+    response = client.post(update['route'], update['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(update['valid_data']), FIELDS_REQUIRED_FROM_PERMA['update'])
+    assert not ur_instance.save.called
+
+
+def test_update_post_no_standing_subscription(client, update, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa.registrar_standing_subscription.return_value = None
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+
+    # request
+    response = client.post(update['route'], update['valid_data'])
+
+    # assertions
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b"can't find any active subscriptions" in response.content
+    sa.registrar_standing_subscription.assert_called_once_with(update['valid_data']['registrar'])
+    assert not ur_instance.save.called
+
+
+def test_update_post_subscription_unalterable(client, update, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.can_be_altered.return_value = False
+    sa.registrar_standing_subscription.return_value = sa_instance
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+
+    # request
+    response = client.post(update['route'], update['valid_data'])
+
+    # assertions
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b"can't find any active subscriptions" in response.content
+    sa_instance.can_be_altered.assert_called_once()
+    assert not ur_instance.save.called
+
+
+def test_update_post_ur_validation_fails(client, update, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.can_be_altered.return_value = True
+    sa.registrar_standing_subscription.return_value = sa_instance
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+    ur_instance.full_clean.side_effect=ValidationError('oh no!')
+    log = mocker.patch('perma_payments.views.logger.warning', autospec=True)
+
+    # request
+    response = client.post(update['route'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    ur_instance.full_clean.assert_called_once()
+    assert not ur_instance.save.called
+    log.assert_called_once()
+
+
+def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa.registrar_standing_subscription.return_value = sa_instance
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+
+    # request
+    response = client.post(update['route'])
+
+    # assertions
+    assert response.status_code == 200
+    ur.assert_called_once_with(
+        subscription_agreement=sa_instance
+    )
+    ur_instance.full_clean.assert_called_once()
+    ur_instance.save.assert_called_once()
+
+
+def test_update_post_data_prepped_correctly(client, update, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa.registrar_standing_subscription.return_value = sa_instance
+    sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
+    sr_instance = sr.return_value
+    srr = mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
+    srr_instance = srr.return_value
+    sa_instance.subscription_request = sr_instance
+    sr_instance.subscription_request_response = srr_instance
+    ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    ur_instance = ur.return_value
+    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
+
+    # request
+    response = client.post(update['route'])
+
+    # assertions
+    assert response.status_code == 200
+    fields_to_prep = {
+        'access_key': settings.CS_ACCESS_KEY,
+        'allow_payment_token_update': 'true',
+        'locale': sr_instance.locale,
+        'payment_method': sr_instance.payment_method,
+        'payment_token': srr_instance.payment_token,
+        'profile_id': settings.CS_PROFILE_ID,
+        'reference_number': sr_instance.reference_number,
+        'signed_date_time': ur_instance.get_formatted_datetime(),
+        'transaction_type': ur_instance.transaction_type,
+        'transaction_uuid': ur_instance.transaction_uuid,
+    }
+    prepped.assert_called_once_with(fields_to_prep)
+    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']:
+        assert field in fields_to_prep
+
+
+def test_update_post_redirect_form_populated_correctly(client, update, update_redirect_fields, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa.registrar_standing_subscription.return_value = sa_instance
+    mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
+    mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
+    mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
+    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=update_redirect_fields)
+
+
+    # request
+    response = client.post(update['route'])
+
+    # assertions
+    assert response.status_code == 200
+    assert response.context['fields_to_post'] == update_redirect_fields
+    context = list(response.context.keys())
+    for field in ['fields_to_post', 'post_to_url']:
+        assert field in context
+    expected_template_used(response, 'redirect.html')
+    for field in update_redirect_fields:
+        assert bytes('<input type="hidden" name="{0}" value="{0}">'.format(field), 'utf-8') in response.content
 
 
 def test_update_other_methods(client, update):
@@ -357,24 +535,6 @@ def test_cybersource_callback_post(cybersource_callback):
 def test_cybersource_callback_other_methods(client, cybersource_callback):
     get_not_allowed(client, cybersource_callback['route'])
     put_patch_delete_not_allowed(client, cybersource_callback['route'])
-
-
-# subscription
-
-def test_subscription_post(subscription):
-    pass
-
-
-def test_subscription_other_methods(client, subscription):
-    get_not_allowed(client, subscription['route'])
-    put_patch_delete_not_allowed(client, subscription['route'])
-
-
-# cancel_request
-
-def test_cancel_request_post(cancel_request):
-    pass
-
 
 def test_cancel_request_other_methods(client, cancel_request):
     get_not_allowed(client, cancel_request['route'])
