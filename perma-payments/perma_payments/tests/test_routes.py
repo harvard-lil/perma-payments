@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.http import QueryDict
 
 # from hypothesis import given
-from hypothesis.strategies import characters, text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
+from hypothesis.strategies import decimals
 import pytest
 
 from perma_payments.security import InvalidTransmissionException
@@ -280,7 +280,6 @@ def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.registrar_standing_subscription.return_value = False
-    sa_instance = sa.return_value
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
@@ -316,10 +315,8 @@ def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, sub
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.registrar_standing_subscription.return_value = False
-    sa_instance = sa.return_value
-    sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
-    sr_instance = sr.return_value
-    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=subscribe_redirect_fields)
+    mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
+    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=subscribe_redirect_fields)
 
     # request
     response = client.post(subscribe['route'])
