@@ -11,6 +11,7 @@ from django.http import QueryDict
 from hypothesis.strategies import decimals
 import pytest
 
+from perma_payments.models import STANDING_STATUSES, SubscriptionAgreement, SubscriptionRequest
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import *
 
@@ -149,6 +150,27 @@ def update_statuses():
     return {
         'route': '/update-statuses/',
     }
+
+
+@pytest.fixture(params=STANDING_STATUSES)
+@pytest.mark.django_db
+def complete_standing_sa(request):
+    sa = SubscriptionAgreement(
+        registrar=registrar_id,
+        status=request.param
+    )
+    sa.save()
+    sr = SubscriptionRequest(
+        subscription_agreement=sa,
+        amount=amount,
+        recurring_amount=recurring_amount,
+        recurring_start_date=genesis,
+        recurring_frequency=recurring_frequency
+    )
+    sr.save()
+    assert not sa.cancellation_requested
+    assert sa.can_be_altered
+    return sa
 
 
 
@@ -676,7 +698,6 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, moc
     email = mocker.patch('perma_payments.views.send_admin_email', autospec=True)
     log = mocker.patch('perma_payments.views.logger.info', autospec=True)
 
-
     # request
     response = client.post(cancel_request['route'])
 
@@ -696,6 +717,15 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, moc
     sa_instance.save.assert_called_once_with(update_fields=['cancellation_requested'])
     assert response.status_code == 302
     assert response['Location'] == settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL
+
+
+@pytest.mark.django_db
+def test_cancel_request_post_subscription_status_actually_updated(client, cancel_request, complete_standing_sa, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa.registrar_standing_subscription.return_value = complete_standing_sa
+    client.post(cancel_request['route'])
+    assert complete_standing_sa.cancellation_requested
 
 
 def test_cancel_request_other_methods(client, cancel_request):
