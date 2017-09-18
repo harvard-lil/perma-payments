@@ -3,7 +3,7 @@ from datetime import datetime
 import io
 
 from django.conf import settings
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
@@ -72,6 +72,27 @@ FIELDS_REQUIRED_FOR_CYBERSOURCE = {
         'transaction_uuid'
     ]
 }
+
+
+def skip_lines(csv_file, lines):
+    """
+    Given a file object, advances the read/write head <lines> number of lines.
+    Useful for skipping over undesired lines of a file before processing.
+    Returns None.
+    """
+    for i in range(lines):
+        csv_file.readline()
+
+
+def in_mem_csv_to_dict_reader(csv_file):
+    """
+    A POSTed file is processed by Django and made available as an InMemoryUploadedFile.
+    InMemoryUploadedFiles lack the necessary methods to pass them to a csv reader in the normal way.
+    This is a work around.
+    https://docs.djangoproject.com/en/1.11/ref/files/uploads/
+    """
+    return csv.DictReader(io.StringIO(csv_file.read().decode('utf-8')))
+
 
 #
 # VIEWS
@@ -397,26 +418,26 @@ def cancel_request(request):
 @require_http_methods(["POST"])
 def update_statuses(request):
     csv_file = request.FILES['csv_file']
-    for i in range(4):
-        csv_file.readline()
-    reader = csv.DictReader(io.StringIO(csv_file.read().decode('utf-8')))
-    for row in reader:
+    skip_lines(csv_file, 4)
+    for row in in_mem_csv_to_dict_reader(csv_file):
+        reference = row['Merchant Reference Code']
+        status = row['Status']
         try:
-            sa = SubscriptionAgreement.objects.filter(subscription_request__reference_number=row['Merchant Reference Code']).get()
+            sa = SubscriptionAgreement.objects.filter(subscription_request__reference_number=reference).get()
         except ObjectDoesNotExist:
-            logger.error("CyberSource reports a subscription {}: no corresponding record found".format(row['Merchant Reference Code']))
+            logger.error("CyberSource reports a subscription {}: no corresponding record found".format(reference))
             if settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND:
                 raise
             continue
-        except SubscriptionAgreement.MultipleObjectsReturned:
-            logger.error("Multiple subscription requests associated with {}.".format(row['Merchant Reference Code']))
+        except MultipleObjectsReturned:
+            logger.error("Multiple subscription requests associated with {}.".format(reference))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
                 raise
             continue
 
-        sa.status = row['Status']
-        sa.save()
-        logger.info("Updated subscription status for {} to {}".format(row['Merchant Reference Code'], row['Status']))
+        sa.status = status
+        sa.save(update_fields=['status'])
+        logger.info("Updated subscription status for {} to {}".format(reference, status))
 
     return render(request, 'generic.html', {'heading': "Statuses Updated",
                                             'message': "Check the application log for details."})
