@@ -37,6 +37,9 @@ FIELDS_REQUIRED_FROM_PERMA = {
     ],
     'subscription': [
         'registrar'
+    ],
+    'cancel_request': [
+        'registrar'
     ]
 }
 
@@ -361,7 +364,7 @@ def cancel_request(request):
     # but status = anything but 'cancelled'...
     """
     try:
-        data = process_perma_transmission(request.POST, ('registrar',))
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['cancel_request'])
     except InvalidTransmissionException:
         return bad_request(request)
 
@@ -387,8 +390,8 @@ def cancel_request(request):
     logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
     sa.cancellation_requested = True
-    sa.save()
-    return redirect(settings.PERMA_SUBSCRIPTION_CANCELLED_URL)
+    sa.save(update_fields=['cancellation_requested'])
+    return redirect(settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL)
 
 
 @require_http_methods(["POST"])

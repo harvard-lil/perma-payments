@@ -138,6 +138,9 @@ def subscription():
 def cancel_request():
     return {
         'route': '/cancel-request/',
+        'valid_data': {
+            'registrar': registrar_id
+        }
     }
 
 
@@ -541,10 +544,6 @@ def test_cybersource_callback_other_methods(client, cybersource_callback):
     get_not_allowed(client, cybersource_callback['route'])
     put_patch_delete_not_allowed(client, cybersource_callback['route'])
 
-def test_cancel_request_other_methods(client, cancel_request):
-    get_not_allowed(client, cancel_request['route'])
-    put_patch_delete_not_allowed(client, cancel_request['route'])
-
 
 # subscription
 
@@ -633,6 +632,75 @@ def test_subscription_other_methods(client, subscription):
     get_not_allowed(client, subscription['route'])
     put_patch_delete_not_allowed(client, subscription['route'])
 
+
+# cancellation request
+
+def test_cancel_request_post_invalid_transmission(client, cancel_request, mocker):
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, side_effect=InvalidTransmissionException)
+
+    # request
+    response = client.post(cancel_request['route'], cancel_request['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(cancel_request['valid_data']), FIELDS_REQUIRED_FROM_PERMA['cancel_request'])
+
+
+def test_cancel_request_post_subscription_unalterable(client, cancel_request, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.can_be_altered.return_value = False
+    sa.registrar_standing_subscription.return_value = sa_instance
+
+    # request
+    response = client.post(cancel_request['route'])
+
+    # assertions
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b"can't find any active subscriptions" in response.content
+    sa_instance.can_be_altered.assert_called_once()
+
+
+def test_cancel_request_post_subscription_happy_path(client, cancel_request, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.can_be_altered.return_value = True
+    sa.registrar_standing_subscription.return_value = sa_instance
+    email = mocker.patch('perma_payments.views.send_admin_email', autospec=True)
+    log = mocker.patch('perma_payments.views.logger.info', autospec=True)
+
+
+    # request
+    response = client.post(cancel_request['route'])
+
+    # assertions
+    sa_instance.can_be_altered.assert_called_once()
+    log.assert_called_once()
+    assert email.mock_calls[0][1][1] == settings.DEFAULT_FROM_EMAIL
+    assert email.mock_calls[0][2]['template'] == "email/cancel.txt"
+    assert email.mock_calls[0][2]['context'] == {
+        'registrar': registrar_id,
+        'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
+        'perma_url': settings.PERMA_URL,
+        'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
+        'registrar_users_path': settings.REGISTRAR_USERS_PATH,
+        'merchant_reference_number': sa_instance.subscription_request.reference_number
+    }
+    sa_instance.save.assert_called_once_with(update_fields=['cancellation_requested'])
+    assert response.status_code == 302
+    assert response['Location'] == settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL
+
+
+def test_cancel_request_other_methods(client, cancel_request):
+    get_not_allowed(client, cancel_request['route'])
+    put_patch_delete_not_allowed(client, cancel_request['route'])
 
 # update_statuses
 
