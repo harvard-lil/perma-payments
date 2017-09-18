@@ -562,7 +562,7 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
 
 
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
-    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.registrar_standing_subscription.return_value = None
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
@@ -586,7 +586,7 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 
 
 def test_subscription_post_standing_subscription(client, subscription, mocker):
-    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = False
@@ -615,7 +615,7 @@ def test_subscription_post_standing_subscription(client, subscription, mocker):
 
 
 def test_subscription_post_standing_subscription_cancellation_status(client, subscription, mocker):
-    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = True
