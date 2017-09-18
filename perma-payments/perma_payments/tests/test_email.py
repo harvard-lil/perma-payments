@@ -6,11 +6,11 @@ from perma_payments.email import *
 
 @pytest.fixture()
 def email():
-   return {
+    return {
        'subject': 'the subject',
        'message': 'the message',
        'from': 'from@example.com'
-   }
+    }
 
 def test_send_admin_email(email, mailoutbox):
     send_admin_email(email['subject'], email['from'], HttpRequest(), context={'message': email['message']})
