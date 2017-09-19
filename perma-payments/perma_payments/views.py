@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 def index(request):
-    return render(request, 'generic.html', {'heading': "perma-payments",
-                                            'message': "a window to CyberSource Secure Acceptance Web/Mobile"})
+    return render(request, 'generic.html', {'heading': "Perma Payments",
+                                            'message': "A window to CyberSource Secure Acceptance Web/Mobile"})
 
 
 @csrf_exempt

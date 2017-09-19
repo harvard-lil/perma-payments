@@ -33,6 +33,9 @@ Credit: HTML5 Boilerplate*/
 
 html, body {
     height: 100%;
+    background-color: #F6F8F1;
+    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #2D76EE;
 }
 
 div.wrapper {
@@ -50,6 +53,40 @@ div.wrapper-flex {
     justify-content:center;
 }
 
+header {
+    background-color: white;
+    padding: 20px;
+    top: 0px;
+}
+
+h1 {
+    font-weight: 700;
+    color: black;
+}
+
+p {
+  font-size: 2em;
+  line-height: 1.6;
+  font-weight: 100;
+}
+
+a {
+    text-decoration: none;
+}
+
+.logo a {
+    font-weight: 900;
+    color: #222;
+    height: 56px;
+    font-size: 24px;
+    padding-left: 16px;
+    min-width: 7em;
+}
+
+img.infinity-logo {
+    height: 15px;
+    margin-left: 5px;
+}
 
 .btn-link {
   color: #0080a4;
