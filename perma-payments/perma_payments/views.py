@@ -1,12 +1,16 @@
 import csv
 from datetime import datetime
+from functools import wraps
 import io
 
+
 from django.conf import settings
-from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned, PermissionDenied
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.utils.decorators import available_attrs
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -93,6 +97,23 @@ def in_mem_csv_to_dict_reader(csv_file):
     """
     return csv.DictReader(io.StringIO(csv_file.read().decode('utf-8')))
 
+
+def user_passes_test_or_403(test_func):
+    """
+    Decorator for views that checks that the user passes the given test,
+    raising PermissionDenied if not. Based on Django's user_passes_test.
+    The test should be a callable that takes the user object and
+    returns True if the user passes.
+    """
+    def decorator(view_func):
+        @login_required()
+        @wraps(view_func, assigned=available_attrs(view_func))
+        def _wrapped_view(request, *args, **kwargs):
+            if not test_func(request.user):
+                raise PermissionDenied
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
 
 #
 # VIEWS
@@ -415,6 +436,7 @@ def cancel_request(request):
     return redirect(settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL)
 
 
+@user_passes_test_or_403(lambda user: user.is_staff)
 @require_http_methods(["POST"])
 def update_statuses(request):
     csv_file = request.FILES['csv_file']
