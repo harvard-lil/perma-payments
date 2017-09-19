@@ -5,6 +5,7 @@ import io
 import urllib
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import QueryDict
@@ -148,6 +149,16 @@ def cancel_request():
 
 
 @pytest.fixture
+def update_statuses(status_csv):
+    return {
+        'route': '/update-statuses/',
+        'valid_data': {
+            'csv_file': status_csv
+        }
+    }
+
+
+@pytest.fixture
 def status_csv():
     output = io.StringIO()
     fieldnames = ['Merchant Reference Code', 'Status']
@@ -156,16 +167,6 @@ def status_csv():
     writer.writerow({'Merchant Reference Code': 'ref1', 'Status': 'Updated'})
     writer.writerow({'Merchant Reference Code': 'ref2', 'Status': 'Updated'})
     return SimpleUploadedFile("csv.csv", bytes(output.getvalue(), 'utf-8'), content_type="text/csv")
-
-
-@pytest.fixture
-def update_statuses(status_csv):
-    return {
-        'route': '/update-statuses/',
-        'valid_data': {
-            'csv_file': status_csv
-        }
-    }
 
 
 @pytest.fixture(params=STANDING_STATUSES)
@@ -189,6 +190,11 @@ def complete_standing_sa(request):
     assert sa.status != 'Updated'
     return sa
 
+
+@pytest.fixture()
+@pytest.mark.django_db
+def non_admin():
+    return User.objects.create_user('joe')
 
 
 #
@@ -753,30 +759,44 @@ def test_cancel_request_other_methods(client, cancel_request):
 # update_statuses
 
 @pytest.mark.django_db
-def test_update_statuses_post_raises_if_not_found_with_setting(client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_log_in_required(client, update_statuses):
+    response = client.post(update_statuses['route'])
+    assert response.status_code == 302
+    assert response['Location'] == "{}?next={}".format(settings.LOGIN_URL, update_statuses['route'])
+
+
+@pytest.mark.django_db
+def test_update_statuses_post_staff_required(client, non_admin, update_statuses):
+    client.force_login(non_admin)
+    response = client.post(update_statuses['route'])
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_update_statuses_post_raises_if_not_found_with_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.objects.filter.return_value.get.side_effect = ObjectDoesNotExist
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND = True
     with pytest.raises(ObjectDoesNotExist):
-        client.post(update_statuses['route'], update_statuses["valid_data"])
+        admin_client.post(update_statuses['route'], update_statuses["valid_data"])
     log.assert_called
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.objects.filter.return_value.get.side_effect = ObjectDoesNotExist
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND = False
-    client.post(update_statuses['route'], update_statuses["valid_data"])
+    admin_client.post(update_statuses['route'], update_statuses["valid_data"])
     log.assert_called
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_raises_if_multiple_found_with_setting(client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_raises_if_multiple_found_with_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
     # mocks
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
@@ -784,24 +804,24 @@ def test_update_statuses_post_raises_if_multiple_found_with_setting(client, upda
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
     with pytest.raises(MultipleObjectsReturned):
-        client.post(update_statuses['route'], update_statuses["valid_data"])
+        admin_client.post(update_statuses['route'], update_statuses["valid_data"])
     log.assert_called
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_doesnt_raise_if_multiple_found_without_setting(client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_doesnt_raise_if_multiple_found_without_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
     # mocks
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.objects.filter.return_value.get.side_effect = MultipleObjectsReturned
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = False
-    client.post(update_statuses['route'], update_statuses["valid_data"])
+    admin_client.post(update_statuses['route'], update_statuses["valid_data"])
     log.assert_called
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_statuses_happy_path(client, update_statuses, complete_standing_sa, mocker):
+def test_update_statuses_post_statuses_happy_path(admin_client, update_statuses, complete_standing_sa, mocker):
     # mocks
     skip_lines = mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
@@ -811,7 +831,7 @@ def test_update_statuses_post_statuses_happy_path(client, update_statuses, compl
     log_error = mocker.patch('perma_payments.views.logger.error', autospec=True)
 
     # request
-    response = client.post(update_statuses['route'], update_statuses["valid_data"])
+    response = admin_client.post(update_statuses['route'], update_statuses["valid_data"])
 
     # assertions
     skip_lines.mock_calls[0][1][0] == 4  # header lines skipped
@@ -827,7 +847,7 @@ def test_update_statuses_post_statuses_happy_path(client, update_statuses, compl
     assert b"Statuses Updated" in response.content
 
 
-def test_update_statuses_other_methods(client, update_statuses):
-    get_not_allowed(client, update_statuses['route'])
-    put_patch_delete_not_allowed(client, update_statuses['route'])
+def test_update_statuses_other_methods(admin_client, update_statuses):
+    get_not_allowed(admin_client, update_statuses['route'])
+    put_patch_delete_not_allowed(admin_client, update_statuses['route'])
 
