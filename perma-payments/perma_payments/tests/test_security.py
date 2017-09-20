@@ -49,11 +49,11 @@ def reverse_ascii_ordered_dict():
 
 @pytest.fixture
 def signed_field_names_sorted():
-    data = {
-        'foo': 'baz',
-        'bar': 'bamph',
-        'signed_field_names': 'bar,foo,signed_field_names'
-    }
+    data = OrderedDict([
+        ('foo', 'baz'),
+        ('bar', 'bamph'),
+        ('signed_field_names', 'bar,foo,signed_field_names')
+    ])
     fields_as_list = data['signed_field_names'].split(',')
     assert sorted(fields_as_list) == fields_as_list
     return data
@@ -61,11 +61,11 @@ def signed_field_names_sorted():
 
 @pytest.fixture
 def signed_field_names_not_sorted():
-    data = {
-        'foo': 'baz',
-        'bar': 'bamph',
-        'signed_field_names': 'foo,bar,signed_field_names'
-    }
+    data = OrderedDict([
+        ('foo', 'baz'),
+        ('bar', 'bamph'),
+        ('signed_field_names', 'foo,bar,signed_field_names')
+    ])
     fields_as_list = data['signed_field_names'].split(',')
     assert sorted(fields_as_list) != fields_as_list
     return data
@@ -77,11 +77,11 @@ def signed_data():
         Uses keys in settings_testing.py
     """
     return {
-        "data": {
-            "bar": "bamph",
-            "foo": "baz",
-            "signed_field_names": "bar,foo,signed_field_names"
-        },
+        "data": OrderedDict([
+            ("bar", "bamph"),
+            ("foo", "baz"),
+            ("signed_field_names", "bar,foo,signed_field_names")
+        ]),
         "string": "bar=bamph,foo=baz,signed_field_names=bar,foo,signed_field_names",
         "signature": b"wmEE0YLoDwXHf6kRe1e8AV9OcaFGNI+2qRQ8t9gS1Fk="
     }
@@ -170,7 +170,7 @@ def test_prep_for_cybersource_signature(one_two_three_dict, reverse_ascii_ordere
 def test_process_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
     is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=True)
     assert process_cybersource_transmission(spoof_cybersource_post, ['desired_field']) == {'desired_field': 'desired_field'}
-    is_valid.assert_called_once()
+    assert is_valid.call_count == 1
 
 
 def test_process_cybersource_transmission_missing_signature(spoof_cybersource_post):
@@ -201,7 +201,7 @@ def test_process_cybersource_transmission_invalid_signature(spoof_cybersource_po
     is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=False)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_cybersource_transmission(spoof_cybersource_post, [])
-    is_valid.assert_called_once()
+    assert is_valid.call_count == 1
     assert 'Data with invalid signature' in str(excinfo)
 
 
@@ -210,7 +210,7 @@ def test_process_cybersource_transmission_missing_arbitrary_field_we_require(spo
     del spoof_cybersource_post['desired_field']
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_cybersource_transmission(spoof_cybersource_post, ['desired_field'])
-    is_valid.assert_called_once()
+    assert is_valid.call_count == 1
     assert 'Incomplete data' in str(excinfo)
     assert 'desired_field' in str(excinfo)
 
@@ -252,7 +252,7 @@ def test_process_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
     assert 'SentinelException' in str(excinfo)
-    b64.assert_called_once()
+    assert b64.call_count == 1
 
 
 def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker):
@@ -261,7 +261,7 @@ def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
     assert 'SentinelException' in str(excinfo)
-    decrypt.assert_called_once()
+    assert decrypt.call_count == 1
 
 
 def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
@@ -271,7 +271,7 @@ def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
     assert 'SentinelException' in str(excinfo)
-    unstringify.assert_called_once()
+    assert unstringify.call_count == 1
 
 
 def test_process_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
@@ -384,9 +384,9 @@ def test_is_valid_signature_invalid(signed_data):
 def test_generate_public_private_keys():
     keys = generate_public_private_keys()
     expected_keys = ['a', 'b']
-    assert list(keys.keys()) == expected_keys
+    assert sorted(list(keys.keys())) == sorted(expected_keys)
     for key in expected_keys:
-        assert list(keys[key].keys()) == ['secret', 'public']
+        assert sorted(list(keys[key].keys())) == sorted(['secret', 'public'])
         assert keys[key]['secret'] != keys[key]['public']
         assert isinstance(PrivateKey(keys[key]['secret']), PrivateKey)
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)

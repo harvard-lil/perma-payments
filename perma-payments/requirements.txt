@@ -23,7 +23,9 @@ flake8==2.5.4
 hypothesis==3.24.1
 idna==2.5                 # via cryptography, requests
 mccabe==0.4.0             # via flake8
+mock==2.0.0
 paramiko==2.2.1           # via fabric3
+pbr==3.1.1                # via mock
 pep8==1.7.0               # via flake8
 pip-tools==1.9.0
 psycopg2==2.7.1
@@ -39,6 +41,6 @@ pytest-xdist==1.16.0
 pytest==3.1.2             # via pytest-cov, pytest-django, pytest-mock, pytest-xdist
 pytz==2017.2              # via django
 requests==2.18.3
-six==1.10.0               # via bcrypt, cryptography, fabric3, pip-tools, pynacl
+six==1.10.0               # via bcrypt, cryptography, fabric3, mock, pip-tools, pynacl
 urllib3==1.22             # via requests
 werkzeug==0.12.2

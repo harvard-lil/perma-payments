@@ -142,7 +142,7 @@ def blank_outgoing_transaction(mocker):
     tz = mocker.patch('django.utils.timezone.now', return_value=genesis)
     ot = OutgoingTransaction()
     ot.save()
-    tz.assert_called_once()
+    assert tz.call_count == 1
     return ot
 
 
@@ -198,7 +198,7 @@ def test_generate_reference_number_valid(mocker):
     mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
 
     generate_reference_number()
-    formatted.assert_called_once()
+    assert formatted.call_count == 1
     for c in formatted.call_args[0][0]:
         assert c in RN_SET
     assert REFERENCE_NUMBER_PREFIX == formatted.call_args[0][1]
@@ -322,7 +322,7 @@ def test_sa_update_status_after_cs_decision(complete_pending_sa, decision, mocke
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
     complete_pending_sa.update_status_after_cs_decision(decision, {})
     assert complete_pending_sa.status != 'Pending'
-    log.assert_called_once()
+    assert log.call_count == 1
 
 
 # OutgoingTransaction
