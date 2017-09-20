@@ -489,7 +489,7 @@ def test_update_post_invalid_perma_transmission(client, update, mocker):
 def test_update_post_no_standing_subscription(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.registrar_standing_subscription.return_value = None
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
@@ -508,7 +508,7 @@ def test_update_post_no_standing_subscription(client, update, mocker):
 def test_update_post_subscription_unalterable(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = False
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -530,6 +530,7 @@ def test_update_post_ur_validation_fails(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = True
@@ -555,6 +556,7 @@ def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -616,6 +618,7 @@ def test_update_post_redirect_form_populated_correctly(client, update, update_re
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -645,9 +648,6 @@ def test_update_other_methods(client, update):
 
 
 # cybersource_callback
-
-def test_cybersource_callback_post(client, cybersource_callback, mocker):
-    pass
 
 
 def test_cybersource_callback_post_invalid_transmission(client, cybersource_callback, mocker):
@@ -698,6 +698,7 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 @pytest.mark.django_db
 def test_cybersource_callback_post_subscription_request(client, cybersource_callback, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     mocked_related_request = sa_instance.subscription_request
@@ -776,7 +777,7 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
 
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.registrar_standing_subscription.return_value = None
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
     d.utcnow.return_value.timestamp.return_value = mocker.sentinel.timestamp
@@ -800,6 +801,7 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 
 def test_subscription_post_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = False
@@ -829,6 +831,7 @@ def test_subscription_post_standing_subscription(client, subscription, mocker):
 
 def test_subscription_post_standing_subscription_cancellation_status(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    # autospecing not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = True
@@ -883,6 +886,7 @@ def test_cancel_request_post_subscription_unalterable(client, cancel_request, mo
 def test_cancel_request_post_subscription_happy_path(client, cancel_request, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
+    # autospec not working here; revisit
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = True
