@@ -22,7 +22,7 @@ def test_send_admin_email(email, mailoutbox):
     assert m.reply_to == [email['from']]
 
 
-def test_send_admin_email_template(email, mailoutbox, mocker):
+def test_send_admin_email_template(email, mocker):
     stringified = mocker.patch('perma_payments.email.render_to_string', autospec=True)
     request = HttpRequest()
     send_admin_email(email['subject'], email['from'], request, template="test")

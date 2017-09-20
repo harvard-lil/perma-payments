@@ -28,15 +28,11 @@ from perma_payments.views import *
 #
 genesis = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
 registrar_id = random.randint(1, 1000)
-# reason_code = random.randint(1, 1000)
 recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
 amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
 recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-# message = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).example()
-# payment_token = text(alphabet="0123456789", min_size=26, max_size=26).example()
-# post = QueryDict('a=1,b=2,c=3')
-
 sentinel_bytes = b'sentinel_bytes'
+
 
 def expected_template_used(response, expected):
     template_list = [template.name for template in response.templates]
@@ -347,10 +343,10 @@ def test_subscribe_post_sa_validation_fails(client, subscribe, mocker):
     assert response.status_code == 400
     expected_template_used(response, 'generic.html')
     assert b'Bad Request' in response.content
-    sa_instance.full_clean.assert_called_once()
+    assert sa_instance.full_clean.call_count == 1
     assert not sa_instance.save.called
     assert not sr_instance.save.called
-    log.assert_called_once()
+    assert log.call_count == 1
 
 
 def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
@@ -371,9 +367,9 @@ def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
     assert response.status_code == 400
     expected_template_used(response, 'generic.html')
     assert b'Bad Request' in response.content
-    sr_instance.full_clean.assert_called_once()
+    assert sr_instance.full_clean.call_count == 1
     assert not sr_instance.save.called
-    log.assert_called_once()
+    assert log.call_count == 1
 
 
 def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscribe, mocker):
@@ -395,8 +391,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
         registrar=subscribe['valid_data']['registrar'],
         status='Pending'
     )
-    sa_instance.full_clean.assert_called_once()
-    sa_instance.save.assert_called_once()
+    assert sa_instance.full_clean.call_count == 1
+    assert sa_instance.save.call_count == 1
     sr.assert_called_once_with(
         subscription_agreement=sa_instance,
         amount=subscribe['valid_data']['amount'],
@@ -404,8 +400,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
         recurring_frequency=subscribe['valid_data']['recurring_frequency'],
         recurring_start_date=subscribe['valid_data']['recurring_start_date']
     )
-    sr_instance.full_clean.assert_called_once()
-    sr_instance.save.assert_called_once()
+    assert sr_instance.full_clean.call_count == 1
+    assert sr_instance.save.call_count == 1
 
 
 def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
@@ -526,7 +522,7 @@ def test_update_post_subscription_unalterable(client, update, mocker):
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b"can't find any active subscriptions" in response.content
-    sa_instance.can_be_altered.assert_called_once()
+    assert sa_instance.can_be_altered.call_count == 1
     assert not ur_instance.save.called
 
 
@@ -534,7 +530,8 @@ def test_update_post_ur_validation_fails(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = True
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -550,16 +547,17 @@ def test_update_post_ur_validation_fails(client, update, mocker):
     assert response.status_code == 400
     expected_template_used(response, 'generic.html')
     assert b'Bad Request' in response.content
-    ur_instance.full_clean.assert_called_once()
+    assert ur_instance.full_clean.call_count == 1
     assert not ur_instance.save.called
-    log.assert_called_once()
+    assert log.call_count == 1
 
 
 def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa.registrar_standing_subscription.return_value = sa_instance
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
@@ -573,8 +571,8 @@ def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
     ur.assert_called_once_with(
         subscription_agreement=sa_instance
     )
-    ur_instance.full_clean.assert_called_once()
-    ur_instance.save.assert_called_once()
+    assert ur_instance.full_clean.call_count == 1
+    assert ur_instance.save.call_count == 1
 
 
 def test_update_post_data_prepped_correctly(client, update, mocker):
@@ -620,7 +618,8 @@ def test_update_post_redirect_form_populated_correctly(client, update, update_re
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa.registrar_standing_subscription.return_value = sa_instance
     mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
@@ -649,9 +648,6 @@ def test_update_other_methods(client, update):
 
 
 # cybersource_callback
-
-def test_cybersource_callback_post(client, cybersource_callback, mocker):
-    pass
 
 
 def test_cybersource_callback_post_invalid_transmission(client, cybersource_callback, mocker):
@@ -683,7 +679,7 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 
     # assertions
     ot.objects.get.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
-    check_type.assert_called_once()
+    assert check_type.call_count == 1
     r.save_new_w_encryped_full_response.assert_called_once_with(
         UpdateRequestResponse,
         dict_to_querydict(cybersource_callback['valid_data']),
@@ -702,7 +698,8 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 @pytest.mark.django_db
 def test_cybersource_callback_post_subscription_request(client, cybersource_callback, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     mocked_related_request = sa_instance.subscription_request
     ot = mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
@@ -746,7 +743,7 @@ def test_cybersource_callback_payment_token_invalid(client, cybersource_callback
 
     client.post(cybersource_callback['route'], cybersource_callback['invalid_payment_token'])
 
-    log.assert_called_once()
+    assert log.call_count == 1
 
 
 @pytest.mark.django_db
@@ -790,7 +787,7 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
     response = client.post(subscription['route'])
 
     assert response.status_code == 200
-    d.utcnow.return_value.timestamp.assert_called_once()
+    assert d.utcnow.return_value.timestamp.call_count == 1
     sa.registrar_standing_subscription.assert_called_once_with(subscription['valid_data']['registrar'])
     prepped.assert_called_once_with({
         'registrar': subscription['valid_data']['registrar'],
@@ -804,7 +801,8 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 
 def test_subscription_post_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = False
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -833,7 +831,8 @@ def test_subscription_post_standing_subscription(client, subscription, mocker):
 
 def test_subscription_post_standing_subscription_cancellation_status(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospecing not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.cancellation_requested = True
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -881,13 +880,14 @@ def test_cancel_request_post_subscription_unalterable(client, cancel_request, mo
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b"can't find any active subscriptions" in response.content
-    sa_instance.can_be_altered.assert_called_once()
+    assert sa_instance.can_be_altered.call_count == 1
 
 
 def test_cancel_request_post_subscription_happy_path(client, cancel_request, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    # autospec not working here; revisit
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = True
     sa.registrar_standing_subscription.return_value = sa_instance
@@ -898,8 +898,8 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, moc
     response = client.post(cancel_request['route'])
 
     # assertions
-    sa_instance.can_be_altered.assert_called_once()
-    log.assert_called_once()
+    assert sa_instance.can_be_altered.call_count == 1
+    assert log.call_count == 1
     assert email.mock_calls[0][1][1] == settings.DEFAULT_FROM_EMAIL
     assert email.mock_calls[0][2]['template'] == "email/cancel.txt"
     assert email.mock_calls[0][2]['context'] == {
@@ -954,7 +954,7 @@ def test_update_statuses_post_raises_if_not_found_with_setting(admin_client, upd
     settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND = True
     with pytest.raises(ObjectDoesNotExist):
         admin_client.post(update_statuses['route'], update_statuses["valid_data"])
-    log.assert_called
+    assert log.call_count == 1
 
 
 @pytest.mark.django_db
@@ -965,7 +965,7 @@ def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(admin_cl
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND = False
     admin_client.post(update_statuses['route'], update_statuses["valid_data"])
-    log.assert_called
+    assert log.call_count == 2
 
 
 @pytest.mark.django_db
@@ -978,7 +978,7 @@ def test_update_statuses_post_raises_if_multiple_found_with_setting(admin_client
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
     with pytest.raises(MultipleObjectsReturned):
         admin_client.post(update_statuses['route'], update_statuses["valid_data"])
-    log.assert_called
+    assert log.call_count == 1
 
 
 @pytest.mark.django_db
@@ -990,7 +990,7 @@ def test_update_statuses_post_doesnt_raise_if_multiple_found_without_setting(adm
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = False
     admin_client.post(update_statuses['route'], update_statuses["valid_data"])
-    log.assert_called
+    assert log.call_count == 2
 
 
 @pytest.mark.django_db
@@ -1013,8 +1013,8 @@ def test_update_statuses_post_statuses_happy_path(admin_client, update_statuses,
     matching_sa.assert_any_call(subscription_request__reference_number='ref1')
     matching_sa.assert_any_call(subscription_request__reference_number='ref2')
     assert complete_standing_sa.status == 'Updated'
-    log_info.assert_called()
-    log_error.assert_not_called()
+    assert log_info.call_count == 2
+    assert not log_error.called
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b"Statuses Updated" in response.content

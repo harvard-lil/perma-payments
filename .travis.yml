@@ -1,16 +1,17 @@
+dist: trusty
+sudo: required
+
 env:
   global:
     - secure: "Cs+WnEpcnEzKqKA97+3eFzVDq36QCes3i5ULjKO2vYxDgk7oCqWhP4lTZ90qo7ti+1EG26JHxIXJHZnG3bom79cZNH2Safb9gM3Ssp/WyqP2CVqIH65I+Gi+ngJHFOKAIowXUILgGbe+TCEjMVAAED5HIurxlIcJtdDgfPQGZIhaRRXQCsVH3zdcihX85sr7BTIp7DZQm/9fYl9vNjhHu455i3vI6RSivAxAbM/vFuaD9qQVDsYcrvccxwy5ZygV+1bj/Z23o6fduTOxJabb3soNKVfWg6q2Aoio/HQrkIAPVl69pt3jV064ignANLImkctXfJcWL0fGhzVjFGtRDvjNic5890YM3rJpVTXPAA786YGLH2mT+if0mpcCxjNfkH0yWp1apyR1GORDR0/fy4Kn0FT/xotUB132IHbk0bVaI/1TBwMN9WN+hK3BGZKbJ+pfnAXQIrTgCOuwj/2AWBePbJe3wtLwYMwJ7NCXBYR6FtKr81lPI+V1APw5o3iILAvAewlvKGaGo3wo6F1n1K2U+vsB8X0TvYlZtIw3M61O+666TIU/kTjCnZTKuLxHkFp+QD0H4RtsBZNPNh0PrGxnIvLEEUCKHHQDxIfNGhrEc0keO0ZUQp3qfkzpsENS4d+sTfJb8CQUUtplstDQytwb3rzi3nT5imd9LPaX3n8="
     - secure: "RdUE3KHeb/jc7XbV0LA/qURa+glNt0yoFNDq4htnCD9TvrsqrRiKyWZPz2lfLSns3LihhwBRwMVDqyQ23B2RuGF24O9MGkpIG4G0hthaVPOtcobtnoS628pRxcYu2mB1yWi4mQ6IAwE3oTrf7U7XCv1/Cyu2fCbkz42oX9+Witq2aXHngs7SBw1km5KnXivmGcXEDa6CgKXRvxzdkmuzUcjRrpX7enF8sb4oWcd3YnMEOzL0kEz0+ZEzAhhE6wy2kmoJCWI1lh19CfKGcy1jArefqxrsjbnPq8RLyfBBYBb16FtMynikzMs5E01zO/r+VBjJ521fS2r6iDiJzubjBl5juVsGaKD/yEdz29gk/7lhRa124IWBJAi1/cBlFDqYDbKlRd4aZJE8vCseJL/DRRLq9hEnLn7lqMODXw6XxKo59GVaEP6kDMYP2l+Oh0p/BFMxS6XpGvnu0OLT39Oi3oowXqNMj3GsLbl3kpYLKaRVVok76uH4aAN1uVMYwypCBjpVkMrBcFb3A9r+R1JkmEr9XMtS0l3z1byE0KNMko4HtGrUKH301lnjIClIVcEP/CsHRGOcZrd+r7P1wOuewLCHdHGIbQZhmgo2Us4+tk8wEDQq/eCsTts82ZdZkyEITqP05z5MMgHKTjIXuCXuCezE2MIDlwhk4VQJ6CmwPr8="
 
-dist: precise
 language: python
 python:
-  - "3.6"
+  - "3.4"
 
-# postgresql: "9.6" not available in precise env
 addons:
-  postgresql: "9.4"
+  postgresql: "9.6"
 
 services:
   - postgresql

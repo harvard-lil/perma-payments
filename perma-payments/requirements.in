@@ -20,6 +20,7 @@ flake8==2.5.4               # code linting
 pytest-cov==2.5.1           # record code coverage
 hypothesis==3.24.1          # smarter tests
 pytest-mock==1.6.2          # more powerful mocking
+mock==2.0.0                 # up to date mock, not that bundled w/ python 3.4
 
 # perma-spoof requirements
 requests                    # for api calls to perma-payments

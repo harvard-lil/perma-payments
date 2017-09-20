@@ -30,10 +30,10 @@ def generate_reference_number():
     Generate a unique, human-friendly reference number. Based on Perma GUID generation.
 
     Only make 100 attempts:
-    If there are requent collisions, expand the keyspace or change the prefix.
+    If there are frequent collisions, expand the keyspace or change the prefix.
     """
     for i in range(100):
-        rn = get_formatted_reference_number(random.choices(RN_SET, k=8), REFERENCE_NUMBER_PREFIX)
+        rn = get_formatted_reference_number(''.join(random.choice(RN_SET) for _ in range(8)), REFERENCE_NUMBER_PREFIX)
         if is_ref_number_available(rn):
             break
     else:
