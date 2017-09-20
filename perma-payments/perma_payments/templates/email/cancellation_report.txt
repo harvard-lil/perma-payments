@@ -15,13 +15,7 @@ CyberSource Business Center and cancel the subscriptions:
 The customer will continue to be charged until this task is completed.
 
 If you wish to email each customer to tell them their cancellations has
-been processed, you may find their contact information at perma.cc:
-
-GENERAL:
-{{ perma_url }}{{ registrar_detail_path }}<regisrar id>
-
-REGISTRAR USERS:
-{{ perma_url }}{{ registrar_users_path }}<regisrar id>
+been processed, you may find their contact information at perma.cc (links below).
 
 Thanks,
 Perma Payments
@@ -29,5 +23,10 @@ Perma Payments
 ---
 {% for request in requests %}
 registrar: {{ request.registrar }}, merchant reference number: {{ request.merchant_reference_number}}, subscription status: {{ request.status }}
+GENERAL CONTACT:
+{{ perma_url }}{{ registrar_detail_path }}{{ request.registrar }}
+REGISTRAR USERS:
+{{ perma_url }}{{ registrar_users_path }}{{ request.registrar }}
+
 {% endfor %}
 ---
