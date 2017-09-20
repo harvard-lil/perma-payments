@@ -1,21 +1,26 @@
+from ast import literal_eval
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import decimal
-from nacl.public import PrivateKey, PublicKey
+from django.http import QueryDict
+from nacl.public import PrivateKey, PublicKey, Box
+from random import randint
 from string import ascii_lowercase
 
 from hypothesis import given
-from hypothesis.strategies import text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
+from hypothesis.strategies import characters, text, integers, booleans, datetimes, dates, decimals, uuids, binary, lists, dictionaries
 import pytest
+from unittest.mock import Mock
 
 from perma_payments.security import *
 
 #
 # UTILS
 #
-class SentinalException(Exception):
+class SentinelException(Exception):
     pass
 
+post = QueryDict('a=1,b=2,c=3')
 
 #
 # FIXTURES
@@ -162,49 +167,49 @@ def test_prep_for_cybersource_signature(one_two_three_dict, reverse_ascii_ordere
     sign.assert_called_once_with(mocker.sentinel.stringified)
 
 
-def test_verify_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
+def test_process_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
     is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=True)
-    assert verify_cybersource_transmission(spoof_cybersource_post, ['desired_field']) == {'desired_field': 'desired_field'}
+    assert process_cybersource_transmission(spoof_cybersource_post, ['desired_field']) == {'desired_field': 'desired_field'}
     is_valid.assert_called_once()
 
 
-def test_verify_cybersource_transmission_missing_signature(spoof_cybersource_post):
+def test_process_cybersource_transmission_missing_signature(spoof_cybersource_post):
     del spoof_cybersource_post['signature']
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_cybersource_transmission(spoof_cybersource_post, [])
+        process_cybersource_transmission(spoof_cybersource_post, [])
     assert 'Incomplete POST' in str(excinfo)
     assert 'signature' in str(excinfo)
 
 
-def test_verify_cybersource_transmission_missing_signed_field_names(spoof_cybersource_post):
+def test_process_cybersource_transmission_missing_signed_field_names(spoof_cybersource_post):
     del spoof_cybersource_post['signed_field_names']
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_cybersource_transmission(spoof_cybersource_post, [])
+        process_cybersource_transmission(spoof_cybersource_post, [])
     assert 'Incomplete POST' in str(excinfo)
     assert 'signed_field_names' in str(excinfo)
 
 
-def test_verify_cybersource_transmission_missing_field_in_signed_field_names(spoof_cybersource_post):
+def test_process_cybersource_transmission_missing_field_in_signed_field_names(spoof_cybersource_post):
     signed_field = spoof_cybersource_post['signed_field_names'].split(',').pop()
     del spoof_cybersource_post[signed_field]
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_cybersource_transmission(spoof_cybersource_post, [])
+        process_cybersource_transmission(spoof_cybersource_post, [])
     assert 'Incomplete POST' in str(excinfo)
 
 
-def test_verify_cybersource_transmission_invalid_signature(spoof_cybersource_post, mocker):
+def test_process_cybersource_transmission_invalid_signature(spoof_cybersource_post, mocker):
     is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=False)
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_cybersource_transmission(spoof_cybersource_post, [])
+        process_cybersource_transmission(spoof_cybersource_post, [])
     is_valid.assert_called_once()
     assert 'Data with invalid signature' in str(excinfo)
 
 
-def test_verify_cybersource_transmission_missing_arbitrary_field_we_require(spoof_cybersource_post, mocker):
+def test_process_cybersource_transmission_missing_arbitrary_field_we_require(spoof_cybersource_post, mocker):
     is_valid = mocker.patch('perma_payments.security.is_valid_signature', autospec=True, return_value=True)
     del spoof_cybersource_post['desired_field']
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_cybersource_transmission(spoof_cybersource_post, ['desired_field'])
+        process_cybersource_transmission(spoof_cybersource_post, ['desired_field'])
     is_valid.assert_called_once()
     assert 'Incomplete data' in str(excinfo)
     assert 'desired_field' in str(excinfo)
@@ -224,78 +229,78 @@ def test_prep_for_perma(mocker):
     b64.assert_called_once_with(mocker.sentinel.encrypted)
 
 
-def test_verify_perma_transmission_encrypted_data_not_in_post():
+def test_process_perma_transmission_encrypted_data_not_in_post():
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        assert verify_perma_transmission({}, [])
+        assert process_perma_transmission({}, [])
     assert 'No encrypted_data in POST.' in str(excinfo)
 
 
-def test_verify_perma_transmission_encrypted_data_none():
+def test_process_perma_transmission_encrypted_data_none():
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        assert verify_perma_transmission({'encrypted_data': None}, [])
+        assert process_perma_transmission({'encrypted_data': None}, [])
     assert 'No encrypted_data in POST.' in str(excinfo)
 
 
-def test_verify_perma_transmission_encrypted_data_empty():
+def test_process_perma_transmission_encrypted_data_empty():
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        assert verify_perma_transmission({'encrypted_data': ''}, [])
+        assert process_perma_transmission({'encrypted_data': ''}, [])
     assert 'No encrypted_data in POST.' in str(excinfo)
 
 
-def test_verify_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
-    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinalException)
+def test_process_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
+    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+        process_perma_transmission(spoof_perma_post, [])
+    assert 'SentinelException' in str(excinfo)
     b64.assert_called_once()
 
 
-def test_verify_perma_transmission_encryption_problem(spoof_perma_post, mocker):
+def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
-    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinalException)
+    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+        process_perma_transmission(spoof_perma_post, [])
+    assert 'SentinelException' in str(excinfo)
     decrypt.assert_called_once()
 
 
-def test_verify_perma_transmission_not_valid_json(spoof_perma_post, mocker):
+def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
-    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinalException)
+    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+        process_perma_transmission(spoof_perma_post, [])
+    assert 'SentinelException' in str(excinfo)
     unstringify.assert_called_once()
 
 
-def test_verify_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
+def test_process_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
     mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     del spoof_perma_post['encrypted_data']['timestamp']
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_perma_transmission(spoof_perma_post, [])
+        process_perma_transmission(spoof_perma_post, [])
     assert 'Missing timestamp in data.' in str(excinfo)
 
 
-def test_verify_perma_transmission_expired_timestamp(spoof_perma_post, mocker):
+def test_process_perma_transmission_expired_timestamp(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
     mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=False)
     with pytest.raises(InvalidTransmissionException) as excinfo:
-        verify_perma_transmission(spoof_perma_post, [])
+        process_perma_transmission(spoof_perma_post, [])
     assert 'Expired timestamp in data.' in str(excinfo)
 
 
-def test_verify_perma_transmission_happy_path(spoof_perma_post, mocker):
+def test_process_perma_transmission_happy_path(spoof_perma_post, mocker):
     b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, return_value=mocker.sentinel.encrypted)
     decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, return_value=mocker.sentinel.decrypted)
     unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     timestamp = mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=True)
 
-    assert verify_perma_transmission(spoof_perma_post, ['desired_field']) == {'desired_field': 'desired_field'}
+    assert process_perma_transmission(spoof_perma_post, ['desired_field']) == {'desired_field': 'desired_field'}
     b64.assert_called_once_with(spoof_perma_post['encrypted_data'])
     decrypt.assert_called_once_with(mocker.sentinel.encrypted)
     unstringify.assert_called_once_with(mocker.sentinel.decrypted)
@@ -325,14 +330,14 @@ def test_is_valid_timestamp():
     assert not is_valid_timestamp(invalid, max_age)
 
 
-preserved = text() | integers() | booleans()
-@given(preserved | dictionaries(keys=text(), values=preserved))
+preserved = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))) | integers() | booleans()
+@given(preserved | dictionaries(keys=text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))), values=preserved))
 def test_stringify_and_unstringify_data_types_preserved(data):
     assert unstringify_data(stringify_data(data)) == data
 
 
 oneway = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False) | datetimes() | dates() | uuids()
-@given(oneway | dictionaries(keys=text(), values=oneway))
+@given(oneway | dictionaries(keys=text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))), values=oneway))
 def test_stringify_types_lost(data):
     # Some types can be serialized, but not recovered from strings by json.loads.
     # Instead, you have to manually attempt to convert, by field, if you are expecting one of these types.
@@ -385,6 +390,19 @@ def test_generate_public_private_keys():
         assert keys[key]['secret'] != keys[key]['public']
         assert isinstance(PrivateKey(keys[key]['secret']), PrivateKey)
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)
+
+
+def test_stringify_request_post_for_encryption():
+    stringified = stringify_request_post_for_encryption(post)
+    assert isinstance(stringified, bytes)
+    assert literal_eval(str(stringified, 'utf-8')) == post.dict()
+
+
+def test_nonce_from_pk():
+    m = Mock(pk=randint(1,1000))
+    nonce = nonce_from_pk(m)
+    assert len(nonce) == Box.NONCE_SIZE
+    assert int.from_bytes(nonce, 'big') == m.pk
 
 
 @given(binary())

@@ -50,7 +50,7 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     return to_post
 
 
-def verify_cybersource_transmission(transmitted_data, fields):
+def process_cybersource_transmission(transmitted_data, fields):
     # Transmitted data must include signature, signed_field_names,
     # and all fields listed in signed_field_names
     try:
@@ -80,7 +80,7 @@ def prep_for_perma(dictionary):
     return base64.b64encode(encrypt_for_perma(stringify_data(dictionary)))
 
 
-def verify_perma_transmission(transmitted_data, fields):
+def process_perma_transmission(transmitted_data, fields):
     # Transmitted data should contain a single field, 'encrypted_data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
 
@@ -182,6 +182,14 @@ def generate_public_private_keys():
             'public': public_b._public_key,
         }
     }
+
+
+def stringify_request_post_for_encryption(post):
+    return bytes(str(post.dict()), 'utf-8')
+
+
+def nonce_from_pk(o):
+    return (o.pk).to_bytes(24, byteorder='big')
 
 
 def encrypt_for_storage(message, nonce):

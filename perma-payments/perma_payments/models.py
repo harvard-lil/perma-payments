@@ -1,14 +1,24 @@
+from collections import Sequence
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from .security import encrypt_for_storage
+from .security import encrypt_for_storage, stringify_request_post_for_encryption, nonce_from_pk
 
 import logging
 logger = logging.getLogger(__name__)
+
+#
+# CONSTANTS
+#
+
+RN_SET = "0123456789"
+REFERENCE_NUMBER_PREFIX = "PERMA"
+STANDING_STATUSES = ['Current', 'Hold']
 
 #
 # HELPERS
@@ -22,35 +32,35 @@ def generate_reference_number():
     Only make 100 attempts:
     If there are requent collisions, expand the keyspace or change the prefix.
     """
-    rn_set = "0123456789"
-    reference_number_prefix = "PERMA"
     for i in range(100):
-        # Generate an 8-character random string like "91276803"
-        rn = ''.join(random.choice(rn_set) for _ in range(8))
-
-        # apply standard formatting
-        rn = get_canonical_reference_number(rn, reference_number_prefix)
-
-        # see if reference number is unique
-        if not SubscriptionRequest.objects.filter(reference_number=rn).exists():
+        rn = get_formatted_reference_number(random.choices(RN_SET, k=8), REFERENCE_NUMBER_PREFIX)
+        if is_ref_number_available(rn):
             break
-        break
     else:
         raise Exception("No valid reference_number found in 100 attempts.")
     return rn
 
 
-def get_canonical_reference_number(rn, prefix):
+def get_formatted_reference_number(rn, prefix):
     """
-    Given a string of digits, return the canonical version (prefixed and with hyphens every 4 chars).
+    Given a sequence of non-hyphen characters, returns the formatted string (prefixed and with hyphens every 4 chars).
     E.g "12345678" -> "PERMA-1234-5678".
+    E.g "12345" -> "PERMA-1-2345".
     """
+    if not rn or not isinstance(rn, Sequence) or not all(isinstance(c, str) and len(c)==1 and c!='-'for c in rn):
+        raise TypeError("Provide a sequence of non-hyphen characters")
+    if not prefix or not isinstance(prefix, str) or '-' in prefix:
+        raise TypeError("Provide a string with no hyphens.")
+
     # split reference number into 4-char chunks, starting from the end
-    rn_parts = [rn[max(i - 4, 0):i] for i in
-                range(len(rn), 0, -4)]
+    rn_parts = ["".join(rn[max(i - 4, 0):i]) for i in range(len(rn), 0, -4)]
 
     # stick together parts with '-'
     return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
+
+
+def is_ref_number_available(rn):
+    return not SubscriptionRequest.objects.filter(reference_number=rn).exists()
 
 
 #
@@ -126,25 +136,78 @@ class SubscriptionAgreement(models.Model):
 
     @classmethod
     def registrar_standing_subscription(cls, registrar):
-        standing = cls.objects.filter(registrar=registrar, status__in=['Current', 'Hold'])
+        standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES)
         count = len(standing)
         if count == 0:
             return None
         if count > 1:
-            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, len(count)))
+            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, count))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
                 raise cls.MultipleObjectsReturned
         return standing.first()
 
 
     def can_be_altered(self):
-        return self.status in ('Current', 'Hold') and not self.cancellation_requested
+        return self.status in STANDING_STATUSES and not self.cancellation_requested
+
+
+    def update_status_after_cs_decision(self, decision, redacted_response):
+        decision_map = {
+            # Successful transaction. Reason codes 100 and 110.
+            'ACCEPT': {
+               'status': 'Current',
+               'log_level': logging.INFO,
+               'message': "Subscription request for registrar {} (subscription request {}) accepted.".format(self.registrar, self.subscription_request.pk)
+            },
+            # Authorization was declined; however, the capture may still be possible.
+            # Review payment details. See reason codes 200, 201, 230, and 520.
+            # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
+            'REVIEW': {
+               'status': 'Current',
+               'log_level': logging.ERROR,
+               'message': "Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+            },
+            # Transaction was declined.See reason codes 102, 200, 202, 203,
+            # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
+            # 234, 236, 240, 475, 476, and 481.
+            'DECLINE': {
+                'status': 'Rejected',
+                'log_level': logging.WARNING,
+                'message': "Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+            },
+            # Access denied, page not found, or internal server error.
+            # See reason codes 102, 104, 150, 151 and 152.
+            'ERROR': {
+                'status': 'Rejected',
+                'log_level': logging.ERROR,
+                'message': "Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+            },
+            # The customer did not accept the service fee conditions,
+            # or the customer cancelled the transaction.
+            'CANCEL': {
+                'status': 'Aborted',
+                'log_level': logging.INFO,
+                'message': "Subscription request {} aborted by registrar {}.".format(self.subscription_request.pk, self.registrar)
+            }
+        }
+        mapped = decision_map.get(decision, {
+            # Keep 'Pending' until we review and figure out what is going on
+            'status': 'Pending',
+            'log_level': logging.ERROR,
+            'message': "Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+        })
+        self.status = mapped['status']
+        self.save(update_fields=['status'])
+        logger.log(mapped['log_level'], mapped['message'])
 
 
 class OutgoingTransaction(PolymorphicModel):
     """
     Base model for all requests we send to CyberSource.
     """
+    def __str__(self):
+        return 'OutgoingTransaction {}'.format(self.id)
+
     transaction_uuid = models.UUIDField(
         default=uuid4,
         help_text="A unique ID for this 'transaction'. " +
@@ -270,8 +333,21 @@ class UpdateRequest(OutgoingTransaction):
 class Response(PolymorphicModel):
     """
     Base model for all responses we receive from CyberSource.
+
+    Most fields are null, just in case CyberSource sends us something ill-formed.
     """
+    def __str__(self):
+        return 'Response {}'.format(self.id)
+
+    def clean(self, *args, **kwargs):
+        super(Response, self).clean(*args, **kwargs)
+        if not self.full_response:
+            raise ValidationError({'full_response': 'This field cannot be blank.'})
+
+
+    # we can't guarantee cybersource will send us these fields, though we sure hope so
     decision = models.CharField(
+        blank=True,
         null=True,
         max_length=7,
         choices=(
@@ -282,13 +358,20 @@ class Response(PolymorphicModel):
             ('CANCEL', 'CANCEL'),
         )
     )
-    reason_code = models.IntegerField(null=True)
-    message = models.TextField(null=True)
+    reason_code = models.IntegerField(blank=True, null=True)
+    message = models.TextField(blank=True, null=True)
+    # required
     full_response = models.BinaryField(
-        null=True,
         help_text="The full response, encrypted, in case we ever need it."
     )
-    encryption_key_id = models.IntegerField(null=True)
+    encryption_key_id = models.IntegerField()
+
+    @property
+    def related_request(self):
+        """
+        Must be implemented by child models
+        """
+        raise NotImplementedError
 
     @property
     def subscription_agreement(self):
@@ -314,13 +397,20 @@ class Response(PolymorphicModel):
         data = {
             'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
             'full_response': encrypt_for_storage(
-                bytes(str(full_response.dict()), 'utf-8'),
+                stringify_request_post_for_encryption(full_response),
                 # use the OutgoingTransaction pk as the nonce, to ensure uniqueness
-                (fields['related_request'].pk).to_bytes(24, byteorder='big')
+                nonce_from_pk(fields['related_request'])
             )
         }
         data.update(fields)
         response = response_class(**data)
+        # I'm not sure it makes sense to validate before saving here.
+        # If there's some problem, what do we want to do?
+        # Might as well just wait for any db integrity errors, right?
+        # It's not like CyberSource will listen for a 400 response, and
+        # we should be notified, which will happen automatically if save fails.
+        #
+        # response.full_clean()
         response.save()
 
 
