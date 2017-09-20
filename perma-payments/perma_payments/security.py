@@ -143,10 +143,14 @@ def unstringify_data(data):
 
 def stringify_for_signature(data, sort=True):
     """
-    Takes a dict/mapping. Converts to a specially-formatted unicode string, suitable for
+    Takes an ordered dict/mapping. Converts to a specially-formatted unicode string, suitable for
     generating a signature that Cybersource can verify.
     """
-    if not isinstance(data, Mapping):
+    if not sort and not isinstance(data, OrderedDict):
+        # Otherwise, who knows what order we'll get!
+        # (until python 3.6 brings sanity to the situation)
+        raise TypeError('OrderedDict() required.')
+    elif not isinstance(data, Mapping):
         raise TypeError
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
 

@@ -49,11 +49,11 @@ def reverse_ascii_ordered_dict():
 
 @pytest.fixture
 def signed_field_names_sorted():
-    data = OrderedDict([
-        ('foo', 'baz'),
-        ('bar', 'bamph'),
-        ('signed_field_names', 'bar,foo,signed_field_names')
-    ])
+    data = {
+        'foo': 'baz',
+        'bar': 'bamph',
+        'signed_field_names': 'bar,foo,signed_field_names'
+    }
     fields_as_list = data['signed_field_names'].split(',')
     assert sorted(fields_as_list) == fields_as_list
     return data
@@ -367,6 +367,11 @@ def test_stringify_for_signature_not_sorted(signed_field_names_not_sorted):
     """
     data_to_sign = stringify_for_signature(signed_field_names_not_sorted, sort=False)
     assert data_to_sign == "foo=baz,bar=bamph,signed_field_names=foo,bar,signed_field_names"
+
+
+def test_stringify_for_signature_not_sorted_type_error(signed_field_names_sorted):
+    with pytest.raises(TypeError):
+        stringify_for_signature(signed_field_names_not_sorted, sort=False)
 
 
 def test_sign_data(signed_data):
