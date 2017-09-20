@@ -28,15 +28,11 @@ from perma_payments.views import *
 #
 genesis = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
 registrar_id = random.randint(1, 1000)
-# reason_code = random.randint(1, 1000)
 recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
 amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
 recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-# message = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).example()
-# payment_token = text(alphabet="0123456789", min_size=26, max_size=26).example()
-# post = QueryDict('a=1,b=2,c=3')
-
 sentinel_bytes = b'sentinel_bytes'
+
 
 def expected_template_used(response, expected):
     template_list = [template.name for template in response.templates]
