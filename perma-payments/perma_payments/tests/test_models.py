@@ -11,6 +11,7 @@ from hypothesis import given
 from hypothesis.strategies import characters, text, integers, booleans, datetimes, decimals, lists, tuples, sets, just
 import pytest
 
+from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import *
 
 #
@@ -109,6 +110,30 @@ def standing_sa_cancellation_requested(request):
     )
     sa.save()
     return sa
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def complete_pending_sa():
+    sa = SubscriptionAgreement(
+        registrar=registrar_id,
+        status='Pending'
+    )
+    sa.save()
+    sr = SubscriptionRequest(
+        subscription_agreement=sa,
+        amount=amount,
+        recurring_amount=recurring_amount,
+        recurring_start_date=genesis,
+        recurring_frequency=recurring_frequency
+    )
+    sr.save()
+    return sa
+
+
+@pytest.fixture(params=CS_DECISIONS)
+def decision(request):
+    return request.param
 
 
 @pytest.fixture()
@@ -290,6 +315,14 @@ def test_sa_can_be_altered_false_if_cancellation_requested(standing_sa_cancellat
 @pytest.mark.django_db
 def test_sa_can_be_altered_false_if_not_standing(not_standing_sa):
     assert not not_standing_sa.can_be_altered()
+
+
+@pytest.mark.django_db
+def test_sa_update_status_after_cs_decision(complete_pending_sa, decision, mocker):
+    log = mocker.patch('perma_payments.models.logger.log', autospec=True)
+    complete_pending_sa.update_status_after_cs_decision(decision, {})
+    assert complete_pending_sa.status != 'Pending'
+    log.assert_called_once()
 
 
 # OutgoingTransaction
