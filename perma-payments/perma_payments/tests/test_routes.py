@@ -124,7 +124,21 @@ def update_redirect_fields():
 def cybersource_callback():
     return {
         'route': '/cybersource-callback/',
-        'template': 'redirect.html'
+        'template': 'redirect.html',
+        'valid_data': {
+            'req_transaction_uuid': 'sentinel string',
+            'decision': 'sentinel string',
+            'reason_code': 'sentinel string',
+            'message': 'sentinel string',
+            'payment_token': 'sentinel string'
+        },
+        'invalid_payment_token': {
+            'req_transaction_uuid': 'sentinel string',
+            'decision': 'sentinel string',
+            'reason_code': 'sentinel string',
+            'message': 'sentinel string',
+            'payment_token': '1234567890123456'
+        }
     }
 
 
@@ -197,11 +211,66 @@ def non_admin():
     return User.objects.create_user('joe')
 
 
+@pytest.fixture()
+def five_line_file():
+    file = io.StringIO("line1\nline2\nline3\nline4\nline5\n")
+    assert 5 == sum(1 for line in file)
+    file.seek(0)
+    return file
+
+
+@pytest.fixture()
+def senstive_dict():
+    data = {
+        'payment_token': 'payment_token',
+        'req_access_key': 'req_access_key',
+        'req_bill_to_address_city': 'req_bill_to_address_city',
+        'req_bill_to_address_country': 'req_bill_to_address_country',
+        'req_bill_to_address_line1': 'req_bill_to_address_line1',
+        'req_bill_to_address_postal_code': 'req_bill_to_address_postal_code',
+        'req_bill_to_address_state': 'req_bill_to_address_state',
+        'req_bill_to_email': 'req_bill_to_email',
+        'req_bill_to_forename': 'req_bill_to_forename',
+        'req_bill_to_surname': 'req_bill_to_surname',
+        'req_card_expiry_date': 'req_card_expiry_date',
+        'req_card_number': 'req_card_number',
+        'req_payment_token': 'req_payment_token',
+        'req_profile_id': 'req_profile_id',
+        'signature': 'signature',
+        'FINE1': 'FINE1',
+        'FINE2': 'FINE2'
+    }
+    for field in SENSITIVE_POST_PARAMETERS:
+        assert field in data
+    for field in ['FINE1', 'FINE2']:
+        assert field in data
+    return data
+
+
 #
 # TESTS
 #
 
-# OMG these are ridiculous. Maybe I should break these views out into smaller functions.......
+
+# utils
+
+def test_skip_lines(five_line_file):
+    skip_lines(five_line_file, 4)
+    assert five_line_file.readline() == 'line5\n'
+
+
+def test_redact(senstive_dict):
+    redacted = redact(senstive_dict)
+    for field in SENSITIVE_POST_PARAMETERS:
+        assert field not in redacted
+    for field in ['FINE1', 'FINE2']:
+        assert field in redacted
+
+
+#
+# OMG these are ALL RIDICULOUS.
+# Maybe I should break these views out into smaller functions.......
+#
 
 # index
 
@@ -581,8 +650,112 @@ def test_update_other_methods(client, update):
 
 # cybersource_callback
 
-def test_cybersource_callback_post(cybersource_callback):
+def test_cybersource_callback_post(client, cybersource_callback, mocker):
     pass
+
+
+def test_cybersource_callback_post_invalid_transmission(client, cybersource_callback, mocker):
+    process = mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, side_effect=InvalidTransmissionException)
+
+    # request
+    response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(cybersource_callback['valid_data']), FIELDS_REQUIRED_FROM_CYBERSOURCE['cybersource_callback'])
+
+
+@pytest.mark.django_db
+def test_cybersource_callback_post_update_request(client, cybersource_callback, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    mocked_related_request = sa_instance.update_request
+    ot = mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
+    ot.objects.get.return_value = mocked_related_request
+    check_type = mocker.patch('perma_payments.views.isinstance', return_value=True)
+    r = mocker.patch('perma_payments.views.Response', autospec=True)
+
+    # request
+    response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
+
+    # assertions
+    ot.objects.get.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
+    check_type.assert_called_once()
+    r.save_new_w_encryped_full_response.assert_called_once_with(
+        UpdateRequestResponse,
+        dict_to_querydict(cybersource_callback['valid_data']),
+        {
+            'related_request': mocked_related_request,
+            'decision': cybersource_callback['valid_data']['decision'],
+            'reason_code': cybersource_callback['valid_data']['reason_code'],
+            'message': cybersource_callback['valid_data']['message']
+        }
+    )
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b'OK' in response.content
+
+
+@pytest.mark.django_db
+def test_cybersource_callback_post_subscription_request(client, cybersource_callback, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    mocked_related_request = sa_instance.subscription_request
+    ot = mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
+    ot.objects.get.return_value = mocked_related_request
+    check_type = mocker.patch('perma_payments.views.isinstance', side_effect=[False, True])
+    r = mocker.patch('perma_payments.views.Response', autospec=True)
+
+    # request
+    response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
+
+    # assertions
+    ot.objects.get.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
+    assert check_type.call_count == 2
+    r.save_new_w_encryped_full_response.assert_called_once_with(
+        SubscriptionRequestResponse,
+        dict_to_querydict(cybersource_callback['valid_data']),
+        {
+            'related_request': mocked_related_request,
+            'decision': cybersource_callback['valid_data']['decision'],
+            'reason_code': cybersource_callback['valid_data']['reason_code'],
+            'message': cybersource_callback['valid_data']['message'],
+            'payment_token': cybersource_callback['valid_data']['payment_token']
+        }
+    )
+    mocked_related_request.subscription_agreement.update_status_after_cs_decision.assert_called_once_with(
+        cybersource_callback['valid_data']['decision'],
+        redact(cybersource_callback['valid_data'])
+    )
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b'OK' in response.content
+
+
+@pytest.mark.django_db
+def test_cybersource_callback_payment_token_invalid(client, cybersource_callback, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['invalid_payment_token'])
+    mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
+    mocker.patch('perma_payments.views.isinstance', side_effect=[False, True])
+    mocker.patch('perma_payments.views.Response', autospec=True)
+    log = mocker.patch('perma_payments.views.logger.error', autospec=True)
+
+    client.post(cybersource_callback['route'], cybersource_callback['invalid_payment_token'])
+
+    log.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_cybersource_callback_post_type_not_handled(client, cybersource_callback, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
+    mocker.patch('perma_payments.views.isinstance', return_value=False)
+    with pytest.raises(NotImplementedError):
+        client.post(cybersource_callback['route'])
 
 
 def test_cybersource_callback_other_methods(client, cybersource_callback):

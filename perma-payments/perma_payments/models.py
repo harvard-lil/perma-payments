@@ -151,6 +151,56 @@ class SubscriptionAgreement(models.Model):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
 
 
+    def update_status_after_cs_decision(self, decision, redacted_response):
+        decision_map = {
+            # Successful transaction. Reason codes 100 and 110.
+            'ACCEPT': {
+               'status': 'Current',
+               'log_level': logging.INFO,
+               'message': "Subscription request for registrar {} (subscription request {}) accepted.".format(self.registrar, self.subscription_request.pk)
+            },
+            # Authorization was declined; however, the capture may still be possible.
+            # Review payment details. See reason codes 200, 201, 230, and 520.
+            # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
+            'REVIEW': {
+               'status': 'Current',
+               'log_level': logging.ERROR,
+               'message': "Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+            },
+            # Transaction was declined.See reason codes 102, 200, 202, 203,
+            # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
+            # 234, 236, 240, 475, 476, and 481.
+            'DECLINE': {
+                'status': 'Rejected',
+                'log_level': logging.WARNING,
+                'message': "Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+            },
+            # Access denied, page not found, or internal server error.
+            # See reason codes 102, 104, 150, 151 and 152.
+            'ERROR': {
+                'status': 'Rejected',
+                'log_level': logging.ERROR,
+                'message': "Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+            },
+            # The customer did not accept the service fee conditions,
+            # or the customer cancelled the transaction.
+            'CANCEL': {
+                'status': 'Aborted',
+                'log_level': logging.INFO,
+                'message': "Subscription request {} aborted by registrar {}.".format(self.subscription_request.pk, self.registrar)
+            }
+        }
+        mapped = decision_map.get(decision, {
+            # Keep 'Pending' until we review and figure out what is going on
+            'status': 'Pending',
+            'log_level': logging.ERROR,
+            'message': "Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+        })
+        self.status = mapped['status']
+        self.save(update_fields=['status'])
+        logger.log(mapped['log_level'], mapped['message'])
+
+
 class OutgoingTransaction(PolymorphicModel):
     """
     Base model for all requests we send to CyberSource.

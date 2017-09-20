@@ -77,6 +77,37 @@ FIELDS_REQUIRED_FOR_CYBERSOURCE = {
     ]
 }
 
+FIELDS_REQUIRED_FROM_CYBERSOURCE = {
+    'cybersource_callback': [
+        'req_transaction_uuid',
+        'decision',
+        'reason_code',
+        'message'
+    ]
+}
+
+SENSITIVE_POST_PARAMETERS = [
+    'payment_token',
+    'req_access_key',
+    'req_bill_to_address_city',
+    'req_bill_to_address_country',
+    'req_bill_to_address_line1',
+    'req_bill_to_address_postal_code',
+    'req_bill_to_address_state',
+    'req_bill_to_email',
+    'req_bill_to_forename',
+    'req_bill_to_surname',
+    'req_card_expiry_date',
+    'req_card_number',
+    'req_payment_token',
+    'req_profile_id',
+    'signature'
+]
+
+
+def redact(post):
+    return {k: v for (k, v) in post.items() if k not in SENSITIVE_POST_PARAMETERS}
+
 
 def skip_lines(csv_file, lines):
     """
@@ -114,6 +145,7 @@ def user_passes_test_or_403(test_func):
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
 
 #
 # VIEWS
@@ -245,25 +277,6 @@ def update(request):
     return render(request, 'redirect.html', context)
 
 
-SENSITIVE_POST_PARAMETERS = [
-    'payment_token',
-    'req_access_key',
-    'req_bill_to_address_city',
-    'req_bill_to_address_country',
-    'req_bill_to_address_line1',
-    'req_bill_to_address_postal_code',
-    'req_bill_to_address_state',
-    'req_bill_to_email',
-    'req_bill_to_forename',
-    'req_bill_to_surname',
-    'req_card_expiry_date',
-    'req_card_number',
-    'req_payment_token',
-    'req_profile_id',
-    'signature'
-]
-
-
 @csrf_exempt
 @require_http_methods(["POST"])
 @sensitive_post_parameters(*SENSITIVE_POST_PARAMETERS)
@@ -271,20 +284,15 @@ def cybersource_callback(request):
     """
     In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
     """
-    data = process_cybersource_transmission(request.POST, (
-        'req_transaction_uuid',
-        'decision',
-        'reason_code',
-        'message'
-    ))
+    try:
+        data = process_cybersource_transmission(request.POST, FIELDS_REQUIRED_FROM_CYBERSOURCE['cybersource_callback'])
+    except InvalidTransmissionException:
+        return bad_request(request)
 
     related_request = OutgoingTransaction.objects.get(transaction_uuid=data['req_transaction_uuid'])
-    subscription_agreement = related_request.subscription_agreement
-    registrar = related_request.registrar
     decision = data['decision']
     reason_code = data['reason_code']
     message = data['message']
-    non_sensitive_params = {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS}
 
     if isinstance(related_request, UpdateRequest):
         Response.save_new_w_encryped_full_response(
@@ -317,40 +325,7 @@ def cybersource_callback(request):
                 'payment_token': payment_token,
             }
         )
-
-        if decision == 'ACCEPT':
-            # Successful transaction. Reason codes 100 and 110.
-            subscription_agreement.status = 'Current'
-            subscription_agreement.save()
-            logger.info("Subscription request for registrar {} (subscription request {}) accepted.".format(registrar, related_request.pk))
-        elif decision == 'REVIEW':
-            # Authorization was declined; however, the capture may still be possible.
-            # Review payment details. See reason codes 200, 201, 230, and 520.
-            # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
-            subscription_agreement.status = 'Current'
-            subscription_agreement.save()
-            logger.error("Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(registrar, related_request.pk, non_sensitive_params))
-        elif decision == 'CANCEL':
-            # The customer did not accept the service fee conditions,
-            # or the customer cancelled the transaction.
-            subscription_agreement.status = 'Aborted'
-            subscription_agreement.save()
-            logger.info("Subscription request {} aborted by registrar {}.".format(related_request.pk, registrar))
-        elif decision == 'DECLINE':
-            # Transaction was declined.See reason codes 102, 200, 202, 203,
-            # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
-            # 234, 236, 240, 475, 476, and 481.
-            subscription_agreement.status = 'Rejected'
-            subscription_agreement.save()
-            logger.warning("Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(registrar, related_request.pk, non_sensitive_params))
-        elif decision == 'ERROR':
-            # Access denied, page not found, or internal server error.
-            # See reason codes 102, 104, 150, 151 and 152.
-            subscription_agreement.status = 'Rejected'
-            subscription_agreement.save()
-            logger.error("Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(related_request.pk, registrar, non_sensitive_params))
-        else:
-            logger.error("Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(related_request.pk, registrar, non_sensitive_params))
+        related_request.subscription_agreement.update_status_after_cs_decision(decision, {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS})
 
     else:
         raise NotImplementedError("Can't handle a response of type {}, returned in reponse to outgoing transaction {}".format(type(related_request), related_request.pk))
