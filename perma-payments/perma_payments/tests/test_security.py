@@ -17,7 +17,7 @@ from perma_payments.security import *
 #
 # UTILS
 #
-class SentinalException(Exception):
+class SentinelException(Exception):
     pass
 
 post = QueryDict('a=1,b=2,c=3')
@@ -248,29 +248,29 @@ def test_process_perma_transmission_encrypted_data_empty():
 
 
 def test_process_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
-    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinalException)
+    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+    assert 'SentinelException' in str(excinfo)
     b64.assert_called_once()
 
 
 def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
-    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinalException)
+    decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+    assert 'SentinelException' in str(excinfo)
     decrypt.assert_called_once()
 
 
 def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
     mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
-    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinalException)
+    unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
-    assert 'SentinalException' in str(excinfo)
+    assert 'SentinelException' in str(excinfo)
     unstringify.assert_called_once()
 
 
