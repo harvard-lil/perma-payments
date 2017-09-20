@@ -38,25 +38,28 @@ html, body {
     color: #2D76EE;
 }
 
-div.wrapper {
+.wrapper {
     height:100%;
-    margin-top: 15px;
     text-align: center;
 }
 
-div.wrapper-flex {
+.wrapper-flex {
     display: -webkit-flex;
     display: flex;
-    -webkit-align-items: center;
-    align-items:center;
+    flex-direction: column;
     -webkit-justify-content: center;
     justify-content:center;
 }
 
 header {
     background-color: white;
-    padding: 20px;
-    top: 0px;
+    padding: 20px 0;
+    width: 100%;
+    text-align: left;
+}
+
+main {
+  flex-grow: 1;
 }
 
 h1 {
@@ -79,7 +82,7 @@ a {
     color: #222;
     height: 56px;
     font-size: 24px;
-    padding-left: 16px;
+    padding-left: 36px;
     min-width: 7em;
 }
 
