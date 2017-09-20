@@ -16,14 +16,14 @@
     {% endblock css %}
   </head>
   <body>
-    <header>
-      <div class="navbar-brand logo">
-        <a href="/">Perma.cc<img alt="" class="infinity-logo" src="{% static 'perma_payments/img/perma-logo-orange.svg' %}"></a>
-      </div>
-    </header>
     {% block body %}
     <div class="wrapper wrapper-flex">
-      <main class="container">
+      <header>
+        <div class="navbar-brand logo">
+          <a href="/">Perma.cc<img alt="" class="infinity-logo" src="{% static 'perma_payments/img/perma-logo-orange.svg' %}"></a>
+        </div>
+      </header>
+      <main class="container wrapper-flex">
         <div class="row">
           {% block heading %}
             <h1>{{ heading }}</h1>
