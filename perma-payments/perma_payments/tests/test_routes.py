@@ -1,3 +1,12 @@
+"""
+These are integration tests covering:
+
+- urls.py,
+- view in views.py functions, and how they interface with models,
+- template rendering
+
+"""
+
 import io
 
 from django.conf import settings
@@ -18,15 +27,6 @@ from .utils import SENTINEL, expected_template_used, get_not_allowed, post_not_a
 register(SubscriptionRequestFactory)
 register(SubscriptionRequestResponseFactory)
 register(UpdateRequestFactory)
-
-
-#
-# These are integration tests covering:
-#
-# urls.py,
-# view in views.py functions, and how they interface with models,
-# template rendering
-#
 
 
 #
@@ -97,7 +97,7 @@ def cybersource_callback():
             'message': SENTINEL['message'],
             'payment_token': SENTINEL['payment_token']
         },
-        'invalid_payment_token': {
+        'data_w_invalid_payment_token': {
             'req_transaction_uuid': SENTINEL['req_transaction_uuid'],
             'decision': SENTINEL['decision'],
             'reason_code': SENTINEL['reason_code'],
@@ -656,13 +656,13 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
 
 @pytest.mark.django_db
 def test_cybersource_callback_payment_token_invalid(client, cybersource_callback, mocker):
-    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['invalid_payment_token'])
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['data_w_invalid_payment_token'])
     mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
     mocker.patch('perma_payments.views.isinstance', side_effect=[False, True])
     mocker.patch('perma_payments.views.Response', autospec=True)
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
 
-    client.post(cybersource_callback['route'], cybersource_callback['invalid_payment_token'])
+    client.post(cybersource_callback['route'], cybersource_callback['data_w_invalid_payment_token'])
 
     assert log.call_count == 1
 
