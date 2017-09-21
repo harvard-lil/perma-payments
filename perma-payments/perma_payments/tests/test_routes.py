@@ -2,7 +2,7 @@
 These are integration tests covering:
 
 - urls.py,
-- view in views.py functions, and how they interface with models,
+- view functions in views.py functions, and how they interface with models,
 - template rendering
 
 """
