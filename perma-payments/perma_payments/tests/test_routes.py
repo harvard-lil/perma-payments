@@ -1,24 +1,19 @@
-from datetime import datetime, timezone
-import decimal
-import random
 import io
-import urllib
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.http import QueryDict
 
-from faker import Faker
 import pytest
 from pytest_factoryboy import register
 
-from perma_payments.models import STANDING_STATUSES, SubscriptionAgreement, SubscriptionRequest
+from perma_payments.models import STANDING_STATUSES, SubscriptionAgreement
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import *
 
 from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, UpdateRequestFactory
+from .utils import SENTINEL, expected_template_used, get_not_allowed, post_not_allowed, put_patch_delete_not_allowed, dict_to_querydict
+
 
 register(SubscriptionRequestFactory)
 register(SubscriptionRequestResponseFactory)
@@ -29,56 +24,6 @@ register(UpdateRequestFactory)
 # Here, we are testing urls.py, views.py, and template rendering
 # all in one spot, for simplicity.
 #
-
-#
-# UTILS
-#
-
-fake = Faker()
-
-
-SENTINEL = {
-    'datetime': fake.future_date(tzinfo=timezone.utc),
-    'registrar_id': fake.random_int(),
-    'recurring_frequency': fake.random_element(elements=[status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices]),
-    'amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
-    'recurring_amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
-    'bytes': b'sentinel ascii bytes',
-    'req_transaction_uuid': fake.uuid4(),
-    'decision': fake.random_element(elements=CS_DECISIONS.keys()),
-    'reason_code': str(fake.random_int()),
-    'message': fake.sentence(nb_words=7),
-    'payment_token': fake.password(length=26),
-    'invalid_payment_token': fake.password(length=16),
-}
-
-
-def expected_template_used(response, expected):
-    template_list = [template.name for template in response.templates]
-    assert expected in template_list
-
-
-def get_not_allowed(client, route):
-    response = client.get(route)
-    assert response.status_code == 405
-
-
-def post_not_allowed(client, route):
-    response = client.post(route)
-    assert response.status_code == 405
-
-
-def put_patch_delete_not_allowed(client, route):
-    response = client.patch(route)
-    assert response.status_code == 405
-    response = client.put(route)
-    assert response.status_code == 405
-    response = client.delete(route)
-    assert response.status_code == 405
-
-
-def dict_to_querydict(d):
-    return QueryDict(urllib.parse.urlencode(d))
 
 
 #
@@ -862,7 +807,7 @@ def test_subscription_post_standing_subscription(client, subscription, complete_
 @pytest.mark.django_db
 def test_subscription_post_standing_subscription_cancellation_status(client, subscription, sa_w_cancellation_requested, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    sa = mocker.patch(
+    mocker.patch(
         'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
         spec_set=SubscriptionAgreement.registrar_standing_subscription,
         return_value=sa_w_cancellation_requested

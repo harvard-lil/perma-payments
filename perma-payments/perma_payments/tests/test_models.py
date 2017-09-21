@@ -1,10 +1,4 @@
-from ast import literal_eval
-from datetime import datetime, timezone
-import decimal
-import random
-
 from django.apps import apps
-from django.core.exceptions import ValidationError
 from django.http import QueryDict
 
 from hypothesis import given
@@ -14,47 +8,7 @@ import pytest
 from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import *
 
-#
-# UTILS
-#
-
-genesis = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
-
-# If we could combine hypothesis with pytest fixtures, these would be
-# straight up strategies passed to fixtures/tests instead
-
-registrar_id = random.randint(1, 1000)
-reason_code = random.randint(1, 1000)
-recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
-amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-message = text(alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).example()
-payment_token = text(alphabet="0123456789", min_size=26, max_size=26).example()
-post = QueryDict('a=1,b=2,c=3')
-
-def absent_required_fields_raise_validation_error(o, fields):
-    # If it doesn't work, you might need to add custom validation to the model.
-    # For instance, binary fields aren't cleaned by default.
-    if fields:
-        with pytest.raises(ValidationError) as excinfo:
-            o.full_clean()
-        error_dict = literal_eval(str(excinfo).split(':', 3)[3].strip())
-        assert sorted(fields) == sorted(list(error_dict.keys()))
-    else:
-        # If no required fields, the following should not raise ValidationError
-        o.full_clean()
-
-
-def autopopulated_fields_present(o, fields):
-    """
-    Pass in any model instance. If you are testing auto-populated date fields,
-    the instance must have been saved, and you must have db access, but otherwise,
-    mere instantiation is sufficient. Doesn't work for fields with default=None or default='',
-    but this is the most generalized test I can currently dream up.
-    """
-    for field in fields:
-        value = getattr(o, field)
-        assert value is not None and value is not ''
+from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
 
 #
@@ -66,7 +20,7 @@ def autopopulated_fields_present(o, fields):
 @pytest.mark.django_db
 def standing_sa(request):
     sa = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status=request.param
     )
     sa.save()
@@ -77,7 +31,7 @@ def standing_sa(request):
 @pytest.mark.django_db
 def not_standing_sa(request):
     sa = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status=request.param
     )
     sa.save()
@@ -88,12 +42,12 @@ def not_standing_sa(request):
 @pytest.mark.django_db
 def multiple_standing_sa(request):
     sa1 = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status=request.param
     )
     sa1.save()
     sa2 = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status=request.param
     )
     sa2.save()
@@ -104,7 +58,7 @@ def multiple_standing_sa(request):
 @pytest.mark.django_db
 def standing_sa_cancellation_requested(request):
     sa = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status=request.param,
         cancellation_requested=True
     )
@@ -116,16 +70,16 @@ def standing_sa_cancellation_requested(request):
 @pytest.mark.django_db
 def complete_pending_sa():
     sa = SubscriptionAgreement(
-        registrar=registrar_id,
+        registrar=SENTINEL['registrar_id'],
         status='Pending'
     )
     sa.save()
     sr = SubscriptionRequest(
         subscription_agreement=sa,
-        amount=amount,
-        recurring_amount=recurring_amount,
-        recurring_start_date=genesis,
-        recurring_frequency=recurring_frequency
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['recurring_amount'],
+        recurring_start_date=GENESIS,
+        recurring_frequency=SENTINEL['recurring_frequency']
     )
     sr.save()
     return sa
@@ -139,7 +93,7 @@ def decision(request):
 @pytest.fixture()
 @pytest.mark.django_db
 def blank_outgoing_transaction(mocker):
-    tz = mocker.patch('django.utils.timezone.now', return_value=genesis)
+    tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
     ot = OutgoingTransaction()
     ot.save()
     assert tz.call_count == 1
@@ -151,7 +105,7 @@ def blank_outgoing_transaction(mocker):
 def barebones_subscription_request(not_standing_sa):
     return SubscriptionRequest(
         subscription_agreement=not_standing_sa,
-        recurring_start_date=genesis
+        recurring_start_date=GENESIS
     )
 
 
@@ -160,10 +114,10 @@ def barebones_subscription_request(not_standing_sa):
 def complete_subscription_request(not_standing_sa):
     sr = SubscriptionRequest(
         subscription_agreement=not_standing_sa,
-        amount=amount,
-        recurring_amount=recurring_amount,
-        recurring_start_date=genesis,
-        recurring_frequency=recurring_frequency
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['recurring_amount'],
+        recurring_start_date=GENESIS,
+        recurring_frequency=SENTINEL['recurring_frequency']
     )
     sr.save()
     return sr
@@ -185,6 +139,11 @@ def barebones_subscription_request_response(barebones_subscription_request):
 @pytest.mark.django_db
 def barebones_update_request_response(barebones_update_request):
     return UpdateRequestResponse(related_request=barebones_update_request)
+
+
+@pytest.fixture
+def spoof_django_post_object():
+    return QueryDict('a=1,b=2,c=3')
 
 
 #
@@ -383,7 +342,7 @@ def test_sr_autopopulated_fields(mocker):
 
 @pytest.mark.django_db
 def test_sr_registrar_retrived(barebones_subscription_request):
-    assert barebones_subscription_request.registrar == registrar_id
+    assert barebones_subscription_request.registrar == SENTINEL['registrar_id']
 
 
 @pytest.mark.django_db
@@ -414,7 +373,7 @@ def test_update_autopopulated_fields():
 
 @pytest.mark.django_db
 def test_update_registrar_retrived(barebones_update_request):
-    assert barebones_update_request.registrar == registrar_id
+    assert barebones_update_request.registrar == SENTINEL['registrar_id']
 
 
 # Response
@@ -449,7 +408,7 @@ def test_response_registrar_present_but_not_implemented():
 
 
 @pytest.mark.django_db
-def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscription_request):
+def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscription_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
     nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
@@ -459,11 +418,11 @@ def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscrip
     fields = {
         'related_request': complete_subscription_request,
         'decision': random.choice([choice[0] for choice in Response._meta.get_field('decision').choices]),
-        'reason_code': reason_code,
-        'message': message,
-        'payment_token': payment_token,
+        'reason_code': SENTINEL['reason_code'],
+        'message': SENTINEL['message'],
+        'payment_token': SENTINEL['payment_token'],
     }
-    Response.save_new_w_encryped_full_response(SubscriptionRequestResponse, post, fields)
+    Response.save_new_w_encryped_full_response(SubscriptionRequestResponse, spoof_django_post_object, fields)
     response = complete_subscription_request.subscription_request_response
 
     # save worked
@@ -473,13 +432,13 @@ def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscrip
     assert response.full_response == b'someencryptedbytes'
 
     # mocks called as expected
-    stringified.assert_called_once_with(post)
+    stringified.assert_called_once_with(spoof_django_post_object)
     nonce.assert_called_once_with(complete_subscription_request)
     encrypted.assert_called_once_with(mocker.sentinel.stringified, mocker.sentinel.nonce)
 
 
 @pytest.mark.django_db
-def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_request):
+def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
     nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
@@ -490,10 +449,10 @@ def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_
     fields = {
         'related_request': barebones_update_request,
         'decision': random.choice([choice[0] for choice in Response._meta.get_field('decision').choices]),
-        'reason_code': reason_code,
-        'message': message
+        'reason_code': SENTINEL['reason_code'],
+        'message': SENTINEL['message']
     }
-    Response.save_new_w_encryped_full_response(UpdateRequestResponse, post, fields)
+    Response.save_new_w_encryped_full_response(UpdateRequestResponse, spoof_django_post_object, fields)
     response = barebones_update_request.update_request_response
 
     # save worked
@@ -503,7 +462,7 @@ def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_
     assert response.full_response == b'someencryptedbytes'
 
     # mocks called as expected
-    stringified.assert_called_once_with(post)
+    stringified.assert_called_once_with(spoof_django_post_object)
     nonce.assert_called_once_with(barebones_update_request)
     encrypted.assert_called_once_with(mocker.sentinel.stringified, mocker.sentinel.nonce)
 
@@ -542,7 +501,7 @@ def test_srr_sa_retrived(barebones_subscription_request_response, not_standing_s
 
 @pytest.mark.django_db
 def test_srr_registrar_retrived(barebones_subscription_request_response):
-    assert barebones_subscription_request_response.registrar == registrar_id
+    assert barebones_subscription_request_response.registrar == SENTINEL['registrar_id']
 
 
 # UpdateRequestResponse
@@ -573,4 +532,4 @@ def test_urr_sa_retrived(barebones_update_request_response, standing_sa):
 
 @pytest.mark.django_db
 def test_urr_registrar_retrived(barebones_update_request_response):
-    assert barebones_update_request_response.registrar == registrar_id
+    assert barebones_update_request_response.registrar == SENTINEL['registrar_id']

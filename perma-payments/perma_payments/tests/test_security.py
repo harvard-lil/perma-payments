@@ -14,12 +14,7 @@ from unittest.mock import Mock
 
 from perma_payments.security import *
 
-#
-# UTILS
-#
-class SentinelException(Exception):
-    pass
-
+from .utils import SentinelException
 
 #
 # FIXTURES
@@ -114,9 +109,11 @@ def spoof_perma_post():
     assert 'desired_field' in data['encrypted_data']
     return data
 
+
 @pytest.fixture
 def spoof_django_post_object():
     return QueryDict('a=1,b=2,c=3')
+
 
 #
 # TESTS
