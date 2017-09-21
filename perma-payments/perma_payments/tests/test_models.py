@@ -15,6 +15,8 @@ from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_er
 # FIXTURES
 #
 
+# Perhaps these all should be generated via Factory Boy.
+# For unit testing models, though, it's probably better not to introduce that extra layer
 
 @pytest.fixture(params=STANDING_STATUSES)
 @pytest.mark.django_db
