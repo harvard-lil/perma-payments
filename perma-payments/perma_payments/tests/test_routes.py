@@ -10,13 +10,20 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import QueryDict
 
-# from hypothesis import given
-from hypothesis.strategies import decimals
+from faker import Faker
 import pytest
+from pytest_factoryboy import register
 
 from perma_payments.models import STANDING_STATUSES, SubscriptionAgreement, SubscriptionRequest
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import *
+
+from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, UpdateRequestFactory
+
+register(SubscriptionRequestFactory)
+register(SubscriptionRequestResponseFactory)
+register(UpdateRequestFactory)
+
 
 #
 # Here, we are testing urls.py, views.py, and template rendering
@@ -26,12 +33,24 @@ from perma_payments.views import *
 #
 # UTILS
 #
-genesis = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
-registrar_id = random.randint(1, 1000)
-recurring_frequency = random.choice([status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices])
-amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-recurring_amount = decimals(places=2, min_value=decimal.Decimal(0.00), allow_nan=False, allow_infinity=False).example()
-sentinel_bytes = b'sentinel_bytes'
+
+fake = Faker()
+
+
+SENTINEL = {
+    'datetime': fake.future_date(tzinfo=timezone.utc),
+    'registrar_id': fake.random_int(),
+    'recurring_frequency': fake.random_element(elements=[status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices]),
+    'amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
+    'recurring_amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
+    'bytes': b'sentinel ascii bytes',
+    'req_transaction_uuid': fake.uuid4(),
+    'decision': fake.random_element(elements=CS_DECISIONS.keys()),
+    'reason_code': str(fake.random_int()),
+    'message': fake.sentence(nb_words=7),
+    'payment_token': fake.password(length=26),
+    'invalid_payment_token': fake.password(length=16),
+}
 
 
 def expected_template_used(response, expected):
@@ -66,154 +85,6 @@ def dict_to_querydict(d):
 # FIXTURES
 #
 
-@pytest.fixture
-def index():
-    return {
-        'route': '/',
-        'template': 'generic.html'
-    }
-
-
-@pytest.fixture
-def subscribe():
-    data = {
-        'route': '/subscribe/',
-        'template': 'redirect.html',
-        'valid_data': {
-            'registrar': registrar_id,
-            'amount': amount,
-            'recurring_amount': recurring_amount,
-            'recurring_frequency': recurring_frequency,
-            'recurring_start_date': genesis
-        }
-    }
-    for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
-        assert field in data['valid_data']
-    return data
-
-
-@pytest.fixture
-def subscribe_redirect_fields():
-    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['subscribe']}
-
-
-@pytest.fixture
-def update():
-    data = {
-        'route': '/update/',
-        'template': 'redirect.html',
-        'valid_data': {
-            'registrar': registrar_id
-        }
-    }
-    for field in FIELDS_REQUIRED_FROM_PERMA['update']:
-        assert field in data['valid_data']
-    return data
-
-
-@pytest.fixture
-def update_redirect_fields():
-    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']}
-
-
-@pytest.fixture
-def cybersource_callback():
-    return {
-        'route': '/cybersource-callback/',
-        'template': 'redirect.html',
-        'valid_data': {
-            'req_transaction_uuid': 'sentinel string',
-            'decision': 'sentinel string',
-            'reason_code': 'sentinel string',
-            'message': 'sentinel string',
-            'payment_token': 'sentinel string'
-        },
-        'invalid_payment_token': {
-            'req_transaction_uuid': 'sentinel string',
-            'decision': 'sentinel string',
-            'reason_code': 'sentinel string',
-            'message': 'sentinel string',
-            'payment_token': '1234567890123456'
-        }
-    }
-
-
-@pytest.fixture
-def subscription():
-    return {
-        'route': '/subscription/',
-        'valid_data': {
-            'registrar': registrar_id
-        }
-    }
-
-
-@pytest.fixture
-def cancel_request():
-    return {
-        'route': '/cancel-request/',
-        'valid_data': {
-            'registrar': registrar_id
-        }
-    }
-
-
-@pytest.fixture
-def update_statuses(status_csv):
-    return {
-        'route': '/update-statuses/',
-        'valid_data': {
-            'csv_file': status_csv
-        }
-    }
-
-
-@pytest.fixture
-def status_csv():
-    output = io.StringIO()
-    fieldnames = ['Merchant Reference Code', 'Status']
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-    writer.writerow({'Merchant Reference Code': 'ref1', 'Status': 'Updated'})
-    writer.writerow({'Merchant Reference Code': 'ref2', 'Status': 'Updated'})
-    return SimpleUploadedFile("csv.csv", bytes(output.getvalue(), 'utf-8'), content_type="text/csv")
-
-
-@pytest.fixture(params=STANDING_STATUSES)
-@pytest.mark.django_db
-def complete_standing_sa(request):
-    sa = SubscriptionAgreement(
-        registrar=registrar_id,
-        status=request.param
-    )
-    sa.save()
-    sr = SubscriptionRequest(
-        subscription_agreement=sa,
-        amount=amount,
-        recurring_amount=recurring_amount,
-        recurring_start_date=genesis,
-        recurring_frequency=recurring_frequency
-    )
-    sr.save()
-    assert not sa.cancellation_requested
-    assert sa.can_be_altered
-    assert sa.status != 'Updated'
-    return sa
-
-
-@pytest.fixture()
-@pytest.mark.django_db
-def non_admin():
-    return User.objects.create_user('joe')
-
-
-@pytest.fixture()
-def five_line_file():
-    file = io.StringIO("line1\nline2\nline3\nline4\nline5\n")
-    assert 5 == sum(1 for line in file)
-    file.seek(0)
-    return file
-
 
 @pytest.fixture()
 def senstive_dict():
@@ -233,14 +104,178 @@ def senstive_dict():
         'req_payment_token': 'req_payment_token',
         'req_profile_id': 'req_profile_id',
         'signature': 'signature',
-        'FINE1': 'FINE1',
-        'FINE2': 'FINE2'
+        'NOTSECRET1': 'NOTSECRET1',
+        'NOTSECRET2': 'NOTSECRET2'
     }
     for field in SENSITIVE_POST_PARAMETERS:
         assert field in data
-    for field in ['FINE1', 'FINE2']:
+    for field in ['NOTSECRET1', 'NOTSECRET2']:
         assert field in data
     return data
+
+
+# routes
+
+@pytest.fixture
+def index():
+    return {
+        'route': '/',
+        'template': 'generic.html'
+    }
+
+
+@pytest.fixture
+def subscribe():
+    data = {
+        'route': '/subscribe/',
+        'template': 'redirect.html',
+        'valid_data': {
+            'registrar': SENTINEL['registrar_id'],
+            'amount': SENTINEL['amount'],
+            'recurring_amount': SENTINEL['recurring_amount'],
+            'recurring_frequency': SENTINEL['recurring_frequency'],
+            'recurring_start_date': SENTINEL['datetime']
+        }
+    }
+    for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
+        assert field in data['valid_data']
+    return data
+
+
+@pytest.fixture
+def subscribe_redirect_fields():
+    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['subscribe']}
+
+
+@pytest.fixture
+def update():
+    data = {
+        'route': '/update/',
+        'template': 'redirect.html',
+        'valid_data': {
+            'registrar': SENTINEL['registrar_id']
+        }
+    }
+    for field in FIELDS_REQUIRED_FROM_PERMA['update']:
+        assert field in data['valid_data']
+    return data
+
+
+@pytest.fixture
+def update_redirect_fields():
+    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']}
+
+
+@pytest.fixture
+def cybersource_callback():
+    return {
+        'route': '/cybersource-callback/',
+        'template': 'redirect.html',
+        'valid_data': {
+            'req_transaction_uuid': SENTINEL['req_transaction_uuid'],
+            'decision': SENTINEL['decision'],
+            'reason_code': SENTINEL['reason_code'],
+            'message': SENTINEL['message'],
+            'payment_token': SENTINEL['payment_token']
+        },
+        'invalid_payment_token': {
+            'req_transaction_uuid': SENTINEL['req_transaction_uuid'],
+            'decision': SENTINEL['decision'],
+            'reason_code': SENTINEL['reason_code'],
+            'message': SENTINEL['message'],
+            'payment_token': SENTINEL['invalid_payment_token']
+        }
+    }
+
+
+@pytest.fixture
+def subscription():
+    return {
+        'route': '/subscription/',
+        'valid_data': {
+            'registrar': SENTINEL['registrar_id']
+        }
+    }
+
+
+@pytest.fixture
+def cancel_request():
+    return {
+        'route': '/cancel-request/',
+        'valid_data': {
+            'registrar': SENTINEL['registrar_id']
+        }
+    }
+
+
+@pytest.fixture
+def update_statuses(status_csv):
+    return {
+        'route': '/update-statuses/',
+        'valid_data': {
+            'csv_file': status_csv
+        }
+    }
+
+
+# files
+
+@pytest.fixture()
+def five_line_file():
+    file = io.StringIO("line1\nline2\nline3\nline4\nline5\n")
+    assert 5 == sum(1 for line in file)
+    file.seek(0)
+    return file
+
+
+@pytest.fixture
+def status_csv():
+    output = io.StringIO()
+    fieldnames = ['Merchant Reference Code', 'Status']
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerow({'Merchant Reference Code': 'ref1', 'Status': 'Updated'})
+    writer.writerow({'Merchant Reference Code': 'ref2', 'Status': 'Updated'})
+    return SimpleUploadedFile("csv.csv", bytes(output.getvalue(), 'utf-8'), content_type="text/csv")
+
+
+# models
+
+@pytest.fixture
+@pytest.mark.django_db
+def pending_sa(subscription_request_factory):
+    sr = subscription_request_factory()
+    return sr.subscription_agreement
+
+
+@pytest.fixture(params=STANDING_STATUSES)
+@pytest.mark.django_db
+def complete_standing_sa(request, subscription_request_response_factory):
+    srr = subscription_request_response_factory(related_request__subscription_agreement__status=request.param)
+    sa = srr.subscription_agreement
+    assert not sa.cancellation_requested
+    return sa
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def sa_w_cancellation_requested(complete_standing_sa):
+    complete_standing_sa.cancellation_requested=True
+    complete_standing_sa.save()
+    assert complete_standing_sa.cancellation_requested
+    return complete_standing_sa
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def update_request(update_request_factory):
+    return update_request_factory()
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def non_admin():
+    return User.objects.create_user('joe')
 
 
 #
@@ -259,14 +294,9 @@ def test_redact(senstive_dict):
     redacted = redact(senstive_dict)
     for field in SENSITIVE_POST_PARAMETERS:
         assert field not in redacted
-    for field in ['FINE1', 'FINE2']:
+    for field in ['NOTSECRET1', 'NOTSECRET2']:
         assert field in redacted
 
-
-#
-# OMG these are ALL RIDICULOUS.
-# Maybe I should break these views out into smaller functions.......
-#
 
 # index
 
@@ -526,15 +556,16 @@ def test_update_post_subscription_unalterable(client, update, mocker):
     assert not ur_instance.save.called
 
 
-def test_update_post_ur_validation_fails(client, update, mocker):
+@pytest.mark.django_db
+def test_update_post_ur_validation_fails(client, update, complete_standing_sa, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa_instance.can_be_altered.return_value = True
-    sa.registrar_standing_subscription.return_value = sa_instance
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=complete_standing_sa
+    )
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
     ur_instance.full_clean.side_effect=ValidationError('oh no!')
@@ -552,14 +583,16 @@ def test_update_post_ur_validation_fails(client, update, mocker):
     assert log.call_count == 1
 
 
-def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
+@pytest.mark.django_db
+def test_update_post_ur_validated_and_saved_correctly(client, update, complete_standing_sa, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa.registrar_standing_subscription.return_value = sa_instance
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=complete_standing_sa
+    )
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
 
@@ -569,7 +602,7 @@ def test_update_post_ur_validated_and_saved_correctly(client, update, mocker):
     # assertions
     assert response.status_code == 200
     ur.assert_called_once_with(
-        subscription_agreement=sa_instance
+        subscription_agreement=complete_standing_sa
     )
     assert ur_instance.full_clean.call_count == 1
     assert ur_instance.save.call_count == 1
@@ -613,17 +646,14 @@ def test_update_post_data_prepped_correctly(client, update, mocker):
     for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']:
         assert field in fields_to_prep
 
-
 def test_update_post_redirect_form_populated_correctly(client, update, update_redirect_fields, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa.registrar_standing_subscription.return_value = sa_instance
-    mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
-    mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription
+    )
     mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=update_redirect_fields)
 
@@ -664,27 +694,25 @@ def test_cybersource_callback_post_invalid_transmission(client, cybersource_call
 
 
 @pytest.mark.django_db
-def test_cybersource_callback_post_update_request(client, cybersource_callback, mocker):
+def test_cybersource_callback_post_update_request(client, cybersource_callback, update_request, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa_instance = sa.return_value
-    mocked_related_request = sa_instance.update_request
-    ot = mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
-    ot.objects.get.return_value = mocked_related_request
-    check_type = mocker.patch('perma_payments.views.isinstance', return_value=True)
+    get_request = mocker.patch(
+        'perma_payments.views.OutgoingTransaction.objects.get',
+        autospec=True,
+        return_value = update_request
+    )
     r = mocker.patch('perma_payments.views.Response', autospec=True)
 
     # request
     response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
 
     # assertions
-    ot.objects.get.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
-    assert check_type.call_count == 1
+    get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
     r.save_new_w_encryped_full_response.assert_called_once_with(
         UpdateRequestResponse,
         dict_to_querydict(cybersource_callback['valid_data']),
         {
-            'related_request': mocked_related_request,
+            'related_request': update_request,
             'decision': cybersource_callback['valid_data']['decision'],
             'reason_code': cybersource_callback['valid_data']['reason_code'],
             'message': cybersource_callback['valid_data']['message']
@@ -696,35 +724,33 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 
 
 @pytest.mark.django_db
-def test_cybersource_callback_post_subscription_request(client, cybersource_callback, mocker):
+def test_cybersource_callback_post_subscription_request(client, cybersource_callback, pending_sa, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    mocked_related_request = sa_instance.subscription_request
-    ot = mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
-    ot.objects.get.return_value = mocked_related_request
-    check_type = mocker.patch('perma_payments.views.isinstance', side_effect=[False, True])
+    get_request = mocker.patch(
+        'perma_payments.views.OutgoingTransaction.objects.get',
+        autospec=True,
+        return_value = pending_sa.subscription_request
+    )
+    mocker.patch.object(pending_sa, 'update_status_after_cs_decision')
     r = mocker.patch('perma_payments.views.Response', autospec=True)
 
     # request
     response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
 
     # assertions
-    ot.objects.get.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
-    assert check_type.call_count == 2
+    get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
     r.save_new_w_encryped_full_response.assert_called_once_with(
         SubscriptionRequestResponse,
         dict_to_querydict(cybersource_callback['valid_data']),
         {
-            'related_request': mocked_related_request,
+            'related_request': pending_sa.subscription_request,
             'decision': cybersource_callback['valid_data']['decision'],
             'reason_code': cybersource_callback['valid_data']['reason_code'],
             'message': cybersource_callback['valid_data']['message'],
             'payment_token': cybersource_callback['valid_data']['payment_token']
         }
     )
-    mocked_related_request.subscription_agreement.update_status_after_cs_decision.assert_called_once_with(
+    pending_sa.update_status_after_cs_decision.assert_called_once_with(
         cybersource_callback['valid_data']['decision'],
         redact(cybersource_callback['valid_data'])
     )
@@ -777,18 +803,21 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
 
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa = mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=None
+    )
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
     d.utcnow.return_value.timestamp.return_value = mocker.sentinel.timestamp
-    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
 
     # request
     response = client.post(subscription['route'])
 
     assert response.status_code == 200
     assert d.utcnow.return_value.timestamp.call_count == 1
-    sa.registrar_standing_subscription.assert_called_once_with(subscription['valid_data']['registrar'])
+    sa.assert_called_once_with(subscription['valid_data']['registrar'])
     prepped.assert_called_once_with({
         'registrar': subscription['valid_data']['registrar'],
         'subscription': None,
@@ -796,47 +825,49 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
-    assert r['encrypted_data'] == sentinel_bytes.decode('utf-8')
+    assert r['encrypted_data'] == SENTINEL['bytes'].decode('utf-8')
 
 
-def test_subscription_post_standing_subscription(client, subscription, mocker):
+@pytest.mark.django_db
+def test_subscription_post_standing_subscription(client, subscription, complete_standing_sa, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa_instance.cancellation_requested = False
-    sa.registrar_standing_subscription.return_value = sa_instance
+    sa = mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=complete_standing_sa
+    )
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
     d.utcnow.return_value.timestamp.return_value = mocker.sentinel.timestamp
-    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
 
     # request
     response = client.post(subscription['route'])
 
     assert response.status_code == 200
-    sa.registrar_standing_subscription.assert_called_once_with(subscription['valid_data']['registrar'])
+    sa.assert_called_once_with(subscription['valid_data']['registrar'])
     prepped.assert_called_once_with({
         'registrar': subscription['valid_data']['registrar'],
         'subscription': {
-            'rate': sa_instance.subscription_request.recurring_amount,
-            'frequency': sa_instance.subscription_request.recurring_frequency,
-            'status': sa_instance.status
+            'rate': complete_standing_sa.subscription_request.recurring_amount,
+            'frequency': complete_standing_sa.subscription_request.recurring_frequency,
+            'status': complete_standing_sa.status
         },
         'timestamp': mocker.sentinel.timestamp
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
-    assert r['encrypted_data'] == sentinel_bytes.decode('utf-8')
+    assert r['encrypted_data'] == SENTINEL['bytes'].decode('utf-8')
 
 
-def test_subscription_post_standing_subscription_cancellation_status(client, subscription, mocker):
+@pytest.mark.django_db
+def test_subscription_post_standing_subscription_cancellation_status(client, subscription, sa_w_cancellation_requested, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
-    # autospecing not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa_instance.cancellation_requested = True
-    sa.registrar_standing_subscription.return_value = sa_instance
-    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=sentinel_bytes)
+    sa = mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=sa_w_cancellation_requested
+    )
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
 
     # request
     response = client.post(subscription['route'])
@@ -865,13 +896,16 @@ def test_cancel_request_post_invalid_transmission(client, cancel_request, mocker
     process.assert_called_once_with(dict_to_querydict(cancel_request['valid_data']), FIELDS_REQUIRED_FROM_PERMA['cancel_request'])
 
 
-def test_cancel_request_post_subscription_unalterable(client, cancel_request, mocker):
+@pytest.mark.django_db
+def test_cancel_request_post_subscription_unalterable(client, cancel_request, complete_standing_sa, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa_instance = sa.return_value
-    sa_instance.can_be_altered.return_value = False
-    sa.registrar_standing_subscription.return_value = sa_instance
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=complete_standing_sa
+    )
+    can_be_altered = mocker.patch.object(complete_standing_sa, 'can_be_altered', return_value=False)
 
     # request
     response = client.post(cancel_request['route'])
@@ -880,17 +914,19 @@ def test_cancel_request_post_subscription_unalterable(client, cancel_request, mo
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b"can't find any active subscriptions" in response.content
-    assert sa_instance.can_be_altered.call_count == 1
+    assert can_be_altered.call_count == 1
 
 
-def test_cancel_request_post_subscription_happy_path(client, cancel_request, mocker):
+@pytest.mark.django_db
+def test_cancel_request_post_subscription_happy_path(client, cancel_request, complete_standing_sa, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
-    # autospec not working here; revisit
-    sa = mocker.patch('perma_payments.views.SubscriptionAgreement')
-    sa_instance = sa.return_value
-    sa_instance.can_be_altered.return_value = True
-    sa.registrar_standing_subscription.return_value = sa_instance
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=complete_standing_sa
+    )
+    can_be_altered = mocker.patch.object(complete_standing_sa, 'can_be_altered', return_value=True)
     email = mocker.patch('perma_payments.views.send_admin_email', autospec=True)
     log = mocker.patch('perma_payments.views.logger.info', autospec=True)
 
@@ -898,19 +934,19 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, moc
     response = client.post(cancel_request['route'])
 
     # assertions
-    assert sa_instance.can_be_altered.call_count == 1
+    assert can_be_altered.call_count == 1
     assert log.call_count == 1
     assert email.mock_calls[0][1][1] == settings.DEFAULT_FROM_EMAIL
     assert email.mock_calls[0][2]['template'] == "email/cancel.txt"
     assert email.mock_calls[0][2]['context'] == {
-        'registrar': registrar_id,
+        'registrar': cancel_request['valid_data']['registrar'],
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
         'registrar_users_path': settings.REGISTRAR_USERS_PATH,
-        'merchant_reference_number': sa_instance.subscription_request.reference_number
+        'merchant_reference_number': complete_standing_sa.subscription_request.reference_number
     }
-    sa_instance.save.assert_called_once_with(update_fields=['cancellation_requested'])
+    assert complete_standing_sa.cancellation_requested
     assert response.status_code == 302
     assert response['Location'] == settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL
 
@@ -946,7 +982,7 @@ def test_update_statuses_post_staff_required(client, non_admin, update_statuses)
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_raises_if_not_found_with_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_raises_if_not_found_with_setting(admin_client, update_statuses, settings, mocker):
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.objects.filter.return_value.get.side_effect = ObjectDoesNotExist
@@ -958,7 +994,7 @@ def test_update_statuses_post_raises_if_not_found_with_setting(admin_client, upd
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(admin_client, update_statuses, settings, mocker):
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.objects.filter.return_value.get.side_effect = ObjectDoesNotExist
@@ -969,7 +1005,7 @@ def test_update_statuses_post_doesnt_raise_if_not_found_without_setting(admin_cl
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_raises_if_multiple_found_with_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_raises_if_multiple_found_with_setting(admin_client, update_statuses, settings, mocker):
     # mocks
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
@@ -982,7 +1018,7 @@ def test_update_statuses_post_raises_if_multiple_found_with_setting(admin_client
 
 
 @pytest.mark.django_db
-def test_update_statuses_post_doesnt_raise_if_multiple_found_without_setting(admin_client, update_statuses, complete_standing_sa, settings, mocker):
+def test_update_statuses_post_doesnt_raise_if_multiple_found_without_setting(admin_client, update_statuses, settings, mocker):
     # mocks
     mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)

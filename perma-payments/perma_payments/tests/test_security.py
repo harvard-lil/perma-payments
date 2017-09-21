@@ -20,7 +20,6 @@ from perma_payments.security import *
 class SentinelException(Exception):
     pass
 
-post = QueryDict('a=1,b=2,c=3')
 
 #
 # FIXTURES
@@ -115,6 +114,9 @@ def spoof_perma_post():
     assert 'desired_field' in data['encrypted_data']
     return data
 
+@pytest.fixture
+def spoof_django_post_object():
+    return QueryDict('a=1,b=2,c=3')
 
 #
 # TESTS
@@ -397,10 +399,10 @@ def test_generate_public_private_keys():
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)
 
 
-def test_stringify_request_post_for_encryption():
-    stringified = stringify_request_post_for_encryption(post)
+def test_stringify_request_post_for_encryption(spoof_django_post_object):
+    stringified = stringify_request_post_for_encryption(spoof_django_post_object)
     assert isinstance(stringified, bytes)
-    assert literal_eval(str(stringified, 'utf-8')) == post.dict()
+    assert literal_eval(str(stringified, 'utf-8')) == spoof_django_post_object.dict()
 
 
 def test_nonce_from_pk():
