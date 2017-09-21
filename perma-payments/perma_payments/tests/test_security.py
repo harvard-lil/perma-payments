@@ -14,13 +14,7 @@ from unittest.mock import Mock
 
 from perma_payments.security import *
 
-#
-# UTILS
-#
-class SentinelException(Exception):
-    pass
-
-post = QueryDict('a=1,b=2,c=3')
+from .utils import SentinelException
 
 #
 # FIXTURES
@@ -114,6 +108,11 @@ def spoof_perma_post():
     assert 'timestamp' in data['encrypted_data']
     assert 'desired_field' in data['encrypted_data']
     return data
+
+
+@pytest.fixture
+def spoof_django_post_object():
+    return QueryDict('a=1,b=2,c=3')
 
 
 #
@@ -397,10 +396,10 @@ def test_generate_public_private_keys():
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)
 
 
-def test_stringify_request_post_for_encryption():
-    stringified = stringify_request_post_for_encryption(post)
+def test_stringify_request_post_for_encryption(spoof_django_post_object):
+    stringified = stringify_request_post_for_encryption(spoof_django_post_object)
     assert isinstance(stringified, bytes)
-    assert literal_eval(str(stringified, 'utf-8')) == post.dict()
+    assert literal_eval(str(stringified, 'utf-8')) == spoof_django_post_object.dict()
 
 
 def test_nonce_from_pk():

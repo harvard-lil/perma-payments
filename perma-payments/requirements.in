@@ -6,8 +6,8 @@ werkzeug                    # for its utilities
 
 # Django stuff
 Django==1.11.2
-django-nested-inline==0.3.7  # show all related record in the admin
-django-polymorphic==1.3    # for model inheritance
+django-nested-inline==0.3.7 # show all related record in the admin
+django-polymorphic==1.3     # for model inheritance
 
 # Admin stuff
 pip-tools==1.9.0            # freeze requirements.txt
@@ -17,10 +17,10 @@ Fabric3==1.13.1.post1       # project automation
 pytest-django==3.1.2        # testing
 pytest-xdist==1.16.0        # run tests in parallel with pytest -n
 flake8==2.5.4               # code linting
+flake8-mock==0.3            # code linitng for tests
 pytest-cov==2.5.1           # record code coverage
-hypothesis==3.24.1          # smarter tests
+hypothesis==3.24.1          # run tests with lots of generated input
 pytest-mock==1.6.2          # more powerful mocking
-mock==2.0.0                 # up to date mock, not that bundled w/ python 3.4
-
-# perma-spoof requirements
-requests                    # for api calls to perma-payments
+mock==2.0.0                 # current mock version, not older bundled version
+pytest-factoryboy==1.3.1    # pop up model instances
+factory-boy==2.8.1          # pin to avoid bugs in 2.9 (https://github.com/pytest-dev/pytest-factoryboy/issues/47)
