@@ -4,6 +4,7 @@
 
 1. [The Plot](#the-plot)
 2. [Common Tasks](#common-tasks)
+3. [Design Notes](#design-notes)
 3. [Running Locally](#running-locally)
 
 
@@ -113,6 +114,39 @@ automatically be notified. They will continue to be able to create links.
   Monthly subscriptions are renewed on the first of the month; updating
   statuses on the 2nd of the month, and after any cancellation request,
   should be sufficient.
+
+
+Design Notes
+------------
+
+### On customizing CyberSource
+
+Whenever possible, Perma Payments makes use of CyberSource features, rather
+than implementing custom functionality. For example, at this time, we are
+using CyberSource's own "Response Pages", rather than custom built pages.
+If further customization is required in the future, we can consider:
+- embedding the CyberSource checkout page in an iframe, whose wrapper is
+hosted at Perma Payments
+- building custom repsonse pages, hosted at Perma.cc or Perma Payments
+
+### On communicating with CybserSource
+
+Perma.cc is designed to interact with Perma Payments, and Perma Payments is
+designed to interact with CyberSource; Perma.cc never communicates with
+CyberSource.
+
+### On storing replies from CyberSource
+
+Perma Payments has no control over which information CyberSource includes
+in its responses to subscription requests and update requests. Since
+CyberSource can and does send back potentially sensitive information,
+such as customer billing addresses, Perma Payments does NOT store
+responses from CyberSource as-is. Instead, Perma Payments extracts
+the minimum fields necessary for business requirements, ALL of which
+are non-sensitive, and stores them in its database. For thoroughness,
+the request in its entirety is then encrypted and stored, in a form that
+can only be decrypted using keys kept offline, in secure physical
+locations.
 
 
 Common Tasks
