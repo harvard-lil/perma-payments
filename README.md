@@ -2,8 +2,13 @@
 
 [![Build Status](https://travis-ci.org/harvard-lil/perma-payments.svg?branch=develop)](https://travis-ci.org/harvard-lil/perma-payments) [![Coverage Status](https://coveralls.io/repos/github/harvard-lil/perma-payments/badge.svg?branch=develop)](https://coveralls.io/github/harvard-lil/perma-payments?branch=develop)
 
+1. [The Plot](#the-plot)
+2. [Common Tasks](#common-tasks)
+3. [Running Locally](#running-locally)
 
-## The Plot
+
+The Plot
+--------
 
 [Perma.cc](https://github.com/harvard-lil/perma) is rolling out a paid beta for
 law firms and other entities that do not qualify for an unlimited free account.
@@ -110,7 +115,14 @@ automatically be notified. They will continue to be able to create links.
   should be sufficient.
 
 
-## How to
+Common Tasks
+------------
+
+### Log in to the CyberSource Business Center
+
+test: [https://ebctest.cybersource.com/ebctest/login/LoginProcess.do](https://ebctest.cybersource.com/ebctest/login/LoginProcess.do)
+prod: (coming soon)
+
 
 ### Update Subscription Statuses
 
