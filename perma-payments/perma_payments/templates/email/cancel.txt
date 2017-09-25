@@ -1,26 +1,25 @@
-Registrar {{ registrar }} has submitted a request to cancel their paid subscription to perma.cc.
+Registrar {{ registrar }} has submitted a request to cancel their paid
+subscription to perma.cc.
 
-At your earliest convenience, please log in to the "Recurring Billing" section of the CyberSource Business Center
-and cancel the subscription associated with Merchant Reference Number "{{ merchant_reference_number }}":
+At your earliest convenience, please log in to the "Recurring Billing"
+section of the CyberSource Business Center and cancel the subscription
+associated with Merchant Reference Number "{{merchant_reference_number }}":
 {{ search_url }}
 
 - Search for "all subscriptions".
-- Locate the row for {{ merchant_reference_number }}.
-- Click the hyperlinked "Subscription ID".
-  The "Subscription Information" tab should now be visible.
-- Scroll to the bottom and click the "Cancel Subscription" button.
-  DO NOT CLICK the "Delete Subscription" button.
+- Locate the row for {{merchant_reference_number }}.
+- Click the hyperlinked "Subscription ID". The "Subscription Information"
+tab should now be visible.
+- Scroll to the bottom and click the "Cancel Subscription" button.   DO
+NOT CLICK the "Delete Subscription" button.
 
 The customer will continue to be charged until this task is completed.
 
 If you wish to email the customer to tell them their cancellation has
 been processed, you may find their contact information at perma.cc:
 
-GENERAL:
-{{ perma_url }}{{ registrar_detail_path }}{{ registrar }}
+GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ registrar }}
 
-REGISTRAR USERS:
-{{ perma_url }}{{ registrar_users_path }}{{ registrar }}
+REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{ registrar}}
 
-Thanks,
-Perma Payments
+Thanks, Perma Payments
