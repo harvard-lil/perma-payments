@@ -29,6 +29,37 @@ Credit: HTML5 Boilerplate*/
   }
 }
 
+/* fonts */
+
+/* Courtesy of https://google-webfonts-helper.herokuapp.com/fonts/roboto?subsets=latin */
+/* roboto-300 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Roboto Light'), local('Roboto-Light'),
+       url('../fonts/roboto-v16-latin-300.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-300.woff') format('woff');
+}
+/* roboto-regular - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Roboto'), local('Roboto-Regular'),
+       url('../fonts/roboto-v16-latin-regular.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-regular.woff') format('woff');
+}
+/* roboto-900 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 900;
+  src: local('Roboto Black'), local('Roboto-Black'),
+       url('../fonts/roboto-v16-latin-900.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-900.woff') format('woff');
+}
+
 /* styles */
 
 html, body {
