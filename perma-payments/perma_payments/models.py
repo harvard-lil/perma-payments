@@ -1,6 +1,7 @@
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
+from simple_history.models import HistoricalRecords
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -81,6 +82,7 @@ class SubscriptionAgreement(models.Model):
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
 
+    history = HistoricalRecords()
     registrar = models.IntegerField()
     status = models.CharField(
         max_length=20,

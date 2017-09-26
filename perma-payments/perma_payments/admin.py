@@ -1,4 +1,5 @@
 from nested_inline.admin import NestedTabularInline, NestedModelAdmin
+from simple_history.admin import SimpleHistoryAdmin
 
 from django.contrib import admin
 from django.contrib.auth.models import Group, User
@@ -66,7 +67,7 @@ class SubscriptionRequestInline(ReadOnlyTabularInline):
 
 
 @admin.register(SubscriptionAgreement)
-class SubscriptionAgreementAdmin(NestedModelAdmin):
+class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
     readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated')
     list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated', 'get_reference_number')
     list_filter = ('registrar', 'cancellation_requested', 'status')

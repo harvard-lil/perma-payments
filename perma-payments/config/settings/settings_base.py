@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     # extras
     'nested_inline',
     'polymorphic',
+    'simple_history',
 
     # ours
     'perma_payments',
@@ -45,6 +46,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # extras
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
