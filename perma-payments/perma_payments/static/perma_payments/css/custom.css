@@ -69,6 +69,7 @@ html, body {
     color: #2D76EE;
 }
 
+
 .wrapper {
     height:100%;
     text-align: center;
@@ -91,6 +92,17 @@ header {
 
 main {
   flex-grow: 1;
+}
+
+main a {
+  color: #2D76EE;
+  text-decoration: underline !important;
+  text-weight: 900;
+}
+
+main a:hover,
+main a:focus {
+  color: #DD671A;
 }
 
 h1 {
@@ -123,7 +135,7 @@ img.infinity-logo {
 }
 
 .btn-link {
-  color: #0080a4;
+  color: #2D76EE;;
   font-weight: normal;
   font-size: 1.3em;
   border-radius: 0;
@@ -144,6 +156,6 @@ img.infinity-logo {
 }
 .btn-link:hover,
 .btn-link:focus {
-    color: #008a00;
+    color: #DD671A;
     background-color: transparent;
 }
