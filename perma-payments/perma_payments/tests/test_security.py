@@ -402,16 +402,9 @@ def test_stringify_request_post_for_encryption(spoof_django_post_object):
     assert literal_eval(str(stringified, 'utf-8')) == spoof_django_post_object.dict()
 
 
-def test_nonce_from_pk():
-    m = Mock(pk=randint(1,1000))
-    nonce = nonce_from_pk(m)
-    assert len(nonce) == Box.NONCE_SIZE
-    assert int.from_bytes(nonce, 'big') == m.pk
-
-
 @given(binary())
 def test_storage_encrypt_and_decrypt(b):
-    ci = encrypt_for_storage(b, (1).to_bytes(24, byteorder='big'))
+    ci = encrypt_for_storage(b)
     assert decrypt_from_storage(ci) == b
 
 

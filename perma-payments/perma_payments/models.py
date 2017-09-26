@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from .security import encrypt_for_storage, stringify_request_post_for_encryption, nonce_from_pk
+from .security import encrypt_for_storage, stringify_request_post_for_encryption
 
 import logging
 logger = logging.getLogger(__name__)
@@ -397,9 +397,7 @@ class Response(PolymorphicModel):
         data = {
             'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
             'full_response': encrypt_for_storage(
-                stringify_request_post_for_encryption(full_response),
-                # use the OutgoingTransaction pk as the nonce, to ensure uniqueness
-                nonce_from_pk(fields['related_request'])
+                stringify_request_post_for_encryption(full_response)
             )
         }
         data.update(fields)

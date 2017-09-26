@@ -192,17 +192,13 @@ def stringify_request_post_for_encryption(post):
     return bytes(str(post.dict()), 'utf-8')
 
 
-def nonce_from_pk(o):
-    return (o.pk).to_bytes(24, byteorder='big')
-
-
-def encrypt_for_storage(message, nonce):
+def encrypt_for_storage(message):
     """
     Basic public key encryption ala pynacl.
     N.B. This should be updated to SealedBox as soon as PyNacl 1.2.0 comes out.
     """
     box = Box(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['app_secret_key']), PublicKey(settings.STORAGE_ENCRYPTION_KEYS['vault_public_key']))
-    return box.encrypt(message, nonce)
+    return box.encrypt(message)
 
 
 @sensitive_variables()
