@@ -207,7 +207,7 @@ class OutgoingTransaction(PolymorphicModel):
         help_text="A unique ID for this 'transaction'. " +
                   "Intended to protect against duplicate transactions."
     )
-    request_datetime = models.DateTimeField(auto_now_add=True, null=True)
+    request_datetime = models.DateTimeField(auto_now_add=True)
 
     def get_formatted_datetime(self):
         """
