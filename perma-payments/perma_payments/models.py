@@ -312,7 +312,7 @@ class UpdateRequest(OutgoingTransaction):
 
     subscription_agreement = models.ForeignKey(
         SubscriptionAgreement,
-        related_name='update_request'
+        related_name='update_requests'
     )
     transaction_type = models.CharField(
         max_length=30,
