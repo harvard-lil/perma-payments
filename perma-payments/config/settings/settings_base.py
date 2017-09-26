@@ -126,6 +126,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Admin
 ADMIN_ENABLED = False
+# set ADMIN_URL in private settings.py
 
 # Direct all Perma.cc communications to perma dev by default
 PERMA_URL = 'https://perma-dev.org'
