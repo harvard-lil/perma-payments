@@ -1,8 +1,6 @@
 from django.apps import apps
 from django.http import QueryDict
 
-from hypothesis import given
-from hypothesis.strategies import characters, text, integers, booleans, datetimes, decimals, lists, tuples, sets, just
 import pytest
 
 from perma_payments.constants import CS_DECISIONS
