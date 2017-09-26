@@ -218,12 +218,10 @@ def test_process_cybersource_transmission_missing_arbitrary_field_we_require(spo
 def test_prep_for_perma(mocker):
     stringify = mocker.patch('perma_payments.security.stringify_data', autospec=True, return_value=mocker.sentinel.stringified)
     encrypt = mocker.patch('perma_payments.security.encrypt_for_perma', autospec=True, return_value=mocker.sentinel.encrypted)
-    b64 = mocker.patch('perma_payments.security.base64.b64encode', autospec=True, return_value=mocker.sentinel.encoded)
 
-    assert prep_for_perma({}) == mocker.sentinel.encoded
+    assert prep_for_perma({}) == mocker.sentinel.encrypted
     stringify.assert_called_once_with({})
     encrypt.assert_called_once_with(mocker.sentinel.stringified)
-    b64.assert_called_once_with(mocker.sentinel.encrypted)
 
 
 def test_process_perma_transmission_encrypted_data_not_in_post():
@@ -244,16 +242,7 @@ def test_process_perma_transmission_encrypted_data_empty():
     assert 'No encrypted_data in POST.' in str(excinfo)
 
 
-def test_process_perma_transmission_not_b64encoded(spoof_perma_post, mocker):
-    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, side_effect=SentinelException)
-    with pytest.raises(InvalidTransmissionException) as excinfo:
-        process_perma_transmission(spoof_perma_post, [])
-    assert 'SentinelException' in str(excinfo)
-    assert b64.call_count == 1
-
-
 def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker):
-    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
         process_perma_transmission(spoof_perma_post, [])
@@ -262,7 +251,6 @@ def test_process_perma_transmission_encryption_problem(spoof_perma_post, mocker)
 
 
 def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
-    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
     unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, side_effect=SentinelException)
     with pytest.raises(InvalidTransmissionException) as excinfo:
@@ -272,7 +260,6 @@ def test_process_perma_transmission_not_valid_json(spoof_perma_post, mocker):
 
 
 def test_process_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
-    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
     mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     del spoof_perma_post['encrypted_data']['timestamp']
@@ -282,7 +269,6 @@ def test_process_perma_transmission_missing_timestamp(spoof_perma_post, mocker):
 
 
 def test_process_perma_transmission_expired_timestamp(spoof_perma_post, mocker):
-    mocker.patch('perma_payments.security.base64.b64decode', autospec=True)
     mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True)
     mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=False)
@@ -292,14 +278,13 @@ def test_process_perma_transmission_expired_timestamp(spoof_perma_post, mocker):
 
 
 def test_process_perma_transmission_happy_path(spoof_perma_post, mocker):
-    b64 = mocker.patch('perma_payments.security.base64.b64decode', autospec=True, return_value=mocker.sentinel.encrypted)
     decrypt = mocker.patch('perma_payments.security.decrypt_from_perma', autospec=True, return_value=mocker.sentinel.decrypted)
     unstringify = mocker.patch('perma_payments.security.unstringify_data', autospec=True, return_value=spoof_perma_post['encrypted_data'])
     timestamp = mocker.patch('perma_payments.security.is_valid_timestamp', autospec=True, return_value=True)
 
     assert process_perma_transmission(spoof_perma_post, ['desired_field']) == {'desired_field': 'desired_field'}
-    b64.assert_called_once_with(spoof_perma_post['encrypted_data'])
-    decrypt.assert_called_once_with(mocker.sentinel.encrypted)
+
+    decrypt.assert_called_once_with(spoof_perma_post['encrypted_data'])
     unstringify.assert_called_once_with(mocker.sentinel.decrypted)
     timestamp.assert_called_once_with(spoof_perma_post['encrypted_data']['timestamp'], settings.PERMA_TIMESTAMP_MAX_AGE_SECONDS)
 

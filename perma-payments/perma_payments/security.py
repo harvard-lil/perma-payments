@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 import hashlib
 import hmac
 import json
+from nacl import encoding
 from nacl.public import Box, PrivateKey, PublicKey
 from werkzeug.security import safe_str_cmp
 
@@ -82,18 +83,17 @@ def process_cybersource_transmission(transmitted_data, fields):
 # Communicate with Perma
 
 def prep_for_perma(dictionary):
-    return base64.b64encode(encrypt_for_perma(stringify_data(dictionary)))
+    return encrypt_for_perma(stringify_data(dictionary))
 
 
 def process_perma_transmission(transmitted_data, fields):
     # Transmitted data should contain a single field, 'encrypted_data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
-
     encrypted_data = transmitted_data.get('encrypted_data','')
     if not encrypted_data:
         raise InvalidTransmissionException('No encrypted_data in POST.')
     try:
-        post_data = unstringify_data(decrypt_from_perma(base64.b64decode(encrypted_data)))
+        post_data = unstringify_data(decrypt_from_perma(encrypted_data))
     except Exception as e:
         logger.warning('Problem with transmitted data. {}'.format(format_exception(e)))
         raise InvalidTransmissionException(format_exception(e))
@@ -225,21 +225,21 @@ def decrypt_from_storage(ciphertext):
 
 
 @sensitive_variables()
-def encrypt_for_perma(message):
+def encrypt_for_perma(message, encoder=encoding.Base64Encoder):
     """
     Basic public key encryption ala pynacl.
     """
     box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
-    return box.encrypt(message)
+    return box.encrypt(message, encoder=encoder)
 
 
 @sensitive_variables()
-def decrypt_from_perma(ciphertext):
+def decrypt_from_perma(ciphertext, encoder=encoding.Base64Encoder):
     """
     Decrypt bytes encrypted by perma.cc
     """
     box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
-    return box.decrypt(ciphertext)
+    return box.decrypt(ciphertext, encoder=encoder)
 
 
 #
