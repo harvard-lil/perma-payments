@@ -37,7 +37,8 @@ def generate_reference_number():
 
     # http://book.pythontips.com/en/latest/for_-_else.html#else-clause
     for i in range(100):
-        rn = "PERMA-{0}-{0}".format(
+        rn = "PERMA-{}-{}".format(
+            choices(RN_SET, k=4),
             choices(RN_SET, k=4)
         )
         if is_ref_number_available(rn):
