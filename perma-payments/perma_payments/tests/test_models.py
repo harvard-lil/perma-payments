@@ -413,7 +413,6 @@ def test_response_registrar_present_but_not_implemented():
 def test_response_save_new_with_encrypted_full_response_sr(mocker, complete_subscription_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
-    nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
     encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     # call
@@ -435,15 +434,13 @@ def test_response_save_new_with_encrypted_full_response_sr(mocker, complete_subs
 
     # mocks called as expected
     stringified.assert_called_once_with(spoof_django_post_object)
-    nonce.assert_called_once_with(complete_subscription_request)
-    encrypted.assert_called_once_with(mocker.sentinel.stringified, mocker.sentinel.nonce)
+    encrypted.assert_called_once_with(mocker.sentinel.stringified)
 
 
 @pytest.mark.django_db
 def test_response_save_new_with_encrypted_full_response_ur(mocker, barebones_update_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
-    nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
     encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     # call
@@ -465,8 +462,7 @@ def test_response_save_new_with_encrypted_full_response_ur(mocker, barebones_upd
 
     # mocks called as expected
     stringified.assert_called_once_with(spoof_django_post_object)
-    nonce.assert_called_once_with(barebones_update_request)
-    encrypted.assert_called_once_with(mocker.sentinel.stringified, mocker.sentinel.nonce)
+    encrypted.assert_called_once_with(mocker.sentinel.stringified)
 
 
 
