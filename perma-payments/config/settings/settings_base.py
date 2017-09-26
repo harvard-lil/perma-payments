@@ -125,6 +125,7 @@ STATIC_URL = '/static/'
 
 # Email
 DEFAULT_FROM_EMAIL = 'info@perma.cc'
+DEFAULT_CONTACT_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Admin
