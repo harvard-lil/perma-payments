@@ -259,13 +259,13 @@ class SubscriptionRequest(OutgoingTransaction):
     recurring_frequency = models.CharField(
         max_length=20,
         choices=(
-            ('weekly', 'weekly'),  # every 7 days.
-            ('bi-weekly', 'bi-weekly'),  # every 2 weeks.
-            ('quad-weekly', 'quad-weekly'),  # every 4 weeks.
+            ('weekly', 'weekly'),
+            ('bi-weekly', 'bi-weekly (every 2 weeks)'),
+            ('quad-weekly', 'quad-weekly (every 4 weeks)'),
             ('monthly', 'monthly'),
-            ('semi-monthly', 'semi-monthly'),  # twice every month (1st and 15th).
+            ('semi-monthly', 'semi-monthly (1st and 15th of each month)'),
             ('quarterly', 'quarterly'),
-            ('semi-annually', 'semi-annually'),  # twice every year.
+            ('semi-annually', 'semi-annually (twice every year)'),
             ('annually', 'annually')
         )
     )
