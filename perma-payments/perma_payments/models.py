@@ -242,7 +242,7 @@ class SubscriptionRequest(OutgoingTransaction):
         max_length=32,
         default=generate_reference_number,
         help_text="Unqiue ID for this subscription. " +
-                  "Subsequent charges, automatically made byCyberSource onthe recurring schedule, " +
+                  "Subsequent charges, automatically made by CyberSource on the recurring schedule, " +
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
     )
@@ -314,7 +314,7 @@ class UpdateRequest(OutgoingTransaction):
     3) comparing notes with CyberSource records
     """
     def __str__(self):
-        return 'SubscriptionRequest {}'.format(self.id)
+        return 'UpdateRequest {}'.format(self.id)
 
     subscription_agreement = models.ForeignKey(
         SubscriptionAgreement,
@@ -389,7 +389,7 @@ class Response(PolymorphicModel):
 
 
     @classmethod
-    def save_new_w_encryped_full_response(cls, response_class, full_response, fields):
+    def save_new_with_encrypted_full_response(cls, response_class, full_response, fields):
         """
         Saves a new instance of type response_class, encrypting the
         'full_response' field

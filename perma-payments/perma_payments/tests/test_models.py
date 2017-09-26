@@ -410,7 +410,7 @@ def test_response_registrar_present_but_not_implemented():
 
 
 @pytest.mark.django_db
-def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscription_request, spoof_django_post_object):
+def test_response_save_new_with_encrypted_full_response_sr(mocker, complete_subscription_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
     nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
@@ -424,7 +424,7 @@ def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscrip
         'message': SENTINEL['message'],
         'payment_token': SENTINEL['payment_token'],
     }
-    Response.save_new_w_encryped_full_response(SubscriptionRequestResponse, spoof_django_post_object, fields)
+    Response.save_new_with_encrypted_full_response(SubscriptionRequestResponse, spoof_django_post_object, fields)
     response = complete_subscription_request.subscription_request_response
 
     # save worked
@@ -440,7 +440,7 @@ def test_response_save_new_w_encryped_full_response_sr(mocker, complete_subscrip
 
 
 @pytest.mark.django_db
-def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_request, spoof_django_post_object):
+def test_response_save_new_with_encrypted_full_response_ur(mocker, barebones_update_request, spoof_django_post_object):
     # mocks
     stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
     nonce = mocker.patch('perma_payments.models.nonce_from_pk', return_value=mocker.sentinel.nonce)
@@ -454,7 +454,7 @@ def test_response_save_new_w_encryped_full_response_ur(mocker, barebones_update_
         'reason_code': SENTINEL['reason_code'],
         'message': SENTINEL['message']
     }
-    Response.save_new_w_encryped_full_response(UpdateRequestResponse, spoof_django_post_object, fields)
+    Response.save_new_with_encrypted_full_response(UpdateRequestResponse, spoof_django_post_object, fields)
     response = barebones_update_request.update_request_response
 
     # save worked

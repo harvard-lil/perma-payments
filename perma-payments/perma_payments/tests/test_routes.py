@@ -603,7 +603,7 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 
     # assertions
     get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
-    r.save_new_w_encryped_full_response.assert_called_once_with(
+    r.save_new_with_encrypted_full_response.assert_called_once_with(
         UpdateRequestResponse,
         dict_to_querydict(cybersource_callback['valid_data']),
         {
@@ -634,7 +634,7 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
 
     # assertions
     get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
-    r.save_new_w_encryped_full_response.assert_called_once_with(
+    r.save_new_with_encrypted_full_response.assert_called_once_with(
         SubscriptionRequestResponse,
         dict_to_querydict(cybersource_callback['valid_data']),
         {
