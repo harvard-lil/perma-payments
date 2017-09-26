@@ -254,7 +254,7 @@ def update(request):
         u_request.full_clean()
         u_request.save()
     except ValidationError as e:
-        logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
+        logger.warning('Invalid POST from Perma.cc update form: {}'.format(e))
         return bad_request(request)
 
     # Bounce the user to CyberSource.
@@ -295,7 +295,7 @@ def cybersource_callback(request):
     message = data['message']
 
     if isinstance(related_request, UpdateRequest):
-        Response.save_new_w_encryped_full_response(
+        Response.save_new_with_encrypted_full_response(
             UpdateRequestResponse,
             request.POST,
             {
@@ -314,7 +314,7 @@ def cybersource_callback(request):
         if len(payment_token) == 16:
             logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(related_request.pk))
 
-        Response.save_new_w_encryped_full_response(
+        Response.save_new_with_encrypted_full_response(
             SubscriptionRequestResponse,
             request.POST,
             {
