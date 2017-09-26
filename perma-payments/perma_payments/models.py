@@ -1,4 +1,3 @@
-from collections import Sequence
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
@@ -32,31 +31,20 @@ def generate_reference_number():
     Only make 100 attempts:
     If there are frequent collisions, expand the keyspace or change the prefix.
     """
+    # temp until we upgrade to 3.6 and random.choices is available
+    def choices(chars, k):
+        return ''.join(random.choice(chars) for _ in range(k))
+
+    # http://book.pythontips.com/en/latest/for_-_else.html#else-clause
     for i in range(100):
-        rn = get_formatted_reference_number(''.join(random.choice(RN_SET) for _ in range(8)), REFERENCE_NUMBER_PREFIX)
+        rn = "PERMA-{0}-{0}".format(
+            choices(RN_SET, k=4)
+        )
         if is_ref_number_available(rn):
             break
     else:
         raise Exception("No valid reference_number found in 100 attempts.")
     return rn
-
-
-def get_formatted_reference_number(rn, prefix):
-    """
-    Given a sequence of non-hyphen characters, returns the formatted string (prefixed and with hyphens every 4 chars).
-    E.g "12345678" -> "PERMA-1234-5678".
-    E.g "12345" -> "PERMA-1-2345".
-    """
-    if not rn or not isinstance(rn, Sequence) or not all(isinstance(c, str) and len(c)==1 and c!='-'for c in rn):
-        raise TypeError("Provide a sequence of non-hyphen characters")
-    if not prefix or not isinstance(prefix, str) or '-' in prefix:
-        raise TypeError("Provide a string with no hyphens.")
-
-    # split reference number into 4-char chunks, starting from the end
-    rn_parts = ["".join(rn[max(i - 4, 0):i]) for i in range(len(rn), 0, -4)]
-
-    # stick together parts with '-'
-    return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
 
 
 def is_ref_number_available(rn):

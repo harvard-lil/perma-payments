@@ -155,54 +155,22 @@ def spoof_django_post_object():
 # Helpers
 
 def test_generate_reference_number_valid(mocker):
-    formatted = mocker.patch('perma_payments.models.get_formatted_reference_number', autospec=True, return_value=mocker.sentinel.formatted)
-    mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
+    available = mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
 
-    generate_reference_number()
-    assert formatted.call_count == 1
-    for c in formatted.call_args[0][0]:
-        assert c in RN_SET
-    assert REFERENCE_NUMBER_PREFIX == formatted.call_args[0][1]
+    rn = generate_reference_number()
+    available.assert_called_once_with(rn)
+    prefix, first, second = rn.split('-')
+    assert prefix == REFERENCE_NUMBER_PREFIX
+    for char in first + second:
+        assert char in RN_SET
 
 
 def test_generate_reference_number_fails_after_100_tries(mocker):
-    mocker.patch('perma_payments.models.get_formatted_reference_number', autospec=True)
     available = mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=False)
     with pytest.raises(Exception) as excinfo:
         generate_reference_number()
     assert "No valid reference_number found" in str(excinfo)
     assert available.call_count == 100
-
-
-non_characters = just('-') | integers() | booleans() | datetimes() | decimals(allow_nan=False, allow_infinity=False)
-@given(non_characters | tuples(non_characters | text(min_size=2), non_characters | text(min_size=2), non_characters | text(min_size=2)) | lists(elements=non_characters | text(min_size=2)) | sets(elements=non_characters | text(min_size=2)))
-def test_get_formatted_reference_number_invalid_rn(rn):
-    with pytest.raises(TypeError) as excinfo:
-        get_formatted_reference_number(rn, 'notempty')
-    assert "sequence of non-hyphen characters" in str(excinfo)
-
-
-@given(just('-') | non_characters)
-def test_get_formatted_reference_number_invalid_prefix(prefix):
-    with pytest.raises(TypeError) as excinfo:
-        get_formatted_reference_number('notempty', prefix)
-    assert "string with no hyphens." in str(excinfo)
-
-
-no_hyphen_string = text(min_size=1, alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).filter(lambda s: '-' not in s)
-no_hyphen_char = text(min_size=1, max_size=1, alphabet=characters(min_codepoint=1, blacklist_categories=('Cc', 'Cs'))).filter(lambda s: '-' not in s)
-no_hyphen_sequences = no_hyphen_string | tuples(no_hyphen_char, no_hyphen_char, no_hyphen_char) | lists(elements=no_hyphen_char, min_size=1)
-@given(no_hyphen_sequences, no_hyphen_string)
-def test_get_formatted_reference_number_hyphenated(rn, prefix):
-    formatted = get_formatted_reference_number(rn, prefix)
-    chars = len(rn)
-    if chars % 4 == 0:
-        assert formatted.count('-') == chars // 4
-    else:
-        assert formatted.count('-') == ((chars + 4) // 4)
-    assert prefix in formatted
-    for char in rn:
-        assert char in formatted
 
 
 # All Models
