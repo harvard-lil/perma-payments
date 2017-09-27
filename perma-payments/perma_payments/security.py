@@ -45,14 +45,13 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     Note: if additional fields are POSTed, or if any of these fields fail to be POSTed,
     CyberSource will reject the communication's signature and return 403 Forbidden.
     """
-    signed_fields['unsigned_field_names'] = ','.join(sorted(unsigned_fields))
-    signed_fields['signed_field_names'] = ''
-    signed_fields['signed_field_names'] = ','.join(sorted(signed_fields))
-    data_to_sign = stringify_for_signature(signed_fields)
+    signed_fields = dict(signed_fields,
+                         unsigned_field_names=','.join(sorted(unsigned_fields)),
+                         signed_field_names=','.join(sorted(list(signed_fields) + ['signed_field_names', 'unsigned_field_names'])))
     to_post = {}
     to_post.update(signed_fields)
     to_post.update(unsigned_fields)
-    to_post['signature'] = sign_data(data_to_sign)
+    to_post['signature'] = sign_data(stringify_for_signature(signed_fields))
     return to_post
 
 
