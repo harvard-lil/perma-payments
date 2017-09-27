@@ -29,6 +29,37 @@ Credit: HTML5 Boilerplate*/
   }
 }
 
+/* fonts */
+
+/* Courtesy of https://google-webfonts-helper.herokuapp.com/fonts/roboto?subsets=latin */
+/* roboto-300 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  src: local('Roboto Light'), local('Roboto-Light'),
+       url('../fonts/roboto-v16-latin-300.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-300.woff') format('woff');
+}
+/* roboto-regular - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Roboto'), local('Roboto-Regular'),
+       url('../fonts/roboto-v16-latin-regular.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-regular.woff') format('woff');
+}
+/* roboto-900 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 900;
+  src: local('Roboto Black'), local('Roboto-Black'),
+       url('../fonts/roboto-v16-latin-900.woff2') format('woff2'),
+       url('../fonts/roboto-v16-latin-900.woff') format('woff');
+}
+
 /* styles */
 
 html, body {
@@ -37,6 +68,7 @@ html, body {
     font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #2D76EE;
 }
+
 
 .wrapper {
     height:100%;
@@ -60,6 +92,17 @@ header {
 
 main {
   flex-grow: 1;
+}
+
+main a {
+  color: #2D76EE;
+  text-decoration: underline !important;
+  text-weight: 900;
+}
+
+main a:hover,
+main a:focus {
+  color: #DD671A;
 }
 
 h1 {
@@ -92,7 +135,7 @@ img.infinity-logo {
 }
 
 .btn-link {
-  color: #0080a4;
+  color: #2D76EE;;
   font-weight: normal;
   font-size: 1.3em;
   border-radius: 0;
@@ -113,6 +156,6 @@ img.infinity-logo {
 }
 .btn-link:hover,
 .btn-link:focus {
-    color: #008a00;
+    color: #DD671A;
     background-color: transparent;
 }

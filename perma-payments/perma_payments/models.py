@@ -1,13 +1,13 @@
-from collections import Sequence
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
+from simple_history.models import HistoricalRecords
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from .security import encrypt_for_storage, stringify_request_post_for_encryption
+from .security import encrypt_for_storage, stringify_data
 
 import logging
 logger = logging.getLogger(__name__)
@@ -32,31 +32,21 @@ def generate_reference_number():
     Only make 100 attempts:
     If there are frequent collisions, expand the keyspace or change the prefix.
     """
+    # temp until we upgrade to 3.6 and random.choices is available
+    def choices(chars, k):
+        return ''.join(random.choice(chars) for _ in range(k))
+
+    # http://book.pythontips.com/en/latest/for_-_else.html#else-clause
     for i in range(100):
-        rn = get_formatted_reference_number(''.join(random.choice(RN_SET) for _ in range(8)), REFERENCE_NUMBER_PREFIX)
+        rn = "PERMA-{}-{}".format(
+            choices(RN_SET, k=4),
+            choices(RN_SET, k=4)
+        )
         if is_ref_number_available(rn):
             break
     else:
         raise Exception("No valid reference_number found in 100 attempts.")
     return rn
-
-
-def get_formatted_reference_number(rn, prefix):
-    """
-    Given a sequence of non-hyphen characters, returns the formatted string (prefixed and with hyphens every 4 chars).
-    E.g "12345678" -> "PERMA-1234-5678".
-    E.g "12345" -> "PERMA-1-2345".
-    """
-    if not rn or not isinstance(rn, Sequence) or not all(isinstance(c, str) and len(c)==1 and c!='-'for c in rn):
-        raise TypeError("Provide a sequence of non-hyphen characters")
-    if not prefix or not isinstance(prefix, str) or '-' in prefix:
-        raise TypeError("Provide a string with no hyphens.")
-
-    # split reference number into 4-char chunks, starting from the end
-    rn_parts = ["".join(rn[max(i - 4, 0):i]) for i in range(len(rn), 0, -4)]
-
-    # stick together parts with '-'
-    return "{}-{}".format(prefix, "-".join(reversed(rn_parts)))
 
 
 def is_ref_number_available(rn):
@@ -92,6 +82,7 @@ class SubscriptionAgreement(models.Model):
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
 
+    history = HistoricalRecords()
     registrar = models.IntegerField()
     status = models.CharField(
         max_length=20,
@@ -136,7 +127,7 @@ class SubscriptionAgreement(models.Model):
 
     @classmethod
     def registrar_standing_subscription(cls, registrar):
-        standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES)
+        standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES).order_by('id')
         count = len(standing)
         if count == 0:
             return None
@@ -144,7 +135,10 @@ class SubscriptionAgreement(models.Model):
             logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, count))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
                 raise cls.MultipleObjectsReturned
-        return standing.first()
+        # In the extremely unlikely (incorrect!) condition that a registrar has multiple standing subscriptions,
+        # return the oldest. Probably, something went wrong with an update request;
+        # we should cancel the new subscription(s), use the original, and if needed update the original one.
+        return standing[0]
 
 
     def can_be_altered(self):
@@ -213,7 +207,7 @@ class OutgoingTransaction(PolymorphicModel):
         help_text="A unique ID for this 'transaction'. " +
                   "Intended to protect against duplicate transactions."
     )
-    request_datetime = models.DateTimeField(auto_now_add=True, null=True)
+    request_datetime = models.DateTimeField(auto_now_add=True)
 
     def get_formatted_datetime(self):
         """
@@ -265,13 +259,13 @@ class SubscriptionRequest(OutgoingTransaction):
     recurring_frequency = models.CharField(
         max_length=20,
         choices=(
-            ('weekly', 'weekly'),  # every 7 days.
-            ('bi-weekly', 'bi-weekly'),  # every 2 weeks.
-            ('quad-weekly', 'quad-weekly'),  # every 4 weeks.
+            ('weekly', 'weekly'),
+            ('bi-weekly', 'bi-weekly (every 2 weeks)'),
+            ('quad-weekly', 'quad-weekly (every 4 weeks)'),
             ('monthly', 'monthly'),
-            ('semi-monthly', 'semi-monthly'),  # twice every month (1st and 15th).
+            ('semi-monthly', 'semi-monthly (1st and 15th of each month)'),
             ('quarterly', 'quarterly'),
-            ('semi-annually', 'semi-annually'),  # twice every year.
+            ('semi-annually', 'semi-annually (twice every year)'),
             ('annually', 'annually')
         )
     )
@@ -318,7 +312,7 @@ class UpdateRequest(OutgoingTransaction):
 
     subscription_agreement = models.ForeignKey(
         SubscriptionAgreement,
-        related_name='update_request'
+        related_name='update_requests'
     )
     transaction_type = models.CharField(
         max_length=30,
@@ -397,7 +391,7 @@ class Response(PolymorphicModel):
         data = {
             'encryption_key_id': settings.STORAGE_ENCRYPTION_KEYS['id'],
             'full_response': encrypt_for_storage(
-                stringify_request_post_for_encryption(full_response)
+                stringify_data(full_response)
             )
         }
         data.update(fields)

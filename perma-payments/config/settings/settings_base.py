@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     # extras
     'nested_inline',
     'polymorphic',
+    'simple_history',
 
     # ours
     'perma_payments',
@@ -45,6 +46,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # extras
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -122,6 +125,7 @@ STATIC_URL = '/static/'
 
 # Email
 DEFAULT_FROM_EMAIL = 'info@perma.cc'
+DEFAULT_CONTACT_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Admin

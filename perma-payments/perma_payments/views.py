@@ -3,7 +3,6 @@ from datetime import datetime
 from functools import wraps
 import io
 
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned, PermissionDenied
@@ -174,7 +173,7 @@ def subscribe(request):
     if SubscriptionAgreement.registrar_standing_subscription(data['registrar']):
         return render(request, 'generic.html', {'heading': "Good News!",
                                                 'message': "You already have a subscription to Perma.cc.<br>" +
-                                                           "If you believe you have reached this page in error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+                                                           "If you believe you have reached this page in error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
     # The subscription request fields must each be valid.
     try:
@@ -241,7 +240,7 @@ def update(request):
     except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
-                                                           "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+                                                           "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
     s_request = sa.subscription_request
     s_response = s_request.subscription_request_response
@@ -394,7 +393,7 @@ def cancel_request(request):
     except AssertionError:
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
-                                                           "If you believe this is an error, please contact us at <a href='mailto:info@perma.cc?subject=Our%20Subscription'>info@perma.cc</a>."})
+                                                           "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
     context = {
         'registrar': registrar,
