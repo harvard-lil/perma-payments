@@ -60,11 +60,11 @@ def process_cybersource_transmission(transmitted_data, fields):
     # Transmitted data must include signature, signed_field_names,
     # and all fields listed in signed_field_names
     try:
-        signature = transmitted_data.__getitem__('signature')
-        signed_field_names = transmitted_data.__getitem__('signed_field_names')
+        signature = transmitted_data['signature']
+        signed_field_names = transmitted_data['signed_field_names']
         signed_fields = OrderedDict()
         for field in signed_field_names.split(','):
-            signed_fields[field] = transmitted_data.__getitem__(field)
+            signed_fields[field] = transmitted_data[field]
     except KeyError as e:
         msg = 'Incomplete POST to CyberSource callback route: missing {}'.format(e)
         logger.warning(msg)
