@@ -379,12 +379,6 @@ def test_generate_public_private_keys():
         assert isinstance(PublicKey(keys[key]['public']), PublicKey)
 
 
-def test_stringify_request_post_for_encryption(spoof_django_post_object):
-    stringified = stringify_request_post_for_encryption(spoof_django_post_object)
-    assert isinstance(stringified, bytes)
-    assert literal_eval(str(stringified, 'utf-8')) == spoof_django_post_object.dict()
-
-
 @given(binary())
 def test_storage_encrypt_and_decrypt(b):
     ci = encrypt_for_storage(b)

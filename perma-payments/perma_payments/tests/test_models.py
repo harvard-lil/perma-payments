@@ -378,7 +378,7 @@ def test_response_registrar_present_but_not_implemented():
 @pytest.mark.django_db
 def test_response_save_new_with_encrypted_full_response_sr(mocker, complete_subscription_request, spoof_django_post_object):
     # mocks
-    stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
+    stringified = mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
     encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     # call
@@ -406,7 +406,7 @@ def test_response_save_new_with_encrypted_full_response_sr(mocker, complete_subs
 @pytest.mark.django_db
 def test_response_save_new_with_encrypted_full_response_ur(mocker, barebones_update_request, spoof_django_post_object):
     # mocks
-    stringified = mocker.patch('perma_payments.models.stringify_request_post_for_encryption', return_value=mocker.sentinel.stringified)
+    stringified = mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
     encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     # call
