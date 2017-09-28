@@ -44,7 +44,6 @@ def find_pending_cancellation_requests():
     from perma_payments.email import send_admin_email #noqa
     from perma_payments.models import SubscriptionAgreement #noqa
     from django.test.client import RequestFactory #noqa
-    import json #noqa
 
     sas = SubscriptionAgreement.objects.filter(cancellation_requested=True).exclude(status='Cancelled')
     data = [
@@ -68,7 +67,3 @@ def find_pending_cancellation_requests():
             'requests': data
         }
     )
-    response = {
-        'total': len(data),
-        'requests': data
-    }
