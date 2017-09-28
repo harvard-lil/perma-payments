@@ -63,31 +63,31 @@ Credit: HTML5 Boilerplate*/
 /* styles */
 
 html, body {
-    height: 100%;
-    background-color: #F6F8F1;
-    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #2D76EE;
+  height: 100%;
+  background-color: #F6F8F1;
+  font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #2D76EE;
 }
 
 
 .wrapper {
-    height:100%;
-    text-align: center;
+  height:100%;
+  text-align: center;
 }
 
 .wrapper-flex {
-    display: -webkit-flex;
-    display: flex;
-    flex-direction: column;
-    -webkit-justify-content: center;
-    justify-content:center;
+  display: -webkit-flex;
+  display: flex;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content:center;
 }
 
 header {
-    background-color: white;
-    padding: 20px 0;
-    width: 100%;
-    text-align: left;
+  background-color: white;
+  padding: 20px 0;
+  width: 100%;
+  text-align: left;
 }
 
 main {
@@ -106,8 +106,8 @@ main a:focus {
 }
 
 h1 {
-    font-weight: 700;
-    color: black;
+  font-weight: 700;
+  color: black;
 }
 
 p {
@@ -117,21 +117,21 @@ p {
 }
 
 a {
-    text-decoration: none;
+  text-decoration: none;
 }
 
 .logo a {
-    font-weight: 900;
-    color: #222;
-    height: 56px;
-    font-size: 24px;
-    padding-left: 36px;
-    min-width: 7em;
+  font-weight: 900;
+  color: #222;
+  height: 56px;
+  font-size: 24px;
+  padding-left: 36px;
+  min-width: 7em;
 }
 
 img.infinity-logo {
-    height: 15px;
-    margin-left: 5px;
+  height: 15px;
+  margin-left: 5px;
 }
 
 .btn-link {
@@ -146,16 +146,16 @@ img.infinity-logo {
 .btn-link:active,
 .btn-link.active,
 .btn-link[disabled] {
-    background-color: transparent;
+  background-color: transparent;
 }
 .btn-link,
 .btn-link:hover,
 .btn-link:focus,
 .btn-link:active {
-    border-color: transparent;
+  border-color: transparent;
 }
 .btn-link:hover,
 .btn-link:focus {
-    color: #DD671A;
-    background-color: transparent;
+  color: #DD671A;
+  background-color: transparent;
 }
