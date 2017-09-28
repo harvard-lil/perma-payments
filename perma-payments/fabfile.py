@@ -72,5 +72,3 @@ def find_pending_cancellation_requests():
         'total': len(data),
         'requests': data
     }
-    print(json.dumps(response))
-    return json.dumps(response)
