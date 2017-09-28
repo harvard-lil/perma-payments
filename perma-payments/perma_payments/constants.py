@@ -31,8 +31,8 @@ CS_TOKEN_URL = {
 # Supported transaction type:
 # - update_payment_token
 #
-# You can update all fields except
-# the recurring_frequency, recurring_start_date and recurring_number_of_payments fields.
+# You can update all fields except:
+# recurring_frequency, recurring_start_date, recurring_number_of_payments
 CS_TOKEN_UPDATE_URL = {
     'test': 'https://testsecureacceptance.cybersource.com/token/update',
     'prod': 'https://secureacceptance.cybersource.com/token/update'
@@ -68,8 +68,7 @@ CS_CARD_TYPE = {
     'elo': '054',
 }
 
-# "Types of Notifications" (decision)
-# (decision, description, what happens if you are using CS Hosted pages)
+# "Types of Notifications" (= decisions)
 CS_DECISIONS = {
     # CyberSource Hosted Page: Accept
     'ACCEPT': "Successful transaction. Reason codes 100 and 110.",
