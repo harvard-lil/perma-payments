@@ -369,13 +369,6 @@ def subscription(request):
 def cancel_request(request):
     """
     Records a cancellation request from Perma.cc
-
-    # Once we actually cancel the subscription in the Business Center,
-    # whatever method we are using to regularly update the subscription status
-    # (manual csv, reporting api, etc.) will update the payment token status to "cancelled"
-
-    # We're going to need something to send us regular emails about subscriptions with cancellation_requested=True,
-    # but status = anything but 'cancelled'...
     """
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['cancel_request'])
@@ -385,10 +378,8 @@ def cancel_request(request):
     registrar = data['registrar']
 
     # The user must have a subscription that can be cancelled.
-    try:
-        sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
-        assert sa and sa.can_be_altered()
-    except AssertionError:
+    sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
+    if not sa and not sa.can_be_altered():
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
