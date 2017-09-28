@@ -192,7 +192,7 @@ Runnng Locally
     -  a "db" container with a postgres database
     -  a "web" container with python, Django, and the rest of our dev environment.
 
-6. Run `dfab init_db` to initialize a development database.
+6. Run `dfab init_dev_db` to initialize a development database.
 
 7. Run `dfab run` to start the Django development server.
 

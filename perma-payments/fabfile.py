@@ -21,24 +21,20 @@ def test():
 
 
 @task
-def init_db():
+def init_dev_db():
     """
     Set up a new dev database.
     """
     local("python3 manage.py migrate")
-    if settings.ADMIN_ENABLED:
-        print("Creating dev admin user.")
-        from django.contrib.auth.models import User #noqa
-        User.objects.create_superuser('admin', 'admin@example.com', 'admin')
+    print("Creating dev admin user.")
+    from django.contrib.auth.models import User #noqa
+    User.objects.create_superuser('admin', 'admin@example.com', 'admin')
 
 
 @task
 def find_pending_cancellation_requests():
     """
     Report pending cancellation requests.
-
-    This is just a draft; once we know how we want to schedule this task,
-    we can adapt appropriately (output format, code location, etc.)
     """
     from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL #noqa
     from perma_payments.email import send_admin_email #noqa
