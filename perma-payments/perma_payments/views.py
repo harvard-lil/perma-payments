@@ -379,7 +379,7 @@ def cancel_request(request):
 
     # The user must have a subscription that can be cancelled.
     sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
-    if not sa and not sa.can_be_altered():
+    if not sa or not sa.can_be_altered():
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
