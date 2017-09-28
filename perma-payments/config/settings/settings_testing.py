@@ -7,7 +7,6 @@ SECRET_KEY = 'k2#@_q=1$(__n7#(zax6#46fu)x=3&^lz&bwb8ol-_097k_rj5'
 CS_ACCESS_KEY = 'test'
 CS_PROFILE_ID = 'test'
 CS_SECRET_KEY = 'a-really-long-test-string'
-CS_PAYMENT_URL = 'https://testsecureacceptance.cybersource.com/pay'
 
 # Our encryption key for storing full responses from CyberSource
 # generated using perma_payments.security.generate_public_private_keys

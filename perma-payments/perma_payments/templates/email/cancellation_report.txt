@@ -1,5 +1,5 @@
 The following {{ total }} registrar(s) have submitted requests to cancel their
-paid subscriptions to perma.cc, but Perma Payments is reporting the
+paid subscriptions to Perma.cc, but Perma Payments is reporting the
 requests have not yet been processed.
 
 At your earliest convenience, please log in to the "Recurring Billing"
@@ -16,18 +16,19 @@ the "Delete Subscription" button.
 The customer will continue to be charged until this task is completed.
 
 If you wish to email each customer to tell them their cancellations
-has been processed, you may find their contact information at perma.cc
+has been processed, you may find their contact information at Perma.cc
 (links below).
 
-Thanks, Perma Payments
+Thanks,
+Perma Payments
 
 ---
 {% for request in requests %}
-registrar: {{ request.registrar }}
-merchant reference number: {{ request.merchant_reference_number}}
-subscription status: {{ request.status }}
-GENERAL CONTACT: {{ perma_url }}{{ registrar_detail_path }}{{ request.registrar }}
-REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{request.registrar }}
+Registrar: {{ request.registrar }}
+Merchant Reference Number: {{ request.merchant_reference_number}}
+Subscription Status: {{ request.status }}
+General Contact: {{ perma_url }}{{ registrar_detail_path }}{{ request.registrar }}
+Registrar Users: {{ perma_url }}{{ registrar_users_path }}{{request.registrar }}
 
 {% endfor %}
 ---

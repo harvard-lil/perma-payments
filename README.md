@@ -20,7 +20,7 @@ law firms and other entities that do not qualify for an unlimited free account.
 Perma.cc admins can create registrars and, in the Perma.cc interface, indicate
 that the individual registrars may particate in the paid beta. (See the
 [Perma docs]() for detailed instructions.) Then, at their leisure, registrar
-users associated with those registrars may visit their perma.cc settings page,
+users associated with those registrars may visit their Perma.cc settings page,
 where they will find the option to subscribe/upgrade to a paid account.
 
 When a registrar user indicates they wish to purchase a paid account for their
@@ -51,10 +51,10 @@ profile), and Perma Payments is informed of the result of the transaction
 (see views.cybersource_callback).
 
 
-### Updating information
+### Updating Information
 
 If a subscribed registrar wishes to update their billing information,
-they visit their Perma.cc settings page, and initiate a request. Just as
+they visit their Perma.cc settings page and initiate a request. Just as
 with their original subscription request, a POST of encrypted, non-sensitive
 data is sent to Perma Payments (see views.update), and the user is delivered at
 a page with a self-submitting form that "redirects" them to CyberSource Secure Acceptance Web/Mobile, where they may update their billing information. Perma
@@ -89,7 +89,7 @@ as already described, Perma.cc POSTS a small amount of encrypted, non-sensitive
 data to Perma Payments; Perma Payments verifies the request and POSTs back an
 encrypted response.
 
-#### Note On Status Accuracy
+#### Note on Status Accuracy
 
 CyberSource does not expose subscription status via an easily-accessible
 API. This has two potential consequences for Perma.cc/Perma Payments:
@@ -99,8 +99,8 @@ in CyberSource Secure Acceptance Web/Mobile, and CyberSource's response
 to Perma Payments goes astray, Perma Payments will continue to treat the
 subscription request as 'pending'.
 
-  In the unlikely evident this occurs, a Perma.cc member can manually
-  update Perma Payments records, when contacted by the affected customer
+  In the unlikely evident this occurs, a Perma.cc staff member can manually
+  update Perma Payments records when contacted by the affected customer
   (who will be unable to create links).
 
 2. If a customer with a monthly subscription has credit card trouble on
@@ -112,30 +112,30 @@ automatically be notified. They will continue to be able to create links.
   detailed instructions.
 
   Monthly subscriptions are renewed on the first of the month; updating
-  statuses on the 2nd of the month, and after any cancellation request,
+  statuses on the 2nd of the month and after any cancellation request
   should be sufficient.
 
 
 Design Notes
 ------------
 
-### On customizing CyberSource
+### On Customizing CyberSource
 
 Whenever possible, Perma Payments makes use of CyberSource features, rather
 than implementing custom functionality. For example, at this time, we are
 using CyberSource's own "Response Pages", rather than custom built pages.
 If further customization is required in the future, we can consider:
-- embedding the CyberSource checkout page in an iframe, whose wrapper is
+- embedding the CyberSource checkout page in an iframe whose wrapper is
 hosted at Perma Payments
 - building custom repsonse pages, hosted at Perma.cc or Perma Payments
 
-### On communicating with CybserSource
+### On Communicating with CyberSource
 
 Perma.cc is designed to interact with Perma Payments, and Perma Payments is
 designed to interact with CyberSource; Perma.cc never communicates with
 CyberSource.
 
-### On storing replies from CyberSource
+### On Storing Replies from CyberSource
 
 Perma Payments has no control over which information CyberSource includes
 in its responses to subscription requests and update requests. Since
@@ -144,8 +144,8 @@ such as customer billing addresses, Perma Payments does NOT store
 responses from CyberSource as-is. Instead, Perma Payments extracts
 the minimum fields necessary for business requirements, ALL of which
 are non-sensitive, and stores them in its database. For thoroughness,
-the request in its entirety is then encrypted and stored, in a form that
-can only be decrypted using keys kept offline, in secure physical
+the request in its entirety is then encrypted and stored in a form that
+can only be decrypted using keys kept offline in secure physical
 locations.
 
 
@@ -192,7 +192,7 @@ Runnng Locally
     -  a "db" container with a postgres database
     -  a "web" container with python, Django, and the rest of our dev environment.
 
-6. Run `dfab init_db` to initialize a development database.
+6. Run `dfab init_dev_db` to initialize a development database.
 
 7. Run `dfab run` to start the Django development server.
 
@@ -226,7 +226,7 @@ To run the tests, `dfab test`.
 
 ## Updating the Docker image
 
-If you change the Dockerfile or if commit changes to requirements.txt,
+If you change the Dockerfile or commit changes to requirements.txt,
 you should increment the tag for perma-payments in docker-compose.yml.
 This ensures that an automatic rebuild is triggered for all users, when
 they pull in your changes.

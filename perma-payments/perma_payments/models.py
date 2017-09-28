@@ -20,10 +20,10 @@ RN_SET = "0123456789"
 REFERENCE_NUMBER_PREFIX = "PERMA"
 STANDING_STATUSES = ['Current', 'Hold']
 
+
 #
 # HELPERS
 #
-
 
 def generate_reference_number():
     """
@@ -363,21 +363,21 @@ class Response(PolymorphicModel):
     @property
     def related_request(self):
         """
-        Must be implemented by child models
+        Must be implemented by children
         """
         raise NotImplementedError
 
     @property
     def subscription_agreement(self):
         """
-        Must be implemented by child models
+        Must be implemented by children
         """
         raise NotImplementedError
 
     @property
     def registrar(self):
         """
-        Must be implemented by child models
+        Must be implemented by children
         """
         raise NotImplementedError
 
