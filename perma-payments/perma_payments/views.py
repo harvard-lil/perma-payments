@@ -279,7 +279,7 @@ def update(request):
 @sensitive_post_parameters(*SENSITIVE_POST_PARAMETERS)
 def cybersource_callback(request):
     """
-    In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
+    In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d 'path/to/sample_response.txt'
     """
     try:
         data = process_cybersource_transmission(request.POST, FIELDS_REQUIRED_FROM_CYBERSOURCE['cybersource_callback'])
