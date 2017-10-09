@@ -127,7 +127,7 @@ using CyberSource's own "Response Pages", rather than custom built pages.
 If further customization is required in the future, we can consider:
 - embedding the CyberSource checkout page in an iframe whose wrapper is
 hosted at Perma Payments
-- building custom repsonse pages, hosted at Perma.cc or Perma Payments
+- building custom response pages, hosted at Perma.cc or Perma Payments
 
 ### On Communicating with CyberSource
 
