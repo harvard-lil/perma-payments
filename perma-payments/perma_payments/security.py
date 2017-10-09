@@ -25,6 +25,7 @@ from nacl.utils import StringFixer
 # Classes
 #
 
+
 class InvalidTransmissionException(Exception):
     pass
 
@@ -90,7 +91,7 @@ def prep_for_perma(dictionary):
 def process_perma_transmission(transmitted_data, fields):
     # Transmitted data should contain a single field, 'encrypted_data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
-    encrypted_data = transmitted_data.get('encrypted_data','')
+    encrypted_data = transmitted_data.get('encrypted_data', '')
     if not encrypted_data:
         raise InvalidTransmissionException('No encrypted_data in POST.')
     try:

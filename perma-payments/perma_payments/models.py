@@ -124,7 +124,6 @@ class SubscriptionAgreement(models.Model):
         default=False
     )
 
-
     @classmethod
     def registrar_standing_subscription(cls, registrar):
         standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES).order_by('id')
@@ -140,10 +139,8 @@ class SubscriptionAgreement(models.Model):
         # we should cancel the new subscription(s), use the original, and if needed update the original one.
         return standing[0]
 
-
     def can_be_altered(self):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
-
 
     def update_status_after_cs_decision(self, decision, redacted_response):
         decision_map = {
@@ -235,7 +232,7 @@ class SubscriptionRequest(OutgoingTransaction):
     reference_number = models.CharField(
         max_length=32,
         default=generate_reference_number,
-        help_text="Unqiue ID for this subscription. " +
+        help_text="Unique ID for this subscription. " +
                   "Subsequent charges, automatically made by CyberSource on the recurring schedule, " +
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
@@ -290,7 +287,6 @@ class SubscriptionRequest(OutgoingTransaction):
     def registrar(self):
         return self.subscription_agreement.registrar
 
-
     def get_formatted_start_date(self):
         """
         Returns the recurring_start_date in the format required by CyberSource
@@ -338,7 +334,6 @@ class Response(PolymorphicModel):
         if not self.full_response:
             raise ValidationError({'full_response': 'This field cannot be blank.'})
 
-
     # we can't guarantee cybersource will send us these fields, though we sure hope so
     decision = models.CharField(
         blank=True,
@@ -380,7 +375,6 @@ class Response(PolymorphicModel):
         Must be implemented by children
         """
         raise NotImplementedError
-
 
     @classmethod
     def save_new_with_encrypted_full_response(cls, response_class, full_response, fields):
