@@ -81,7 +81,8 @@ following the instructions in the notification email sent by Perma Payments.
 
 In the course of business, Perma.cc needs to know the status of a given
 regsitrar's subscription: do they in fact have a standing subscription?
-Is their payment current? etc.
+Is their payment current? etc. (See models.SubscriptionAgreement.status for a
+list of all possible subscription statuses and what they mean.)
 
 Perma Payments makes this information available to Perma.cc via a POST-only
 api route (see views.subscription). Using the same communication pattern
@@ -91,8 +92,9 @@ encrypted response.
 
 #### Note on Status Accuracy
 
-CyberSource does not expose subscription status via an easily-accessible
-API. This has two potential consequences for Perma.cc/Perma Payments:
+CyberSource does not expose up-to-date subscription statuses via an
+easily-accessible API. This has two potential consequences for
+Perma.cc/Perma Payments:
 
 1. If a customer successfully signs up for a recurring paid subscription
 in CyberSource Secure Acceptance Web/Mobile, and CyberSource's response
@@ -108,12 +110,13 @@ a given month and their subscription lapses, Perma Payments will not
 automatically be notified. They will continue to be able to create links.
 
   To protect against this possibility, Perma.cc staff should periodically
-  update subscription statuses via CSV upload. See "How To" below for
-  detailed instructions.
+  retrieve up-to-date subscription statuses from CyberSource and update
+  Perma Payment's records. This is a quick and easy job; see "Common Tasks"
+  below for detailed instructions.
 
-  Monthly subscriptions are renewed on the first of the month; updating
-  statuses on the 2nd of the month and after any cancellation request
-  should be sufficient.
+  Since customers with monthly subscriptions are charged on the first of
+  every month, updating subscription statuses in Perma Payments on the
+  2nd of the month and after any cancellation request should be sufficient.
 
 
 Design Notes
