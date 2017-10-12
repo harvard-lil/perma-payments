@@ -4,7 +4,13 @@ from simple_history.admin import SimpleHistoryAdmin
 from django.contrib import admin
 from django.contrib.auth.models import Group, User
 
-from .models import *
+from .models import (
+    SubscriptionAgreement,
+    SubscriptionRequest,
+    UpdateRequest,
+    SubscriptionRequestResponse,
+    UpdateRequestResponse,
+)
 
 # remove builtin models
 # admin.site.unregister(Site)
