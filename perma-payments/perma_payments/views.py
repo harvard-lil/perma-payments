@@ -279,7 +279,7 @@ def update(request):
 @sensitive_post_parameters(*SENSITIVE_POST_PARAMETERS)
 def cybersource_callback(request):
     """
-    In dev, curl http://192.168.99.100/cybersource-callback/ -X POST -d '@/Users/rcremona/code/perma-payments/sample_response.txt'
+    In dev, curl http://your-docker-machine-ip/cybersource-callback/ -X POST -d 'path/to/sample_response.txt'
     """
     try:
         data = process_cybersource_transmission(request.POST, FIELDS_REQUIRED_FROM_CYBERSOURCE['cybersource_callback'])
@@ -325,7 +325,7 @@ def cybersource_callback(request):
         related_request.subscription_agreement.update_status_after_cs_decision(decision, {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS})
 
     else:
-        raise NotImplementedError("Can't handle a response of type {}, returned in reponse to outgoing transaction {}".format(type(related_request), related_request.pk))
+        raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
 
     return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
 
