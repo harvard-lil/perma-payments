@@ -179,7 +179,7 @@ Et voilà.
 Runnng Locally
 --------------
 
-## Up
+### Up
 
 1. Install [Docker](https://docs.docker.com/installation/) or [Docker Toolbox](https://www.docker.com/products/docker-toolbox)
 
@@ -204,14 +204,14 @@ Runnng Locally
    -  Docker Machine: run `docker-machine ip` to discover the IP address of your virtualbox. Then, head to http://that-ip-address.
 
 
-## Down
+### Down
 
 To stop all running containers (and retain any information in your database), run `docker-compose stop`.
 
 To stop and destroy all containers created via docker-compose up, run `docker-compose down`. Note that this will destroy your database and all its data.
 
 
-## Other helpful commands
+### Other helpful commands
 
 To get to a bash terminal in the running docker container, run `docker-compose exec web bash`.
 
@@ -227,7 +227,7 @@ To add new python dependencies to an existing image:
 To run the tests, `dfab test`.
 
 
-## Updating the Docker image
+### Updating the Docker image
 
 If you change the Dockerfile or commit changes to requirements.txt,
 you should increment the tag for perma-payments in docker-compose.yml.
