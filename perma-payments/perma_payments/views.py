@@ -322,7 +322,7 @@ def cybersource_callback(request):
                 'payment_token': payment_token,
             }
         )
-        related_request.subscription_agreement.update_status_after_cs_decision(decision, {k: v for (k, v) in request.POST.items() if k not in SENSITIVE_POST_PARAMETERS})
+        related_request.subscription_agreement.update_status_after_cs_decision(decision, redact(request.POST))
 
     else:
         raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
