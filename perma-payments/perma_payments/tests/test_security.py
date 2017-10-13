@@ -377,8 +377,8 @@ def test_generate_public_private_keys():
     for key in expected_keys:
         assert sorted(list(keys[key].keys())) == sorted(['secret', 'public'])
         assert keys[key]['secret'] != keys[key]['public']
-        assert isinstance(PrivateKey(keys[key]['secret']), PrivateKey)
-        assert isinstance(PublicKey(keys[key]['public']), PublicKey)
+        assert isinstance(PrivateKey(keys[key]['secret'], encoder=encoding.Base64Encoder), PrivateKey)
+        assert isinstance(PublicKey(keys[key]['public'], encoder=encoding.Base64Encoder), PublicKey)
 
 
 @given(binary())
