@@ -1,4 +1,3 @@
-import base64
 from collections import OrderedDict
 from datetime import datetime, timedelta
 import decimal
