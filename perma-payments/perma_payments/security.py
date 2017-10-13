@@ -184,27 +184,31 @@ def generate_public_private_keys():
     public_b = secret_b.public_key
     return {
         'a': {
-            'secret': secret_a._private_key,
-            'public': public_a._public_key,
+            'secret': base64.b64encode(secret_a._private_key),
+            'public': base64.b64encode(public_a._public_key),
         },
         'b': {
-            'secret': secret_b._private_key,
-            'public': public_b._public_key,
+            'secret': base64.b64encode(secret_b._private_key),
+            'public': base64.b64encode(public_b._public_key),
         }
     }
 
 
-def encrypt_for_storage(message):
+def encrypt_for_storage(message, encoder=encoding.Base64Encoder):
     """
     Public sealed box.
     http://pynacl.readthedocs.io/en/latest/public/#nacl-public-sealedbox
     """
-    box = SealedBox(PublicKey(settings.STORAGE_ENCRYPTION_KEYS['vault_public_key']))
+    box = SealedBox(
+        PublicKey(
+            settings.STORAGE_ENCRYPTION_KEYS['vault_public_key'], encoder=encoder
+        )
+    )
     return box.encrypt(message)
 
 
 @sensitive_variables()
-def decrypt_from_storage(ciphertext):
+def decrypt_from_storage(ciphertext, encoder=encoding.Base64Encoder):
     """
     Decrypt bytes encrypted via encrypt_for_storage
 
@@ -217,7 +221,11 @@ def decrypt_from_storage(ciphertext):
         >>> resp = SubscriptionRequestResponse.objects.get(pk=????????)
         >>> decrypt_from_storage(bytes(resp.full_response))
     """
-    box = SealedBox(PrivateKey(settings.STORAGE_ENCRYPTION_KEYS['vault_secret_key']))
+    box = SealedBox(
+        PrivateKey(
+            settings.STORAGE_ENCRYPTION_KEYS['vault_secret_key'], encoder=encoder
+        )
+    )
     return box.decrypt(ciphertext)
 
 
@@ -226,7 +234,14 @@ def encrypt_for_perma(message, encoder=encoding.Base64Encoder):
     """
     Basic public key encryption ala pynacl.
     """
-    box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
+    box = Box(
+        PrivateKey(
+            settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key'], encoder=encoder
+        ),
+        PublicKey(
+            settings.PERMA_ENCRYPTION_KEYS['perma_public_key'], encoder=encoder
+        )
+    )
     return box.encrypt(message, encoder=encoder)
 
 
@@ -235,7 +250,14 @@ def decrypt_from_perma(ciphertext, encoder=encoding.Base64Encoder):
     """
     Decrypt bytes encrypted by perma.cc
     """
-    box = Box(PrivateKey(settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key']), PublicKey(settings.PERMA_ENCRYPTION_KEYS['perma_public_key']))
+    box = Box(
+        PrivateKey(
+            settings.PERMA_ENCRYPTION_KEYS['perma_payments_secret_key'], encoder=encoder
+        ),
+        PublicKey(
+            settings.PERMA_ENCRYPTION_KEYS['perma_public_key'], encoder=encoder
+        )
+    )
     return box.decrypt(ciphertext, encoder=encoder)
 
 
