@@ -6,9 +6,11 @@ import hmac
 import json
 from nacl import encoding
 from nacl.public import Box, PrivateKey, PublicKey
+import string
 from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.decorators.debug import sensitive_variables
 
@@ -29,6 +31,31 @@ from nacl.utils import StringFixer
 class InvalidTransmissionException(Exception):
     pass
 
+
+class AlphaNumericValidator(object):
+    """
+    Password validator, adapted from https://djangosnippets.org/snippets/2551/
+    """
+
+    def validate(self, password, user=None):
+        contains_number = contains_letter = False
+        for char in password:
+            if not contains_number:
+                if char in string.digits:
+                    contains_number = True
+            if not contains_letter:
+                if char in string.ascii_letters:
+                    contains_letter = True
+            if contains_number and contains_letter:
+                break
+
+        if not contains_number or not contains_letter:
+            raise ValidationError("This password does not include at least \
+                                   one letter and at least one number.")
+
+    def get_help_text(self):
+        return "Your password must include at least \
+                one letter and at least one number."
 
 #
 # Functions
