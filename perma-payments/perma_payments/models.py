@@ -180,7 +180,7 @@ class SubscriptionAgreement(models.Model):
                 #    we can't know whether CyberSource has attempted a charge yet.
                 #    Customer is paid through today, but tomorrow is a mystery.
                 #    See settings.GRACE_PERIOD for complete discussion
-                anniversary_this_year = datetime.date(now.year, self.created_date.month, self.created_date.day)
+                anniversary_this_year = datetime.date(now.year, self.created_date.month, self.created_date.day, tz=timezone(settings.TIME_ZONE))
                 if anniversary_this_year < now:
                     return this_day_next_year(anniversary_this_year)
                 elif anniversary_this_year == now:
