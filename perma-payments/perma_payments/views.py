@@ -366,7 +366,8 @@ def subscription(request):
     else:
         subscription = {
             'rate': standing_subscription.subscription_request.recurring_amount,
-            'frequency': standing_subscription.subscription_request.recurring_frequency
+            'frequency': standing_subscription.subscription_request.recurring_frequency,
+            'paid_through': standing_subscription.paid_through
         }
 
         if standing_subscription.cancellation_requested:
