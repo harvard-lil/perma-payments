@@ -239,7 +239,8 @@ class SubscriptionAgreement(models.Model):
             'message': "Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
         })
         self.status = mapped['status']
-        self.save(update_fields=['status'])
+        self.paid_through = self.calculate_paid_through_date_from_reported_status(self.status)
+        self.save(update_fields=['status', 'paid_through'])
         logger.log(mapped['log_level'], mapped['message'])
 
 
