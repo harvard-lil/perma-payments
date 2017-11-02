@@ -439,7 +439,8 @@ def update_statuses(request):
             continue
 
         sa.status = status
-        sa.save(update_fields=['status'])
+        sa.paid_through = sa.calculate_paid_through_date_from_reported_status(status)
+        sa.save(update_fields=['status', 'paid_through'])
         logger.info("Updated subscription status for {} to {}".format(reference, status))
 
     return render(request, 'generic.html', {'heading': "Statuses Updated",
