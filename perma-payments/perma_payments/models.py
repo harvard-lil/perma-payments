@@ -1,6 +1,10 @@
+import calendar
+import datetime
+from dateutil.relativedelta import relativedelta
 import random
 from uuid import uuid4
 from polymorphic.models import PolymorphicModel
+from pytz import timezone
 from simple_history.models import HistoricalRecords
 
 from django.conf import settings
@@ -51,6 +55,16 @@ def generate_reference_number():
 
 def is_ref_number_available(rn):
     return not SubscriptionRequest.objects.filter(reference_number=rn).exists()
+
+
+def last_day_of_month(now):
+    _, num_days = calendar.monthrange(now.year, now.month)
+    return datetime.datetime(now.year, now.month, num_days)
+
+
+def this_day_next_year(now):
+    # relativedelta handles leap years: 2/29 -> 2/28
+    return now + relativedelta(years=1)
 
 
 #
@@ -119,7 +133,12 @@ class SubscriptionAgreement(models.Model):
             ('Superseded', 'Superseded')
         )
     )
-    status_updated = models.DateTimeField(auto_now=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
+    paid_through = models.DateTimeField(
+        null=True,
+        blank=True
+    )
     cancellation_requested = models.BooleanField(
         default=False
     )
@@ -141,6 +160,38 @@ class SubscriptionAgreement(models.Model):
 
     def can_be_altered(self):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
+
+
+    def calculate_paid_through_date_from_reported_status(self, status):
+        if status == 'Current':
+            frequency = self.subscription_request.recurring_frequency
+            now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE)).date()
+            if frequency == 'monthly':
+                # Monthly customers are charged on the 1st of the month.
+                # Any 'current' monthly customer is paid through the end of the month.
+                return last_day_of_month(now)
+            elif frequency == 'annually':
+                # Annual customers are charged on the anniversary of their subscription date.
+                # If that day has already passed this year:
+                #    a 'current' annual customer is paid through their anniversary, NEXT year.
+                # If that day has not yet passed this year:
+                #    a 'current' annual customer is paid through their anniversary THIS year.
+                # If today is the anniversary:
+                #    we can't know whether CyberSource has attempted a charge yet.
+                #    Customer is paid through today, but tomorrow is a mystery.
+                #    See settings.GRACE_PERIOD for complete discussion
+                anniversary_this_year = datetime.date(now.year, self.created_date.month, self.created_date.day, tz=timezone(settings.TIME_ZONE))
+                if anniversary_this_year < now:
+                    return this_day_next_year(anniversary_this_year)
+                elif anniversary_this_year == now:
+                    return now + relativedelta(days=settings.GRACE_PERIOD)
+                else:
+                    return anniversary_this_year
+            # We only offer monthly and annual subscriptions.
+            # If we change our minds, we need more logic here.
+            logger.error("No code for calculating paid-through date for subscriptions recurring {}".format(frequency))
+        return self.paid_through
+
 
     def update_status_after_cs_decision(self, decision, redacted_response):
         decision_map = {
@@ -188,7 +239,8 @@ class SubscriptionAgreement(models.Model):
             'message': "Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
         })
         self.status = mapped['status']
-        self.save(update_fields=['status'])
+        self.paid_through = self.calculate_paid_through_date_from_reported_status(self.status)
+        self.save(update_fields=['status', 'paid_through'])
         logger.log(mapped['log_level'], mapped['message'])
 
 

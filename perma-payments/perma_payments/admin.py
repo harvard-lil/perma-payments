@@ -74,8 +74,8 @@ class SubscriptionRequestInline(ReadOnlyTabularInline):
 
 @admin.register(SubscriptionAgreement)
 class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
-    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated')
-    list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'status_updated', 'get_reference_number')
+    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'created_date')
+    list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'get_reference_number')
     list_filter = ('registrar', 'cancellation_requested', 'status')
     search_fields = ['registrar','subscription_request__reference_number']
     inlines = [

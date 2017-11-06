@@ -195,7 +195,8 @@ def test_sa_required_fields():
 def test_sa_autopopulated_fields(standing_sa):
     autopopulated_fields_present(
         standing_sa, [
-            'status_updated',
+            'created_date',
+            'updated_date',
             'cancellation_requested'
         ]
     )

@@ -745,7 +745,8 @@ def test_subscription_post_standing_subscription(client, subscription, complete_
         'subscription': {
             'rate': complete_standing_sa.subscription_request.recurring_amount,
             'frequency': complete_standing_sa.subscription_request.recurring_frequency,
-            'status': complete_standing_sa.status
+            'status': complete_standing_sa.status,
+            'paid_through': complete_standing_sa.paid_through
         },
         'timestamp': mocker.sentinel.timestamp
     })

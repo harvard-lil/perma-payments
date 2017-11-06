@@ -146,6 +146,18 @@ CS_MODE = 'test'
 RAISE_IF_SUBSCRIPTION_NOT_FOUND = True
 RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
 
+# If an annual subscription is scheduled to be renewed on the day we
+# update subscription statuses, we can't know the subscription's status
+# with certainty: has their card been charged yet today or not?
+#
+# What's the upper limit of free days we want to grant the registrar
+# in this situation?
+# Perma.cc staff must update subscription statuses again...
+# if 0: tomorrow
+# if 7: within the next week
+# if 31: next month (that is, exactly as usual, as though this never happened)
+GRACE_PERIOD = 31
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
