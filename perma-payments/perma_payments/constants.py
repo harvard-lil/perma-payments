@@ -84,7 +84,7 @@ CS_DECISIONS = {
              "See reason codes 102, 104, 150, 151 and 152.",
     # CyberSource Hosted Page: Cancel
     'CANCEL': "The customer did not accept the service fee conditions, " +
-              "or the customer cancelled the transaction."
+              "or the customer canceled the transaction."
 }
 
 # "Reason Codes" (payer_authentication_reason_code)

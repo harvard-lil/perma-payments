@@ -114,7 +114,7 @@ class SubscriptionAgreement(models.Model):
             # from https://ebctest.cybersource.com/ebctest/help/en/index.html#page/Business_Center_Help/sub_search_results.htm
             #
             # The subscription has been canceled.
-            ('Cancelled', 'Cancelled'),
+            ('Canceled', 'Canceled'),
             # All payments have been processed (installments subscriptions).
             # You see this status one or two days after the last payment is processed.
             # (As of 8/16/17, should never be returned to Perma Payments, since we are not selling installment plans.)
@@ -225,7 +225,7 @@ class SubscriptionAgreement(models.Model):
                 'message': "Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
             },
             # The customer did not accept the service fee conditions,
-            # or the customer cancelled the transaction.
+            # or the customer canceled the transaction.
             'CANCEL': {
                 'status': 'Aborted',
                 'log_level': logging.INFO,
