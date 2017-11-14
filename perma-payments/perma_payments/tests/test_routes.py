@@ -844,7 +844,7 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
     }
     assert complete_standing_sa.cancellation_requested
     assert response.status_code == 302
-    assert response['Location'] == settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL
+    assert response['Location'] == settings.PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL
 
 
 @pytest.mark.django_db

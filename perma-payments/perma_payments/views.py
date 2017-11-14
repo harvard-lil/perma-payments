@@ -396,7 +396,7 @@ def cancel_request(request):
 
     registrar = data['registrar']
 
-    # The user must have a subscription that can be cancelled.
+    # The user must have a subscription that can be canceled.
     sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
     if not sa or not sa.can_be_altered():
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
@@ -415,7 +415,7 @@ def cancel_request(request):
     send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
     sa.cancellation_requested = True
     sa.save(update_fields=['cancellation_requested'])
-    return redirect(settings.PERMA_SUBSCRIPTION_CANCELLED_REDIRECT_URL)
+    return redirect(settings.PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL)
 
 
 @user_passes_test_or_403(lambda user: user.is_staff)
