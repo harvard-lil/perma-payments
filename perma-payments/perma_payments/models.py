@@ -59,7 +59,7 @@ def is_ref_number_available(rn):
 
 def last_day_of_month(now):
     _, num_days = calendar.monthrange(now.year, now.month)
-    return datetime.datetime(now.year, now.month, num_days)
+    return datetime.datetime(now.year, now.month, num_days, tzinfo=now.tzinfo)
 
 
 def this_day_next_year(now):
@@ -165,7 +165,7 @@ class SubscriptionAgreement(models.Model):
     def calculate_paid_through_date_from_reported_status(self, status):
         if status == 'Current':
             frequency = self.subscription_request.recurring_frequency
-            now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE)).date()
+            now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE))
             if frequency == 'monthly':
                 # Monthly customers are charged on the 1st of the month.
                 # Any 'current' monthly customer is paid through the end of the month.
@@ -180,7 +180,7 @@ class SubscriptionAgreement(models.Model):
                 #    we can't know whether CyberSource has attempted a charge yet.
                 #    Customer is paid through today, but tomorrow is a mystery.
                 #    See settings.GRACE_PERIOD for complete discussion
-                anniversary_this_year = datetime.date(now.year, self.created_date.month, self.created_date.day, tz=timezone(settings.TIME_ZONE))
+                anniversary_this_year = datetime.datetime(now.year, self.created_date.month, self.created_date.day, tzinfo=timezone(settings.TIME_ZONE))
                 if anniversary_this_year < now:
                     return this_day_next_year(anniversary_this_year)
                 elif anniversary_this_year == now:

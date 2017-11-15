@@ -85,6 +85,27 @@ def complete_pending_sa():
     return sa
 
 
+@pytest.fixture(params=['monthly', 'annually'])
+@pytest.mark.django_db
+def complete_current_sa(mocker, request):
+    tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
+    sa = SubscriptionAgreement(
+        registrar=SENTINEL['registrar_id'],
+        status='Current'
+    )
+    sa.save()
+    sr = SubscriptionRequest(
+        subscription_agreement=sa,
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['recurring_amount'],
+        recurring_start_date=GENESIS,
+        recurring_frequency=request.param
+    )
+    sr.save()
+    assert tz.call_count > 0
+    return sa
+
+
 @pytest.fixture(params=CS_DECISIONS)
 def decision(request):
     return request.param
@@ -251,6 +272,12 @@ def test_sa_update_status_after_cs_decision(complete_pending_sa, decision, mocke
     complete_pending_sa.update_status_after_cs_decision(decision, {})
     assert complete_pending_sa.status != 'Pending'
     assert log.call_count == 1
+
+
+@pytest.mark.django_db
+def test_sa_calculate_paid_through_date_annual(complete_current_sa):
+    # lame test just to pass through some of the code
+    assert complete_current_sa.calculate_paid_through_date_from_reported_status('Current').tzinfo
 
 
 # OutgoingTransaction
