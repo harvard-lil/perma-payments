@@ -106,8 +106,6 @@ def complete_current_sa(mocker, request):
     return sa
 
 
-
-
 @pytest.fixture(params=CS_DECISIONS)
 def decision(request):
     return request.param
