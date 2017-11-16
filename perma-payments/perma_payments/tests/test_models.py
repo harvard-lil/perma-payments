@@ -1,3 +1,7 @@
+import datetime
+from dateutil.relativedelta import relativedelta
+from pytz import timezone
+
 from django.apps import apps
 from django.http import QueryDict
 
@@ -104,6 +108,51 @@ def complete_current_sa(mocker, request):
     sr.save()
     assert tz.call_count > 0
     return sa
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def complete_canceled_sa(mocker):
+    tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
+    sa = SubscriptionAgreement(
+        registrar=SENTINEL['registrar_id'],
+        status='Canceled',
+        # None in fixture to force type errors if not subsequently set.
+        paid_through=None
+    )
+    sa.save()
+    sr = SubscriptionRequest(
+        subscription_agreement=sa,
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['recurring_amount'],
+        recurring_start_date=GENESIS,
+        recurring_frequency=SENTINEL['recurring_frequency']
+    )
+    sr.save()
+    assert tz.call_count > 0
+    return sa
+
+
+@pytest.fixture(params=[
+        datetime.datetime.now(tz=timezone(settings.TIME_ZONE)) + relativedelta(days=20),
+        datetime.datetime.now(tz=timezone(settings.TIME_ZONE)) + relativedelta(hours=2)
+    ])
+@pytest.mark.django_db
+def current_canceled_sa(complete_canceled_sa, request):
+    complete_canceled_sa.paid_through = request.param
+    complete_canceled_sa.save()
+    return complete_canceled_sa
+
+
+@pytest.fixture(params=[
+        datetime.datetime.now(tz=timezone(settings.TIME_ZONE)) + relativedelta(days=-20),
+        datetime.datetime.now(tz=timezone(settings.TIME_ZONE)) + relativedelta(hours=-2)
+    ])
+@pytest.mark.django_db
+def expired_canceled_sa(complete_canceled_sa, request):
+    complete_canceled_sa.paid_through = request.param
+    complete_canceled_sa.save()
+    return complete_canceled_sa
 
 
 @pytest.fixture(params=CS_DECISIONS)
@@ -223,8 +272,18 @@ def test_sa_autopopulated_fields(standing_sa):
     )
 
 @pytest.mark.django_db
-def test_sa_registrar_standing_subscription_true(standing_sa):
+def test_sa_registrar_standard_standing_subscription_true(standing_sa):
     assert SubscriptionAgreement.registrar_standing_subscription(standing_sa.registrar)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_current_cancelled_subscription_true(current_canceled_sa):
+    assert SubscriptionAgreement.registrar_standing_subscription(current_canceled_sa.registrar)
+
+
+@pytest.mark.django_db
+def test_sa_registrar_expired_cancelled_subscription_not_standing(expired_canceled_sa):
+    assert not SubscriptionAgreement.registrar_standing_subscription(expired_canceled_sa.registrar)
 
 
 @pytest.mark.django_db

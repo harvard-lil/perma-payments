@@ -370,7 +370,7 @@ def subscription(request):
             'paid_through': standing_subscription.paid_through
         }
 
-        if standing_subscription.cancellation_requested:
+        if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
             subscription['status'] = 'Cancellation Requested'
         else:
             subscription['status'] = standing_subscription.status

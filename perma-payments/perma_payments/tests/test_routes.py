@@ -21,7 +21,7 @@ from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import *
 
 from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, UpdateRequestFactory
-from .utils import SENTINEL, expected_template_used, get_not_allowed, post_not_allowed, put_patch_delete_not_allowed, dict_to_querydict
+from .utils import GENESIS, SENTINEL, expected_template_used, get_not_allowed, post_not_allowed, put_patch_delete_not_allowed, dict_to_querydict
 
 
 register(SubscriptionRequestFactory)
@@ -171,10 +171,20 @@ def complete_standing_sa(request, subscription_request_response_factory):
 @pytest.fixture
 @pytest.mark.django_db
 def sa_w_cancellation_requested(complete_standing_sa):
-    complete_standing_sa.cancellation_requested=True
+    complete_standing_sa.cancellation_requested = True
     complete_standing_sa.save()
     assert complete_standing_sa.cancellation_requested
     return complete_standing_sa
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def canceled_sa(sa_w_cancellation_requested):
+    sa_w_cancellation_requested.status = 'Canceled'
+    sa_w_cancellation_requested.paid_through = GENESIS
+    sa_w_cancellation_requested.save()
+    assert sa_w_cancellation_requested.cancellation_requested
+    return sa_w_cancellation_requested
 
 
 @pytest.fixture
@@ -724,7 +734,7 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 
 
 @pytest.mark.django_db
-def test_subscription_post_standing_subscription(client, subscription, complete_standing_sa, mocker):
+def test_subscription_post_standard_standing_subscription(client, subscription, complete_standing_sa, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch(
         'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
@@ -756,7 +766,7 @@ def test_subscription_post_standing_subscription(client, subscription, complete_
 
 
 @pytest.mark.django_db
-def test_subscription_post_standing_subscription_cancellation_status(client, subscription, sa_w_cancellation_requested, mocker):
+def test_subscription_post_standing_subscription_cancellation_requested(client, subscription, sa_w_cancellation_requested, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     mocker.patch(
         'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
@@ -770,6 +780,23 @@ def test_subscription_post_standing_subscription_cancellation_status(client, sub
 
     assert response.status_code == 200
     assert prepped.mock_calls[0][1][0]['subscription']['status'] == 'Cancellation Requested'
+
+
+@pytest.mark.django_db
+def test_subscription_post_standing_subscription_canceled(client, subscription, canceled_sa, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
+        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        return_value=canceled_sa
+    )
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    assert prepped.mock_calls[0][1][0]['subscription']['status'] == 'Canceled'
 
 
 def test_subscription_other_methods(client, subscription):
