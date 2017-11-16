@@ -145,7 +145,14 @@ class SubscriptionAgreement(models.Model):
 
     @classmethod
     def registrar_standing_subscription(cls, registrar):
-        standing = cls.objects.filter(registrar=registrar, status__in=STANDING_STATUSES).order_by('id')
+        standing_filter = models.Q(registrar=registrar) & (
+            models.Q(status__in=STANDING_STATUSES) | (
+                models.Q(status="Canceled") &
+                models.Q(paid_through__gte=datetime.datetime.now(tz=timezone(settings.TIME_ZONE)))
+            )
+        )
+
+        standing = cls.objects.filter(standing_filter).order_by('id')
         count = len(standing)
         if count == 0:
             return None
@@ -155,7 +162,7 @@ class SubscriptionAgreement(models.Model):
                 raise cls.MultipleObjectsReturned
         # In the extremely unlikely (incorrect!) condition that a registrar has multiple standing subscriptions,
         # return the oldest. Probably, something went wrong with an update request;
-        # we should cancel the new subscription(s), use the original, and if needed update the original one.
+        # we should cancel/delete the new subscription(s), use the original, and if needed update the original one.
         return standing[0]
 
     def can_be_altered(self):
