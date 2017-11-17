@@ -43,24 +43,34 @@ def find_pending_cancellation_requests():
     from django.test.client import RequestFactory #noqa
 
     sas = SubscriptionAgreement.objects.filter(cancellation_requested=True).exclude(status='Canceled')
-    data = [
-        {
-            'registrar': sa.registrar,
-            'merchant_reference_number': sa.subscription_request.reference_number,
-            'status': sa.status
-        } for sa in sas
-    ]
-    send_admin_email(
-        'ACTION REQUIRED: cancellation requests pending',
-        settings.DEFAULT_FROM_EMAIL,
-        RequestFactory().get('this-is-a-placeholder-request'),
-        template="email/cancellation_report.txt",
-        context={
-            'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
-            'perma_url': settings.PERMA_URL,
-            'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
-            'registrar_users_path': settings.REGISTRAR_USERS_PATH,
-            'total': len(data),
-            'requests': data
-        }
-    )
+    if len(sas) == 0:
+        send_admin_email(
+            'No cancellation requests pending',
+            settings.DEFAULT_FROM_EMAIL,
+            RequestFactory().get('this-is-a-placeholder-request'),
+            context={
+                'message': "Congrats, no cancellation requests pending today. ~ Perma Payments"
+            }
+        )
+    else:
+        data = [
+            {
+                'registrar': sa.registrar,
+                'merchant_reference_number': sa.subscription_request.reference_number,
+                'status': sa.status
+            } for sa in sas
+        ]
+        send_admin_email(
+            'ACTION REQUIRED: cancellation requests pending',
+            settings.DEFAULT_FROM_EMAIL,
+            RequestFactory().get('this-is-a-placeholder-request'),
+            template="email/cancellation_report.txt",
+            context={
+                'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
+                'perma_url': settings.PERMA_URL,
+                'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
+                'registrar_users_path': settings.REGISTRAR_USERS_PATH,
+                'total': len(data),
+                'requests': data
+            }
+        )
