@@ -1,6 +1,7 @@
 from nested_inline.admin import NestedTabularInline, NestedModelAdmin
 from simple_history.admin import SimpleHistoryAdmin
 
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.models import Group, User
 
@@ -17,18 +18,20 @@ from .models import (
 admin.site.unregister(Group)
 admin.site.unregister(User)
 
-# Globally disable delete selected
-# admin.site.disable_action('delete_selected')
+if settings.READONLY_ADMIN:
+    # Globally disable delete selected
+    admin.site.disable_action('delete_selected')
 
 ## HELPERS ##
 
 
 class ReadOnlyTabularInline(NestedTabularInline):
     extra = 0
-    # can_delete = False
     editable_fields = []
     readonly_fields = []
     exclude = []
+    if settings.READONLY_ADMIN:
+        can_delete = False
 
     def get_readonly_fields(self, request, obj=None):
         return list(self.readonly_fields) + \
@@ -74,7 +77,11 @@ class SubscriptionRequestInline(ReadOnlyTabularInline):
 
 @admin.register(SubscriptionAgreement)
 class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
-    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'created_date')
+    # If you need fields to be editable, but want to keep this order,
+    # duplicate the tuple that is currently 'readonly_fields' as 'fields'.
+    # Then, remove the field you want to be editable from readonly_fields.
+    # N.B. settings.READONLY_ADMIN must also be set to False for alterations to work.
+    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'created_date', 'paid_through')
     list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'get_reference_number')
     list_filter = ('registrar', 'cancellation_requested', 'status')
     search_fields = ['registrar','subscription_request__reference_number']
@@ -88,14 +95,16 @@ class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
     get_reference_number.short_description = 'Reference Number'
     get_reference_number.admin_order_field  = 'subscription_request__reference_number'
 
-    # def has_delete_permission(self, request, obj=None):
-    #     # Disable delete
-    #     return False
+    if settings.READONLY_ADMIN:
+        def has_delete_permission(self, request, obj=None):
+            # Disable delete
+            return False
 
     def has_add_permission(self, request, obj=None):
         # Disable manual creation of new instances
         return False
 
-    # def save_model(self, request, obj, form, change):
-    #     # Return nothing to make sure user can't update any data
-    #     pass
+    if settings.READONLY_ADMIN:
+        def save_model(self, request, obj, form, change):
+            # Return nothing to make sure user can't update any data
+            pass
