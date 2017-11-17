@@ -367,7 +367,7 @@ def subscription(request):
         subscription = {
             'rate': standing_subscription.subscription_request.recurring_amount,
             'frequency': standing_subscription.subscription_request.recurring_frequency,
-            'paid_through': standing_subscription.paid_through
+            'paid_through': datetime.strftime(standing_subscription.paid_through, '%Y-%m-%dT%H:%M:%S.%fZ')
         }
 
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
