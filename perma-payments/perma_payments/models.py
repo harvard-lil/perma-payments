@@ -200,6 +200,12 @@ class SubscriptionAgreement(models.Model):
         return self.paid_through
 
 
+    def get_formatted_paid_through_date(self):
+        if self.paid_through:
+            return datetime.datetime.strftime(self.paid_through, '%Y-%m-%dT%H:%M:%S.%fZ')
+        return None
+
+
     def update_status_after_cs_decision(self, decision, redacted_response):
         decision_map = {
             # Successful transaction. Reason codes 100 and 110.
