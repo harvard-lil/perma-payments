@@ -350,6 +350,7 @@ def cybersource_callback(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
 def subscription(request):
     """
     Returns a simplified version of a registrar's subscription status,
@@ -386,6 +387,7 @@ def subscription(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
 def cancel_request(request):
     """
     Records a cancellation request from Perma.cc
@@ -421,6 +423,7 @@ def cancel_request(request):
 
 @user_passes_test_or_403(lambda user: user.is_staff)
 @require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
 def update_statuses(request):
     csv_file = request.FILES['csv_file']
     skip_lines(csv_file, 4)

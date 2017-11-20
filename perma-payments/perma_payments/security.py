@@ -31,6 +31,7 @@ class AlphaNumericValidator(object):
     Password validator, adapted from https://djangosnippets.org/snippets/2551/
     """
 
+    @sensitive_variables()
     def validate(self, password, user=None):
         contains_number = contains_letter = False
         for char in password:
@@ -57,6 +58,7 @@ class AlphaNumericValidator(object):
 
 # Communicate with CyberSource
 
+@sensitive_variables()
 def prep_for_cybersource(signed_fields, unsigned_fields={}):
     """
     Takes a dict of fields to sign, and optionally a dict of fields not to sign.
@@ -79,6 +81,7 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     return to_post
 
 
+@sensitive_variables()
 def process_cybersource_transmission(transmitted_data, fields):
     # Transmitted data must include signature, signed_field_names,
     # and all fields listed in signed_field_names
@@ -105,10 +108,12 @@ def process_cybersource_transmission(transmitted_data, fields):
 
 # Communicate with Perma
 
+@sensitive_variables()
 def prep_for_perma(dictionary):
     return encrypt_for_perma(stringify_data(dictionary))
 
 
+@sensitive_variables()
 def process_perma_transmission(transmitted_data, fields):
     # Transmitted data should contain a single field, 'encrypted_data', which
     # must be a JSON dict, encrypted by Perma and base64-encoded.
@@ -139,6 +144,7 @@ def format_exception(e):
     return "{}: {}".format(type(e).__name__, e)
 
 
+@sensitive_variables()
 def retrieve_fields(transmitted_data, fields):
     try:
         data = {}
@@ -155,6 +161,7 @@ def is_valid_timestamp(stamp, max_age):
     return stamp <= (datetime.utcnow() + timedelta(seconds=max_age)).timestamp()
 
 
+@sensitive_variables()
 def stringify_data(data):
     """
     Takes any json-serializable data. Converts to a bytestring, suitable for passing to an encryption function.
@@ -162,6 +169,7 @@ def stringify_data(data):
     return bytes(json.dumps(data, cls=DjangoJSONEncoder), 'utf-8')
 
 
+@sensitive_variables()
 def unstringify_data(data):
     """
     Reverses stringify_data. Takes a bytestring, returns deserialized json.
@@ -169,6 +177,7 @@ def unstringify_data(data):
     return json.loads(str(data, 'utf-8'))
 
 
+@sensitive_variables()
 def stringify_for_signature(data, sort=True):
     """
     Takes an ordered dict/mapping. Converts to a specially-formatted unicode string, suitable for
@@ -183,6 +192,7 @@ def stringify_for_signature(data, sort=True):
     return ','.join('{}={}'.format(key, data[key]) for key in (sorted(data) if sort else data))
 
 
+@sensitive_variables()
 def sign_data(data_string):
     """
     Sign with HMAC sha256 and base64 encode
@@ -193,6 +203,7 @@ def sign_data(data_string):
     return base64.b64encode(hash.digest())
 
 
+@sensitive_variables()
 def is_valid_signature(data, signature):
     data_to_sign = stringify_for_signature(data, sort=False)
     return safe_str_cmp(signature, sign_data(data_to_sign))
@@ -216,6 +227,7 @@ def generate_public_private_keys():
     }
 
 
+@sensitive_variables()
 def encrypt_for_storage(message, encoder=encoding.Base64Encoder):
     """
     Public sealed box.
