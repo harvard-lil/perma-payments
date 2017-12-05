@@ -18,7 +18,7 @@ law firms and other entities that do not qualify for an unlimited free account.
 ### Subscribing
 
 Perma.cc admins can create registrars and, in the Perma.cc interface, indicate
-that the individual registrars may particate in the paid beta. (See the
+that the individual registrars may participate in the paid beta. (See the
 [Perma docs]() for detailed instructions.) Then, at their leisure, registrar
 users associated with those registrars may visit their Perma.cc settings page,
 where they will find the option to subscribe/upgrade to a paid account.
@@ -80,7 +80,7 @@ following the instructions in the notification email sent by Perma Payments.
 ### Subscription Statuses
 
 In the course of business, Perma.cc needs to know the status of a given
-regsitrar's subscription: do they in fact have a standing subscription?
+registrar's subscription: do they in fact have a standing subscription?
 Is their payment current? etc. (See models.SubscriptionAgreement.status for a
 list of all possible subscription statuses and what they mean.)
 
@@ -158,12 +158,12 @@ Common Tasks
 ### Log in to the CyberSource Business Center
 
 test: [https://ebctest.cybersource.com/ebctest/login/LoginProcess.do](https://ebctest.cybersource.com/ebctest/login/LoginProcess.do)
-prod: (coming soon)
+prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybersource.com/ebc/login/LoginProcess.do)
 
 
 ### Update Subscription Statuses
 
-1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the production Business Center).
+1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do](https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do) (the production Business Center).
 
 2) Verify that you can see all the subscriptions. (If there are no pagination buttons, then you can see all the subscriptions.)
 
