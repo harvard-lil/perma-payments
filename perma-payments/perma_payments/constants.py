@@ -41,7 +41,7 @@ CS_TOKEN_UPDATE_URL = {
 # URL in the Business Center to find subscriptions
 CS_SUBSCRIPTION_SEARCH_URL = {
     'test': 'https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchLoad.do',
-    'prod': ''
+    'prod': 'https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do'
 }
 
 CS_CARD_TYPE = {
