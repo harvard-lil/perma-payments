@@ -176,7 +176,7 @@ prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybers
 Et voilà.
 
 
-Runnng Locally
+Running Locally
 --------------
 
 ### Up
