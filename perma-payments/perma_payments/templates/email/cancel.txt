@@ -15,12 +15,18 @@ NOT CLICK the "Delete Subscription" button.
 
 The customer will continue to be charged until this task is completed.
 
-If you wish to email the customer to tell them their cancellation has
-been processed, you may find their contact information at Perma.cc:
+No automatically generated emails will be sent to the customer by
+CyberSource, Perma.cc, or Perma Payments. If you wish to email the customer
+to tell them their cancellation has been processed, you may find their
+contact information at Perma.cc
 
 GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ registrar }}
 
 REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{ registrar}}
+
+Finally, a reminder that Perma Payments won't know about the cancellation
+until its records are updated via the procedure described here:
+https://github.com/harvard-lil/perma-payments#update-subscription-statuses
 
 Thanks,
 Perma Payments
