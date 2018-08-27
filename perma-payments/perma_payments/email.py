@@ -22,5 +22,5 @@ def send_self_email(title, request, template="email/default.txt", context={}, de
             render_to_string(template, context=context, request=request, using="AUTOESCAPE_OFF"),
             settings.DEFAULT_FROM_EMAIL,
             [settings.DEFAULT_FROM_EMAIL],
-            headers={'Reply-To': settings.DEFAULT_REPLYTO_EMAIL}
+            reply_to=[settings.DEFAULT_REPLYTO_EMAIL]
         ).send(fail_silently=False)

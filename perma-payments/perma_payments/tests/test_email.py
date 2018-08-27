@@ -1,4 +1,5 @@
 from django.http import HttpRequest
+from django.test.utils import override_settings
 
 import pytest
 
@@ -20,6 +21,7 @@ def test_send_self_email(email, mailoutbox):
     assert m.from_email == settings.DEFAULT_FROM_EMAIL
     assert m.to == [settings.ADMINS[0][1]]
 
+@override_settings(DEFAULT_REPLYTO_EMAIL='from@example.com')
 def test_send_self_email_everybody(email, mailoutbox):
     send_self_email(email['subject'], HttpRequest(), context={'message': email['message']}, devs_only=False)
     assert len(mailoutbox) == 1
@@ -27,7 +29,8 @@ def test_send_self_email_everybody(email, mailoutbox):
     assert m.subject == email['subject']
     assert m.body == email['message'] + "\n"
     assert m.from_email == settings.DEFAULT_FROM_EMAIL
-    assert m.to == [settings.DEFAULT_REPLYTO_EMAIL]
+    assert m.to == [settings.DEFAULT_FROM_EMAIL]
+    assert m.reply_to == ['from@example.com']
 
 
 def test_send_self_email_template(email, mocker):
