@@ -67,6 +67,13 @@ TEMPLATES = [
         },
     },
 ]
+# Add a second, identical template engine except with autoescape off,
+# for use when rendering non-HTML templates.
+# Use by passing 'using='AUTOESCAPE_OFF' to render or render_to_string.
+off = TEMPLATES[0].copy()
+off['NAME'] = 'AUTOESCAPE_OFF'
+off['OPTIONS']['autoescape'] = False
+TEMPLATES.append(off)
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
@@ -126,7 +133,10 @@ STATIC_URL = '/static/'
 # Email
 DEFAULT_FROM_EMAIL = 'info@perma.cc'
 DEFAULT_CONTACT_EMAIL = DEFAULT_FROM_EMAIL
+# in production, DEFAULT_REPLYTO_EMAIL and DEFAULT_FROM must be different
+DEFAULT_REPLYTO_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 
 # Admin
 ADMIN_ENABLED = False

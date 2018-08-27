@@ -38,15 +38,14 @@ def find_pending_cancellation_requests():
     Report pending cancellation requests.
     """
     from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL #noqa
-    from perma_payments.email import send_admin_email #noqa
+    from perma_payments.email import send_self_email #noqa
     from perma_payments.models import SubscriptionAgreement #noqa
     from django.test.client import RequestFactory #noqa
 
     sas = SubscriptionAgreement.objects.filter(cancellation_requested=True).exclude(status='Canceled')
     if len(sas) == 0:
-        send_admin_email(
+        send_self_email(
             'No cancellation requests pending',
-            settings.DEFAULT_FROM_EMAIL,
             RequestFactory().get('this-is-a-placeholder-request'),
             context={
                 'message': "Congrats, no cancellation requests pending today. ~ Perma Payments"
@@ -60,9 +59,8 @@ def find_pending_cancellation_requests():
                 'status': sa.status
             } for sa in sas
         ]
-        send_admin_email(
+        send_self_email(
             'ACTION REQUIRED: cancellation requests pending',
-            settings.DEFAULT_FROM_EMAIL,
             RequestFactory().get('this-is-a-placeholder-request'),
             template="email/cancellation_report.txt",
             context={
@@ -72,5 +70,6 @@ def find_pending_cancellation_requests():
                 'registrar_users_path': settings.REGISTRAR_USERS_PATH,
                 'total': len(data),
                 'requests': data
-            }
+            },
+            devs_only=False
         )

@@ -29,3 +29,7 @@ PERMA_ENCRYPTION_KEYS = {
     'perma_public_key': 'ZmkWU6AdQlNrDCLNI154HSGH96jjs21UA3K+YpqezWg=',
 }
 PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
+
+ADMINS = (
+    ("Admin's Name", 'admin@example.com'),
+)

@@ -850,7 +850,7 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
         return_value=complete_standing_sa
     )
     can_be_altered = mocker.patch.object(complete_standing_sa, 'can_be_altered', return_value=True)
-    email = mocker.patch('perma_payments.views.send_admin_email', autospec=True)
+    email = mocker.patch('perma_payments.views.send_self_email', autospec=True)
     log = mocker.patch('perma_payments.views.logger.info', autospec=True)
 
     # request
@@ -859,7 +859,6 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
     # assertions
     assert can_be_altered.call_count == 1
     assert log.call_count == 1
-    assert email.mock_calls[0][1][1] == settings.DEFAULT_FROM_EMAIL
     assert email.mock_calls[0][2]['template'] == "email/cancel.txt"
     assert email.mock_calls[0][2]['context'] == {
         'registrar': cancel_request['valid_data']['registrar'],
