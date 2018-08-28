@@ -307,6 +307,11 @@ def test_sa_customer_subscription_no_subscription():
 
 
 @pytest.mark.django_db
+def test_sa_customer_subscription_with_incorrect_type(multiple_standing_sa):
+    assert not SubscriptionAgreement.customer_standing_subscription(multiple_standing_sa.customer_pk, 'arbitrary non-matching string')
+
+
+@pytest.mark.django_db
 def test_sa_customer_subscription_multiple_with_raise(settings, multiple_standing_sa):
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
     with pytest.raises(SubscriptionAgreement.MultipleObjectsReturned):
