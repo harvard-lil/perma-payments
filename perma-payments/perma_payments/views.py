@@ -20,7 +20,7 @@ from .constants import (
     CS_TOKEN_UPDATE_URL
 )
 from .custom_errors import bad_request
-from .email import send_admin_email
+from .email import send_self_email
 from .models import (
     SubscriptionAgreement,
     OutgoingTransaction,
@@ -415,7 +415,7 @@ def cancel_request(request):
         'merchant_reference_number': sa.subscription_request.reference_number
     }
     logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
-    send_admin_email('ACTION REQUIRED: cancellation request received', settings.DEFAULT_FROM_EMAIL, request, template="email/cancel.txt", context=context)
+    send_self_email('ACTION REQUIRED: cancellation request received', request, template="email/cancel.txt", context=context, devs_only=False)
     sa.cancellation_requested = True
     sa.save(update_fields=['cancellation_requested'])
     return redirect(settings.PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL)
