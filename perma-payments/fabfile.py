@@ -54,7 +54,8 @@ def find_pending_cancellation_requests():
     else:
         data = [
             {
-                'registrar': sa.registrar,
+                'customer_pk': sa.customer_pk,
+                'customer_type': sa.customer_type,
                 'merchant_reference_number': sa.subscription_request.reference_number,
                 'status': sa.status
             } for sa in sas

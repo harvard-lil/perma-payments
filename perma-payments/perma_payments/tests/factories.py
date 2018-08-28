@@ -1,14 +1,18 @@
 import factory
+from faker import Faker
 
 from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import *
 
 
+fake = Faker()
+
 class SubscriptionAgreementFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SubscriptionAgreement
 
-    registrar = factory.Sequence(lambda n: n)
+    customer_pk = factory.Sequence(lambda n: n)
+    customer_type = fake.random_element(elements=CUSTOMER_TYPES),
     status = 'Pending'
 
 

@@ -81,10 +81,10 @@ class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
     # duplicate the tuple that is currently 'readonly_fields' as 'fields'.
     # Then, remove the field you want to be editable from readonly_fields.
     # N.B. settings.READONLY_ADMIN must also be set to False for alterations to work.
-    readonly_fields =  ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'created_date', 'paid_through')
-    list_display = ('id', 'registrar', 'cancellation_requested', 'status', 'updated_date', 'get_reference_number')
-    list_filter = ('registrar', 'cancellation_requested', 'status')
-    search_fields = ['registrar','subscription_request__reference_number']
+    readonly_fields =  ('id', 'customer_type', 'customer_pk', 'cancellation_requested', 'status', 'updated_date', 'created_date', 'paid_through')
+    list_display = ('id', 'customer_type', 'customer_pk', 'cancellation_requested', 'status', 'updated_date', 'get_reference_number')
+    list_filter = ('customer_type', 'customer_pk', 'cancellation_requested', 'status')
+    search_fields = ['customer_type', 'customer_pk','subscription_request__reference_number']
     inlines = [
         SubscriptionRequestInline,
         UpdateRequestInline,

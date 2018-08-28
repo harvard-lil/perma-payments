@@ -9,7 +9,7 @@ from faker import Faker
 import pytest
 
 from perma_payments.constants import CS_DECISIONS
-from perma_payments.models import SubscriptionRequest
+from perma_payments.models import CUSTOMER_TYPES, SubscriptionRequest
 
 
 fake = Faker()
@@ -18,7 +18,8 @@ GENESIS = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
 
 SENTINEL = {
     'datetime': fake.future_date(tzinfo=timezone.utc),
-    'registrar_id': fake.random_int(),
+    'customer_pk': fake.random_int(),
+    'customer_type': fake.random_element(elements=CUSTOMER_TYPES),
     'recurring_frequency': fake.random_element(elements=[status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices]),
     'amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
     'recurring_amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),

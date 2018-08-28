@@ -1,13 +1,13 @@
-Registrar {{ registrar }} has submitted a request to cancel their paid
+{{ customer_type }} {{ customer_pk}} has submitted a request to cancel their paid
 subscription to Perma.cc.
 
 At your earliest convenience, please log in to the "Recurring Billing"
 section of the CyberSource Business Center and cancel the subscription
-associated with Merchant Reference Number "{{merchant_reference_number }}":
+associated with Merchant Reference Number "{{ merchant_reference_number }}":
 {{ search_url }}
 
 - Search for "all subscriptions".
-- Locate the row for {{merchant_reference_number }}.
+- Locate the row for {{ merchant_reference_number }}.
 - Click the hyperlinked "Subscription ID". The "Subscription Information"
 tab should now be visible.
 - Scroll to the bottom and click the "Cancel Subscription" button. DO
@@ -20,10 +20,12 @@ CyberSource, Perma.cc, or Perma Payments. If you wish to email the customer
 to tell them their cancellation has been processed, you may find their
 contact information at Perma.cc
 
-GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ registrar }}
+{% if customer_type == 'Registrar' %}
+GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ customer_pk }}
 
-REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{ registrar}}
+REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{ customer_pk }}
 
+{% endif %}
 Finally, a reminder that Perma Payments won't know about the cancellation
 until its records are updated via the procedure described here:
 https://github.com/harvard-lil/perma-payments#update-subscription-statuses
