@@ -170,10 +170,6 @@ class SubscriptionAgreement(models.Model):
         # we should cancel/delete the new subscription(s), use the original, and if needed update the original one.
         return standing[0]
 
-    @property
-    def customer(self):
-        return "{}{}".format(self.customer_type, self.customer_pk)
-
 
     def can_be_altered(self):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
