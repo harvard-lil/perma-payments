@@ -47,20 +47,24 @@ logger = logging.getLogger(__name__)
 
 FIELDS_REQUIRED_FROM_PERMA = {
     'subscribe': [
-        'registrar',
+        'customer_pk',
+        'customer_type',
         'amount',
         'recurring_amount',
         'recurring_frequency',
         'recurring_start_date'
     ],
     'update': [
-        'registrar'
+        'customer_pk',
+        'customer_type'
     ],
     'subscription': [
-        'registrar'
+        'customer_pk',
+        'customer_type'
     ],
     'cancel_request': [
-        'registrar'
+        'customer_pk',
+        'customer_type'
     ]
 }
 
@@ -188,7 +192,7 @@ def subscribe(request):
         return bad_request(request)
 
     # The user must not already have a standing subscription.
-    if SubscriptionAgreement.registrar_standing_subscription(data['registrar']):
+    if SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type']):
         return render(request, 'generic.html', {'heading': "Good News!",
                                                 'message': "You already have a subscription to Perma.cc.<br>" +
                                                            "If you believe you have reached this page in error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
@@ -197,7 +201,8 @@ def subscribe(request):
     try:
         with transaction.atomic():
             s_agreement = SubscriptionAgreement(
-                registrar=data['registrar'],
+                customer_pk=data['customer_pk'],
+                customer_type=data['customer_type'],
                 status='Pending'
             )
             s_agreement.full_clean()
@@ -234,7 +239,7 @@ def subscribe(request):
             'transaction_uuid': s_request.transaction_uuid,
         })
     }
-    logger.info("Subscription request received for registrar {}".format(data['registrar']))
+    logger.info("Subscription request received for {} {}".format(data['customer_type'], data['customer_pk']))
     return render(request, 'redirect.html', context)
 
 
@@ -252,7 +257,7 @@ def update(request):
         return bad_request(request)
 
     # The user must have a subscription that can be updated.
-    sa = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
+    sa = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
     if not sa or not sa.can_be_altered():
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
@@ -288,7 +293,7 @@ def update(request):
             'transaction_uuid': u_request.transaction_uuid,
         })
     }
-    logger.info("Update payment information request received for registrar {}".format(data['registrar']))
+    logger.info("Update payment information request received for {} {}".format(data['customer_type'], data['customer_pk']))
     return render(request, 'redirect.html', context)
 
 
@@ -353,7 +358,7 @@ def cybersource_callback(request):
 @sensitive_post_parameters('encrypted_data')
 def subscription(request):
     """
-    Returns a simplified version of a registrar's subscription status,
+    Returns a simplified version of a customer's subscription status,
     as needed for making decisions in Perma.
     """
     try:
@@ -361,7 +366,7 @@ def subscription(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
-    standing_subscription = SubscriptionAgreement.registrar_standing_subscription(data['registrar'])
+    standing_subscription = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
     if not standing_subscription:
         subscription = None
     else:
@@ -378,7 +383,8 @@ def subscription(request):
             subscription['status'] = standing_subscription.status
 
     response = {
-        'registrar': data['registrar'],
+        'customer_pk': data['customer_pk'],
+        'customer_type': data['customer_type'],
         'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp()
     }
@@ -397,24 +403,23 @@ def cancel_request(request):
     except InvalidTransmissionException:
         return bad_request(request)
 
-    registrar = data['registrar']
-
     # The user must have a subscription that can be canceled.
-    sa = SubscriptionAgreement.registrar_standing_subscription(registrar)
+    sa = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
     if not sa or not sa.can_be_altered():
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Cancellation Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
     context = {
-        'registrar': registrar,
+        'customer_pk': data['customer_pk'],
+        'customer_type': data['customer_type'],
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
         'registrar_users_path': settings.REGISTRAR_USERS_PATH,
         'merchant_reference_number': sa.subscription_request.reference_number
     }
-    logger.info("Cancellation request received from registrar {} for {}".format(registrar, context['merchant_reference_number']))
+    logger.info("Cancellation request received from {} {} for {}".format(data['customer_pk'], data['customer_type'], context['merchant_reference_number']))
     send_self_email('ACTION REQUIRED: cancellation request received', request, template="email/cancel.txt", context=context, devs_only=False)
     sa.cancellation_requested = True
     sa.save(update_fields=['cancellation_requested'])

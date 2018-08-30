@@ -1,4 +1,4 @@
-The following {{ total }} registrar(s) have submitted requests to cancel their
+The following {{ total }} customer(s) have submitted requests to cancel their
 paid subscriptions to Perma.cc, but Perma Payments is reporting the
 requests have not yet been processed.
 
@@ -31,11 +31,11 @@ Perma Payments
 
 ---
 {% for request in requests %}
-Registrar: {{ request.registrar }}
+Customer: {{ request.customer_type }} {{ request.customer_pk }}
 Merchant Reference Number: {{ request.merchant_reference_number}}
 Subscription Status: {{ request.status }}
-General Contact: {{ perma_url }}{{ registrar_detail_path }}{{ request.registrar }}
-Registrar Users: {{ perma_url }}{{ registrar_users_path }}{{request.registrar }}
+{% if customer_type == 'Registrar' %}General Contact: {{ perma_url }}{{ registrar_detail_path }}{{ request.customer_pk }}
+Registrar Users: {{ perma_url }}{{ registrar_users_path }}{{request.customer_pk }}{% endif %}
 
 {% endfor %}
 ---

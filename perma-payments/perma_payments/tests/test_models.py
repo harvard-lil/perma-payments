@@ -24,7 +24,8 @@ from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_er
 @pytest.mark.django_db
 def standing_sa(request):
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status=request.param
     )
     sa.save()
@@ -35,7 +36,8 @@ def standing_sa(request):
 @pytest.mark.django_db
 def not_standing_sa(request):
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status=request.param
     )
     sa.save()
@@ -46,12 +48,14 @@ def not_standing_sa(request):
 @pytest.mark.django_db
 def multiple_standing_sa(request):
     sa1 = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status=request.param
     )
     sa1.save()
     sa2 = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status=request.param
     )
     sa2.save()
@@ -62,7 +66,8 @@ def multiple_standing_sa(request):
 @pytest.mark.django_db
 def standing_sa_cancellation_requested(request):
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status=request.param,
         cancellation_requested=True
     )
@@ -74,7 +79,8 @@ def standing_sa_cancellation_requested(request):
 @pytest.mark.django_db
 def complete_pending_sa():
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status='Pending'
     )
     sa.save()
@@ -94,7 +100,8 @@ def complete_pending_sa():
 def complete_current_sa(mocker, request):
     tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status='Current'
     )
     sa.save()
@@ -115,7 +122,8 @@ def complete_current_sa(mocker, request):
 def complete_canceled_sa(mocker):
     tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
     sa = SubscriptionAgreement(
-        registrar=SENTINEL['registrar_id'],
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
         status='Canceled',
         # None in fixture to force type errors if not subsequently set.
         paid_through=None
@@ -256,7 +264,8 @@ def test_model_str_methods(mocker):
 def test_sa_required_fields():
     absent_required_fields_raise_validation_error(
         SubscriptionAgreement(), [
-            'registrar',
+            'customer_pk',
+            'customer_type',
             'status'
         ]
     )
@@ -272,42 +281,47 @@ def test_sa_autopopulated_fields(standing_sa):
     )
 
 @pytest.mark.django_db
-def test_sa_registrar_standard_standing_subscription_true(standing_sa):
-    assert SubscriptionAgreement.registrar_standing_subscription(standing_sa.registrar)
+def test_sa_customer_standard_standing_subscription_true(standing_sa):
+    assert SubscriptionAgreement.customer_standing_subscription(standing_sa.customer_pk, standing_sa.customer_type)
 
 
 @pytest.mark.django_db
-def test_sa_registrar_current_cancelled_subscription_true(current_canceled_sa):
-    assert SubscriptionAgreement.registrar_standing_subscription(current_canceled_sa.registrar)
+def test_sa_customer_current_cancelled_subscription_true(current_canceled_sa):
+    assert SubscriptionAgreement.customer_standing_subscription(current_canceled_sa.customer_pk, current_canceled_sa.customer_type)
 
 
 @pytest.mark.django_db
-def test_sa_registrar_expired_cancelled_subscription_not_standing(expired_canceled_sa):
-    assert not SubscriptionAgreement.registrar_standing_subscription(expired_canceled_sa.registrar)
+def test_sa_customer_expired_cancelled_subscription_not_standing(expired_canceled_sa):
+    assert not SubscriptionAgreement.customer_standing_subscription(expired_canceled_sa.customer_pk, expired_canceled_sa.customer_type)
 
 
 @pytest.mark.django_db
-def test_sa_registrar_subscription_not_standing(not_standing_sa):
-    assert not SubscriptionAgreement.registrar_standing_subscription(not_standing_sa.registrar)
+def test_sa_customer_subscription_not_standing(not_standing_sa):
+    assert not SubscriptionAgreement.customer_standing_subscription(not_standing_sa.customer_pk, not_standing_sa.customer_type)
 
 
 @pytest.mark.django_db
-def test_sa_registrar_subscription_no_subscription():
+def test_sa_customer_subscription_no_subscription():
     assert SubscriptionAgreement.objects.count() == 0
-    assert not SubscriptionAgreement.registrar_standing_subscription(1)
+    assert not SubscriptionAgreement.customer_standing_subscription(SENTINEL['customer_pk'], SENTINEL['customer_type'])
 
 
 @pytest.mark.django_db
-def test_sa_registrar_subscription_multiple_with_raise(settings, multiple_standing_sa):
+def test_sa_customer_subscription_with_incorrect_type(multiple_standing_sa):
+    assert not SubscriptionAgreement.customer_standing_subscription(multiple_standing_sa.customer_pk, 'arbitrary non-matching string')
+
+
+@pytest.mark.django_db
+def test_sa_customer_subscription_multiple_with_raise(settings, multiple_standing_sa):
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
     with pytest.raises(SubscriptionAgreement.MultipleObjectsReturned):
-        SubscriptionAgreement.registrar_standing_subscription(multiple_standing_sa.registrar)
+        SubscriptionAgreement.customer_standing_subscription(multiple_standing_sa.customer_pk, multiple_standing_sa.customer_type)
 
 
 @pytest.mark.django_db
-def test_sa_registrar_subscription_multiple_without_raise(settings, multiple_standing_sa):
+def test_sa_customer_subscription_multiple_without_raise(settings, multiple_standing_sa):
     settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = False
-    assert SubscriptionAgreement.registrar_standing_subscription(multiple_standing_sa.registrar) == multiple_standing_sa
+    assert SubscriptionAgreement.customer_standing_subscription(multiple_standing_sa.customer_pk, multiple_standing_sa.customer_type) == multiple_standing_sa
 
 
 @pytest.mark.django_db
@@ -396,8 +410,9 @@ def test_sr_autopopulated_fields(mocker):
 
 
 @pytest.mark.django_db
-def test_sr_registrar_retrived(barebones_subscription_request):
-    assert barebones_subscription_request.registrar == SENTINEL['registrar_id']
+def test_sr_customer_retrived(barebones_subscription_request):
+    assert barebones_subscription_request.customer_pk == SENTINEL['customer_pk']
+    assert barebones_subscription_request.customer_type == SENTINEL['customer_type']
 
 
 @pytest.mark.django_db
@@ -427,8 +442,8 @@ def test_update_autopopulated_fields():
     )
 
 @pytest.mark.django_db
-def test_update_registrar_retrived(barebones_update_request):
-    assert barebones_update_request.registrar == SENTINEL['registrar_id']
+def test_update_customer_retrived(barebones_update_request):
+    assert barebones_update_request.customer_pk == SENTINEL['customer_pk']
 
 
 # Response
@@ -457,9 +472,13 @@ def test_response_sa_present_but_not_implemented():
         Response().subscription_agreement
 
 
-def test_response_registrar_present_but_not_implemented():
+def test_response_customer_pk_present_but_not_implemented():
     with pytest.raises(NotImplementedError):
-        Response().registrar
+        Response().customer_pk
+
+def test_response_customer_type_present_but_not_implemented():
+    with pytest.raises(NotImplementedError):
+        Response().customer_type
 
 
 @pytest.mark.django_db
@@ -551,8 +570,9 @@ def test_srr_sa_retrived(barebones_subscription_request_response, not_standing_s
 
 
 @pytest.mark.django_db
-def test_srr_registrar_retrived(barebones_subscription_request_response):
-    assert barebones_subscription_request_response.registrar == SENTINEL['registrar_id']
+def test_srr_customer_retrived(barebones_subscription_request_response):
+    assert barebones_subscription_request_response.customer_pk == SENTINEL['customer_pk']
+    assert barebones_subscription_request_response.customer_type == SENTINEL['customer_type']
 
 
 # UpdateRequestResponse
@@ -582,5 +602,6 @@ def test_urr_sa_retrived(barebones_update_request_response, standing_sa):
 
 
 @pytest.mark.django_db
-def test_urr_registrar_retrived(barebones_update_request_response):
-    assert barebones_update_request_response.registrar == SENTINEL['registrar_id']
+def test_urr_customer_retrived(barebones_update_request_response):
+    assert barebones_update_request_response.customer_pk == SENTINEL['customer_pk']
+    assert barebones_update_request_response.customer_type == SENTINEL['customer_type']

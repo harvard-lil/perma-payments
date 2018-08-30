@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 RN_SET = "0123456789"
 REFERENCE_NUMBER_PREFIX = "PERMA"
 STANDING_STATUSES = ['Current', 'Hold']
+CUSTOMER_TYPES = ['Registrar', 'Individual']
 
 
 #
@@ -97,7 +98,11 @@ class SubscriptionAgreement(models.Model):
         return 'SubscriptionAgreement {}'.format(self.id)
 
     history = HistoricalRecords()
-    registrar = models.IntegerField()
+    customer_pk = models.IntegerField()
+    customer_type = models.CharField(
+        max_length=20,
+        choices=((key, key) for key in CUSTOMER_TYPES)
+    )
     status = models.CharField(
         max_length=20,
         choices=(
@@ -144,8 +149,8 @@ class SubscriptionAgreement(models.Model):
     )
 
     @classmethod
-    def registrar_standing_subscription(cls, registrar):
-        standing_filter = models.Q(registrar=registrar) & (
+    def customer_standing_subscription(cls, customer_pk, customer_type):
+        standing_filter = models.Q(customer_pk=customer_pk) & models.Q(customer_type=customer_type) & (
             models.Q(status__in=STANDING_STATUSES) | (
                 models.Q(status="Canceled") &
                 models.Q(paid_through__gte=datetime.datetime.now(tz=timezone(settings.TIME_ZONE)))
@@ -157,13 +162,14 @@ class SubscriptionAgreement(models.Model):
         if count == 0:
             return None
         if count > 1:
-            logger.error("Registrar {} has multiple standing subscriptions ({})".format(registrar, count))
+            logger.error("{} {} has multiple standing subscriptions ({})".format(customer_type, customer_pk, count))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
                 raise cls.MultipleObjectsReturned
-        # In the extremely unlikely (incorrect!) condition that a registrar has multiple standing subscriptions,
+        # In the extremely unlikely (incorrect!) condition that a customer has multiple standing subscriptions,
         # return the oldest. Probably, something went wrong with an update request;
         # we should cancel/delete the new subscription(s), use the original, and if needed update the original one.
         return standing[0]
+
 
     def can_be_altered(self):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
@@ -212,7 +218,7 @@ class SubscriptionAgreement(models.Model):
             'ACCEPT': {
                'status': 'Current',
                'log_level': logging.INFO,
-               'message': "Subscription request for registrar {} (subscription request {}) accepted.".format(self.registrar, self.subscription_request.pk)
+               'message': "Subscription request for {} {} (subscription request {}) accepted.".format(self.customer_type, self.customer_pk, self.subscription_request.pk)
             },
             # Authorization was declined; however, the capture may still be possible.
             # Review payment details. See reason codes 200, 201, 230, and 520.
@@ -220,7 +226,7 @@ class SubscriptionAgreement(models.Model):
             'REVIEW': {
                'status': 'Current',
                'log_level': logging.ERROR,
-               'message': "Subscription request for registrar {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+               'message': "Subscription request for {} {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
             },
             # Transaction was declined.See reason codes 102, 200, 202, 203,
             # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
@@ -228,28 +234,28 @@ class SubscriptionAgreement(models.Model):
             'DECLINE': {
                 'status': 'Rejected',
                 'log_level': logging.WARNING,
-                'message': "Subscription request for registrar {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(self.registrar, self.subscription_request.pk, redacted_response)
+                'message': "Subscription request for {} {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
             },
             # Access denied, page not found, or internal server error.
             # See reason codes 102, 104, 150, 151 and 152.
             'ERROR': {
                 'status': 'Rejected',
                 'log_level': logging.ERROR,
-                'message': "Error submitting subscription request {} to CyberSource for registrar {}. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+                'message': "Error submitting subscription request {} to CyberSource for {} {}. Redacted reponse: {}".format(self.subscription_request.pk, self.customer_type, self.customer_pk, redacted_response)
             },
             # The customer did not accept the service fee conditions,
             # or the customer canceled the transaction.
             'CANCEL': {
                 'status': 'Aborted',
                 'log_level': logging.INFO,
-                'message': "Subscription request {} aborted by registrar {}.".format(self.subscription_request.pk, self.registrar)
+                'message': "Subscription request {} aborted by {} {}.".format(self.subscription_request.pk, self.customer_type, self.customer_pk)
             }
         }
         mapped = decision_map.get(decision, {
             # Keep 'Pending' until we review and figure out what is going on
             'status': 'Pending',
             'log_level': logging.ERROR,
-            'message': "Unexpected decision from CyberSource regarding subscription request {} for registrar {}. Please investigate ASAP. Redacted reponse: {}".format(self.subscription_request.pk, self.registrar, redacted_response)
+            'message': "Unexpected decision from CyberSource regarding subscription request {} for {} {}. Please investigate ASAP. Redacted response: {}".format(self.subscription_request.pk, self.customer_type, self.customer_pk, redacted_response)
         })
         self.status = mapped['status']
         self.paid_through = self.calculate_paid_through_date_from_reported_status(self.status)
@@ -349,8 +355,12 @@ class SubscriptionRequest(OutgoingTransaction):
     )
 
     @property
-    def registrar(self):
-        return self.subscription_agreement.registrar
+    def customer_pk(self):
+        return self.subscription_agreement.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.subscription_agreement.customer_type
 
     def get_formatted_start_date(self):
         """
@@ -381,8 +391,12 @@ class UpdateRequest(OutgoingTransaction):
     )
 
     @property
-    def registrar(self):
-        return self.subscription_agreement.registrar
+    def customer_pk(self):
+        return self.subscription_agreement.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.subscription_agreement.customer_type
 
 
 class Response(PolymorphicModel):
@@ -435,7 +449,14 @@ class Response(PolymorphicModel):
         raise NotImplementedError
 
     @property
-    def registrar(self):
+    def customer_pk(self):
+        """
+        Must be implemented by children
+        """
+        raise NotImplementedError
+
+    @property
+    def customer_type(self):
         """
         Must be implemented by children
         """
@@ -487,8 +508,12 @@ class SubscriptionRequestResponse(Response):
         return self.related_request.subscription_agreement
 
     @property
-    def registrar(self):
-        return self.related_request.subscription_agreement.registrar
+    def customer_pk(self):
+        return self.related_request.subscription_agreement.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.related_request.subscription_agreement.customer_type
 
 
 class UpdateRequestResponse(Response):
@@ -508,5 +533,9 @@ class UpdateRequestResponse(Response):
         return self.related_request.subscription_agreement
 
     @property
-    def registrar(self):
-        return self.related_request.subscription_agreement.registrar
+    def customer_pk(self):
+        return self.related_request.subscription_agreement.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.related_request.subscription_agreement.customer_type

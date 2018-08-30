@@ -49,7 +49,8 @@ def subscribe():
         'route': '/subscribe/',
         'template': 'redirect.html',
         'valid_data': {
-            'registrar': SENTINEL['registrar_id'],
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
             'amount': SENTINEL['amount'],
             'recurring_amount': SENTINEL['recurring_amount'],
             'recurring_frequency': SENTINEL['recurring_frequency'],
@@ -72,7 +73,8 @@ def update():
         'route': '/update/',
         'template': 'redirect.html',
         'valid_data': {
-            'registrar': SENTINEL['registrar_id']
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['update']:
@@ -112,7 +114,8 @@ def subscription():
     return {
         'route': '/subscription/',
         'valid_data': {
-            'registrar': SENTINEL['registrar_id']
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
         }
     }
 
@@ -122,7 +125,8 @@ def cancel_request():
     return {
         'route': '/cancel-request/',
         'valid_data': {
-            'registrar': SENTINEL['registrar_id']
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
         }
     }
 
@@ -243,7 +247,7 @@ def test_subscribe_post_already_standing_subscription(client, subscribe, mocker)
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
-    sa.registrar_standing_subscription.return_value=sa_instance
+    sa.customer_standing_subscription.return_value=sa_instance
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
 
@@ -254,7 +258,7 @@ def test_subscribe_post_already_standing_subscription(client, subscribe, mocker)
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b'already have a subscription' in response.content
-    sa.registrar_standing_subscription.assert_called_once_with(subscribe['valid_data']['registrar'])
+    sa.customer_standing_subscription.assert_called_once_with(subscribe['valid_data']['customer_pk'], subscribe['valid_data']['customer_type'])
     assert not sa_instance.save.called
     assert not sr_instance.save.called
 
@@ -264,7 +268,7 @@ def test_subscribe_post_sa_validation_fails(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     sa_instance = sa.return_value
     sa_instance.full_clean.side_effect=ValidationError('oh no!')
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
@@ -289,7 +293,7 @@ def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     sr_instance.full_clean.side_effect=ValidationError('oh no!')
@@ -312,7 +316,7 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     sa_instance = sa.return_value
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
@@ -323,7 +327,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
     # assertions
     assert response.status_code == 200
     sa.assert_called_once_with(
-        registrar=subscribe['valid_data']['registrar'],
+        customer_pk=subscribe['valid_data']['customer_pk'],
+        customer_type=subscribe['valid_data']['customer_type'],
         status='Pending'
     )
     assert sa_instance.full_clean.call_count == 1
@@ -344,7 +349,7 @@ def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
@@ -379,7 +384,7 @@ def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, sub
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=subscribe_redirect_fields)
 
@@ -425,7 +430,7 @@ def test_update_post_no_standing_subscription(client, update, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = None
+    sa.customer_standing_subscription.return_value = None
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
 
@@ -436,7 +441,7 @@ def test_update_post_no_standing_subscription(client, update, mocker):
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b"can't find any active subscriptions" in response.content
-    sa.registrar_standing_subscription.assert_called_once_with(update['valid_data']['registrar'])
+    sa.customer_standing_subscription.assert_called_once_with(update['valid_data']['customer_pk'], update['valid_data']['customer_type'])
     assert not ur_instance.save.called
 
 
@@ -446,7 +451,7 @@ def test_update_post_subscription_unalterable(client, update, mocker):
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
     sa_instance.can_be_altered.return_value = False
-    sa.registrar_standing_subscription.return_value = sa_instance
+    sa.customer_standing_subscription.return_value = sa_instance
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
 
@@ -467,8 +472,8 @@ def test_update_post_ur_validation_fails(client, update, complete_standing_sa, m
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=complete_standing_sa
     )
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
@@ -494,8 +499,8 @@ def test_update_post_ur_validated_and_saved_correctly(client, update, complete_s
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=complete_standing_sa
     )
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
@@ -519,7 +524,7 @@ def test_update_post_data_prepped_correctly(client, update, mocker):
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
-    sa.registrar_standing_subscription.return_value = sa_instance
+    sa.customer_standing_subscription.return_value = sa_instance
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
     srr = mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
@@ -556,8 +561,8 @@ def test_update_post_redirect_form_populated_correctly(client, update, update_re
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription
     )
     mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=update_redirect_fields)
@@ -709,8 +714,8 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=None
     )
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
@@ -722,9 +727,10 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 
     assert response.status_code == 200
     assert d.utcnow.return_value.timestamp.call_count == 1
-    sa.assert_called_once_with(subscription['valid_data']['registrar'])
+    sa.assert_called_once_with(subscription['valid_data']['customer_pk'], subscription['valid_data']['customer_type'])
     prepped.assert_called_once_with({
-        'registrar': subscription['valid_data']['registrar'],
+        'customer_pk': subscription['valid_data']['customer_pk'],
+        'customer_type': subscription['valid_data']['customer_type'],
         'subscription': None,
         'timestamp': mocker.sentinel.timestamp
     })
@@ -737,8 +743,8 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
 def test_subscription_post_standard_standing_subscription(client, subscription, complete_standing_sa, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=complete_standing_sa
     )
     d = mocker.patch('perma_payments.views.datetime', autospec=True)
@@ -749,9 +755,10 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
     response = client.post(subscription['route'])
 
     assert response.status_code == 200
-    sa.assert_called_once_with(subscription['valid_data']['registrar'])
+    sa.assert_called_once_with(subscription['valid_data']['customer_pk'], subscription['valid_data']['customer_type'])
     prepped.assert_called_once_with({
-        'registrar': subscription['valid_data']['registrar'],
+        'customer_pk': subscription['valid_data']['customer_pk'],
+        'customer_type': subscription['valid_data']['customer_type'],
         'subscription': {
             'rate': complete_standing_sa.subscription_request.recurring_amount,
             'frequency': complete_standing_sa.subscription_request.recurring_frequency,
@@ -769,8 +776,8 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
 def test_subscription_post_standing_subscription_cancellation_requested(client, subscription, sa_w_cancellation_requested, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=sa_w_cancellation_requested
     )
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
@@ -786,8 +793,8 @@ def test_subscription_post_standing_subscription_cancellation_requested(client, 
 def test_subscription_post_standing_subscription_canceled(client, subscription, canceled_sa, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=canceled_sa
     )
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
@@ -824,8 +831,8 @@ def test_cancel_request_post_subscription_unalterable(client, cancel_request, co
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=complete_standing_sa
     )
     can_be_altered = mocker.patch.object(complete_standing_sa, 'can_be_altered', return_value=False)
@@ -845,8 +852,8 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
     mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.registrar_standing_subscription',
-        spec_set=SubscriptionAgreement.registrar_standing_subscription,
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
         return_value=complete_standing_sa
     )
     can_be_altered = mocker.patch.object(complete_standing_sa, 'can_be_altered', return_value=True)
@@ -861,7 +868,8 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
     assert log.call_count == 1
     assert email.mock_calls[0][2]['template'] == "email/cancel.txt"
     assert email.mock_calls[0][2]['context'] == {
-        'registrar': cancel_request['valid_data']['registrar'],
+        'customer_pk': cancel_request['valid_data']['customer_pk'],
+        'customer_type': cancel_request['valid_data']['customer_type'],
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
@@ -877,7 +885,7 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
 def test_cancel_request_post_subscription_status_actually_updated(client, cancel_request, complete_standing_sa, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=cancel_request['valid_data'])
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
-    sa.registrar_standing_subscription.return_value = complete_standing_sa
+    sa.customer_standing_subscription.return_value = complete_standing_sa
     client.post(cancel_request['route'])
     assert complete_standing_sa.cancellation_requested
 
