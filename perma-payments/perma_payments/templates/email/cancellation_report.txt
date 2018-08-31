@@ -34,8 +34,8 @@ Perma Payments
 Customer: {{ request.customer_type }} {{ request.customer_pk }}
 Merchant Reference Number: {{ request.merchant_reference_number}}
 Subscription Status: {{ request.status }}
-{% if customer_type == 'Registrar' %}General Contact: {{ perma_url }}{{ registrar_detail_path }}{{ request.customer_pk }}
-Registrar Users: {{ perma_url }}{{ registrar_users_path }}{{request.customer_pk }}{% endif %}
+{% if request.customer_type == 'Registrar' %}General Contact: {{ perma_url }}{{ registrar_detail_path }}{{ request.customer_pk }}
+Registrar Users: {{ perma_url }}{{ registrar_users_path }}{{request.customer_pk }}{% elif request.customer_type == 'Individual' %}{{ perma_url }}{{ individual_detail_path }}{{ request.customer_pk }}{% endif %}
 
 {% endfor %}
 ---

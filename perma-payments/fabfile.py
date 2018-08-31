@@ -67,6 +67,7 @@ def find_pending_cancellation_requests():
             context={
                 'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
                 'perma_url': settings.PERMA_URL,
+                'individual_detail_path': settings.INDIVIDUAL_DETAIL_PATH,
                 'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
                 'registrar_users_path': settings.REGISTRAR_USERS_PATH,
                 'total': len(data),
