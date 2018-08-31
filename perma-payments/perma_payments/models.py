@@ -67,6 +67,8 @@ def this_day_next_year(now):
     # relativedelta handles leap years: 2/29 -> 2/28
     return now + relativedelta(years=1)
 
+def just_before_midnight(dt):
+    return dt.replace(hour=23, minute=59, second=59)
 
 #
 # CLASSES
@@ -182,7 +184,7 @@ class SubscriptionAgreement(models.Model):
             if frequency == 'monthly':
                 # Monthly customers are charged on the 1st of the month.
                 # Any 'current' monthly customer is paid through the end of the month.
-                return last_day_of_month(now)
+                return just_before_midnight(last_day_of_month(now))
             elif frequency == 'annually':
                 # Annual customers are charged on the anniversary of their subscription date.
                 # If that day has already passed this year:
@@ -195,11 +197,11 @@ class SubscriptionAgreement(models.Model):
                 #    See settings.GRACE_PERIOD for complete discussion
                 anniversary_this_year = self.created_date.replace(year=now.year)
                 if anniversary_this_year < now:
-                    return this_day_next_year(anniversary_this_year)
+                    return just_before_midnight(this_day_next_year(anniversary_this_year))
                 elif anniversary_this_year == now:
-                    return now + relativedelta(days=settings.GRACE_PERIOD)
+                    return just_before_midnight(now + relativedelta(days=settings.GRACE_PERIOD))
                 else:
-                    return anniversary_this_year
+                    return just_before_midnight(anniversary_this_year)
             # We only offer monthly and annual subscriptions.
             # If we change our minds, we need more logic here.
             logger.error("No code for calculating paid-through date for subscriptions recurring {}".format(frequency))
