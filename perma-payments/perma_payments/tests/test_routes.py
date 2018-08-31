@@ -872,6 +872,7 @@ def test_cancel_request_post_subscription_happy_path(client, cancel_request, com
         'customer_type': cancel_request['valid_data']['customer_type'],
         'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
+        'individual_detail_path': settings.INDIVIDUAL_DETAIL_PATH,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
         'registrar_users_path': settings.REGISTRAR_USERS_PATH,
         'merchant_reference_number': complete_standing_sa.subscription_request.reference_number

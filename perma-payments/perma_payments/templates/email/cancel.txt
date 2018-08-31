@@ -1,4 +1,4 @@
-{% if customer_type=='Individual'%}Premium Perma User {{ customer_pk }}{% else %}{{ customer_type }} {{ customer_pk }}{% endif %} has submitted a request to cancel their paid
+{% if customer_type == 'Individual' %}Premium Perma User {{ customer_pk }}{% else %}{{ customer_type }} {{ customer_pk }}{% endif %} has submitted a request to cancel their paid
 subscription to Perma.cc.
 
 At your earliest convenience, please log in to the "Recurring Billing"
