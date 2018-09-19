@@ -33,7 +33,7 @@ def init_dev_db():
 
 
 @task
-def find_pending_cancellation_requests():
+def find_pending_cancellation_requests(tier='dev'):
     """
     Report pending cancellation requests.
     """
@@ -45,7 +45,7 @@ def find_pending_cancellation_requests():
     sas = SubscriptionAgreement.objects.filter(cancellation_requested=True).exclude(status='Canceled')
     if len(sas) == 0:
         send_self_email(
-            'No cancellation requests pending',
+            'No cancellation requests pending on %s' % tier,
             RequestFactory().get('this-is-a-placeholder-request'),
             context={
                 'message': "Congrats, no cancellation requests pending today. ~ Perma Payments"
@@ -61,7 +61,7 @@ def find_pending_cancellation_requests():
             } for sa in sas
         ]
         send_self_email(
-            'ACTION REQUIRED: cancellation requests pending',
+            'ACTION REQUIRED: cancellation requests pending on %s' % tier,
             RequestFactory().get('this-is-a-placeholder-request'),
             template="email/cancellation_report.txt",
             context={
