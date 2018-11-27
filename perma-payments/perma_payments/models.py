@@ -149,6 +149,14 @@ class SubscriptionAgreement(models.Model):
     cancellation_requested = models.BooleanField(
         default=False
     )
+    current_link_limit = models.CharField(blank=True, null=True, max_length=20)
+    current_frequency = models.CharField(blank=True, null=True, max_length=20)
+    current_rate = models.DecimalField(
+        max_digits=19,
+        decimal_places=2,
+        blank=True,
+        null=True
+    )
 
     @classmethod
     def customer_standing_subscription(cls, customer_pk, customer_type):
@@ -179,7 +187,7 @@ class SubscriptionAgreement(models.Model):
 
     def calculate_paid_through_date_from_reported_status(self, status):
         if status == 'Current':
-            frequency = self.subscription_request.recurring_frequency
+            frequency = self.current_frequency
             now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE))
             if frequency == 'monthly':
                 # Monthly customers are charged on the 1st of the month.
@@ -214,21 +222,27 @@ class SubscriptionAgreement(models.Model):
         return None
 
 
-    def update_status_after_cs_decision(self, decision, redacted_response):
+    def update_after_cs_decision(self, decision, redacted_response):
         decision_map = {
             # Successful transaction. Reason codes 100 and 110.
             'ACCEPT': {
-               'status': 'Current',
-               'log_level': logging.INFO,
-               'message': "Subscription request for {} {} (subscription request {}) accepted.".format(self.customer_type, self.customer_pk, self.subscription_request.pk)
+                'status': 'Current',
+                'current_link_limit': self.subscription_request.link_limit,
+                'current_rate': self.subscription_request.recurring_amount,
+                'current_frequency': self.subscription_request.recurring_frequency,
+                'log_level': logging.INFO,
+                'message': "Subscription request for {} {} (subscription request {}) accepted.".format(self.customer_type, self.customer_pk, self.subscription_request.pk)
             },
             # Authorization was declined; however, the capture may still be possible.
             # Review payment details. See reason codes 200, 201, 230, and 520.
             # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
             'REVIEW': {
-               'status': 'Current',
-               'log_level': logging.ERROR,
-               'message': "Subscription request for {} {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
+                'status': 'Current',
+                'current_link_limit': self.subscription_request.link_limit,
+                'current_rate': self.subscription_request.recurring_amount,
+                'current_frequency': self.subscription_request.recurring_frequency,
+                'log_level': logging.ERROR,
+                'message': "Subscription request for {} {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
             },
             # Transaction was declined.See reason codes 102, 200, 202, 203,
             # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
@@ -260,8 +274,14 @@ class SubscriptionAgreement(models.Model):
             'message': "Unexpected decision from CyberSource regarding subscription request {} for {} {}. Please investigate ASAP. Redacted response: {}".format(self.subscription_request.pk, self.customer_type, self.customer_pk, redacted_response)
         })
         self.status = mapped['status']
+        if mapped.get('current_link_limit'):
+            self.current_link_limit = mapped['current_link_limit']
+        if mapped.get('current_rate'):
+            self.current_rate = mapped['current_rate']
+        if mapped.get('current_frequency'):
+            self.current_frequency = mapped['current_frequency']
         self.paid_through = self.calculate_paid_through_date_from_reported_status(self.status)
-        self.save(update_fields=['status', 'paid_through'])
+        self.save(update_fields=['status', 'current_link_limit', 'current_rate', 'current_frequency', 'paid_through'])
         logger.log(mapped['log_level'], mapped['message'])
 
 
@@ -286,29 +306,18 @@ class OutgoingTransaction(PolymorphicModel):
         return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class SubscriptionRequest(OutgoingTransaction):
+class SubscriptionFields(models.Model):
     """
-    All (non-confidential) specifics of a customer's request for a subscription.
-
-    Useful for:
-    1) reconstructing a customer's account history;
-    2) resending failed requests;
-    3) comparing notes with CyberSource records
+        Abstract base class to hold fields used to create a new subscription
+        or change an existing one.
     """
-    def __str__(self):
-        return 'SubscriptionRequest {}'.format(self.id)
 
-    subscription_agreement = models.OneToOneField(
-        SubscriptionAgreement,
-        related_name='subscription_request'
-    )
-    reference_number = models.CharField(
-        max_length=32,
-        default=generate_reference_number,
-        help_text="Unique ID for this subscription. " +
-                  "Subsequent charges, automatically made by CyberSource on the recurring schedule, " +
-                  "will all be associated with this reference number. " +
-                  "Called 'Merchant Reference Number' in CyberSource Business Center."
+    class Meta:
+        abstract = True
+
+    link_limit = models.CharField(
+        max_length=20,
+        help_text="For internal use only: link limit associated with the subscription"
     )
     # N.B. the Cybersource test environment returns error codes for certain amounts, by design.
     # The docs are very unclear about the specifics.
@@ -369,6 +378,49 @@ class SubscriptionRequest(OutgoingTransaction):
         Returns the recurring_start_date in the format required by CyberSource
         """
         return self.recurring_start_date.strftime("%Y%m%d")
+
+
+class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
+    """
+    All (non-confidential) specifics of a customer's request for a subscription.
+
+    Useful for:
+    1) reconstructing a customer's account history;
+    2) resending failed requests;
+    3) comparing notes with CyberSource records
+    """
+    def __str__(self):
+        return 'SubscriptionRequest {}'.format(self.id)
+
+    subscription_agreement = models.OneToOneField(
+        SubscriptionAgreement,
+        related_name='subscription_request'
+    )
+    reference_number = models.CharField(
+        max_length=32,
+        default=generate_reference_number,
+        help_text="Unique ID for this subscription. " +
+                  "Subsequent charges, automatically made by CyberSource on the recurring schedule, " +
+                  "will all be associated with this reference number. " +
+                  "Called 'Merchant Reference Number' in CyberSource Business Center."
+    )
+
+
+class ChangeRequest(OutgoingTransaction, SubscriptionFields):
+    """
+    All (non-confidential) specifics of a customer's request to switch tiers.
+    """
+    def __str__(self):
+        return 'ChangeRequest {}'.format(self.id)
+
+    subscription_agreement = models.ForeignKey(
+        SubscriptionAgreement,
+        related_name='change_requests'
+    )
+    transaction_type = models.CharField(
+        max_length=30,
+        default='sale,update_payment_token'
+    )
 
 
 class UpdateRequest(OutgoingTransaction):
@@ -503,6 +555,31 @@ class SubscriptionRequestResponse(Response):
         max_length=26,
         blank=True,
         default=''
+    )
+
+    @property
+    def subscription_agreement(self):
+        return self.related_request.subscription_agreement
+
+    @property
+    def customer_pk(self):
+        return self.related_request.subscription_agreement.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.related_request.subscription_agreement.customer_type
+
+
+class ChangeRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to a change request.
+    """
+    def __str__(self):
+        return 'ChangeRequestResponse {}'.format(self.id)
+
+    related_request = models.OneToOneField(
+        ChangeRequest,
+        related_name='change_request_response'
     )
 
     @property
