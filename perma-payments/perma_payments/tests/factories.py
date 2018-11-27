@@ -26,6 +26,23 @@ class SubscriptionRequestFactory(factory.django.DjangoModelFactory):
     recurring_amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
     recurring_start_date = factory.Faker('future_date')
     recurring_frequency = 'monthly'
+    link_limit = str(fake.random_element(elements=(fake.random_int(), 'unlimited')))
+
+
+class ChangeRequestFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ChangeRequest
+
+    subscription_agreement = factory.SubFactory(
+        SubscriptionAgreementFactory,
+        subscription_request=factory.SubFactory(SubscriptionRequestFactory)
+    )
+
+    amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
+    recurring_amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
+    recurring_start_date = factory.Faker('future_date')
+    recurring_frequency = 'monthly'
+    link_limit = str(fake.random_element(elements=(fake.random_int(), 'unlimited')))
 
 
 class UpdateRequestFactory(factory.django.DjangoModelFactory):

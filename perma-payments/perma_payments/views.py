@@ -25,9 +25,11 @@ from .models import (
     SubscriptionAgreement,
     OutgoingTransaction,
     SubscriptionRequest,
+    ChangeRequest,
     UpdateRequest,
     Response,
     SubscriptionRequestResponse,
+    ChangeRequestResponse,
     UpdateRequestResponse,
 )
 from .security import (
@@ -52,7 +54,17 @@ FIELDS_REQUIRED_FROM_PERMA = {
         'amount',
         'recurring_amount',
         'recurring_frequency',
-        'recurring_start_date'
+        'recurring_start_date',
+        'link_limit'
+    ],
+    'change': [
+        'customer_pk',
+        'customer_type',
+        'amount',
+        'recurring_amount',
+        'recurring_frequency',
+        'recurring_start_date',
+        'link_limit'
     ],
     'update': [
         'customer_pk',
@@ -75,6 +87,23 @@ FIELDS_REQUIRED_FOR_CYBERSOURCE = {
         'currency',
         'locale',
         'payment_method',
+        'profile_id',
+        'recurring_amount',
+        'recurring_frequency',
+        'recurring_start_date',
+        'reference_number',
+        'signed_date_time',
+        'transaction_type',
+        'transaction_uuid'
+    ],
+    'change': [
+        'access_key',
+        'allow_payment_token_update',
+        'amount',
+        'currency',
+        'locale',
+        'payment_method',
+        'payment_token',
         'profile_id',
         'recurring_amount',
         'recurring_frequency',
@@ -212,7 +241,8 @@ def subscribe(request):
                 amount=data['amount'],
                 recurring_amount=data['recurring_amount'],
                 recurring_frequency=data['recurring_frequency'],
-                recurring_start_date=data['recurring_start_date']
+                recurring_start_date=data['recurring_start_date'],
+                link_limit=data['link_limit']
             )
             s_request.full_clean()
             s_request.save()
@@ -246,10 +276,76 @@ def subscribe(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 @sensitive_post_parameters('encrypted_data')
-def update(request):
+def change(request):
     """
     Processes user-initiated requests from Perma.cc;
     Redirects user to CyberSource for payment.
+    Updates charge amount and frequency.
+    """
+    try:
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['change'])
+    except InvalidTransmissionException:
+        return bad_request(request)
+
+    # The user must have a subscription that can be updated.
+    sa = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
+    if not sa or not sa.can_be_altered():
+        return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Request",
+                                                'message': "We can't find any active subscriptions associated with your account.<br>" +
+                                                           "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
+
+    s_request = sa.subscription_request
+    s_response = s_request.subscription_request_response
+
+    # The change request fields must each be valid.
+    try:
+        c_request = ChangeRequest(
+            subscription_agreement=sa,
+            amount=data['amount'],
+            recurring_amount=data['recurring_amount'],
+            recurring_frequency=data['recurring_frequency'],
+            recurring_start_date=data['recurring_start_date'],
+            link_limit=data['link_limit']
+        )
+        c_request.full_clean()
+        c_request.save()
+    except ValidationError as e:
+        logger.warning('Invalid POST from Perma.cc change form: {}'.format(e))
+        return bad_request(request)
+
+    # Bounce the user to CyberSource.
+    context = {
+        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE],
+        'fields_to_post': prep_for_cybersource({
+            'access_key': settings.CS_ACCESS_KEY,
+            'allow_payment_token_update': 'true',
+            'amount': c_request.amount,
+            'currency': c_request.currency,
+            'locale': c_request.locale,
+            'payment_method': c_request.payment_method,
+            'payment_token': s_response.payment_token,
+            'profile_id': settings.CS_PROFILE_ID,
+            'recurring_amount': c_request.recurring_amount,
+            'recurring_frequency': c_request.recurring_frequency,
+            'recurring_start_date': c_request.get_formatted_start_date(),
+            'reference_number': s_request.reference_number,
+            'signed_date_time': c_request.get_formatted_datetime(),
+            'transaction_type': c_request.transaction_type,
+            'transaction_uuid': c_request.transaction_uuid,
+        })
+    }
+    logger.info("Change request received for {} {}".format(data['customer_type'], data['customer_pk']))
+    return render(request, 'redirect.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
+def update(request):
+    """
+    Processes user-initiated requests from Perma.cc;
+    Redirects user to CyberSource.
+    Updates payment information.
     """
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['update'])
@@ -326,6 +422,19 @@ def cybersource_callback(request):
             }
         )
 
+    elif isinstance(related_request, ChangeRequest):
+        Response.save_new_with_encrypted_full_response(
+            ChangeRequestResponse,
+            request.POST,
+            {
+                'related_request': related_request,
+                'decision': decision,
+                'reason_code': reason_code,
+                'message': message,
+            }
+        )
+        related_request.subscription_agreement.update_after_cs_decision(decision, redact(request.POST))
+
     elif isinstance(related_request, SubscriptionRequest):
         payment_token = request.POST.get('payment_token', '')
 
@@ -345,7 +454,7 @@ def cybersource_callback(request):
                 'payment_token': payment_token,
             }
         )
-        related_request.subscription_agreement.update_status_after_cs_decision(decision, redact(request.POST))
+        related_request.subscription_agreement.update_after_cs_decision(decision, redact(request.POST))
 
     else:
         raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
@@ -372,9 +481,10 @@ def subscription(request):
     else:
 
         subscription = {
-            'rate': standing_subscription.subscription_request.recurring_amount,
-            'frequency': standing_subscription.subscription_request.recurring_frequency,
-            'paid_through': standing_subscription.get_formatted_paid_through_date()
+            'link_limit': standing_subscription.current_link_limit,
+            'rate': standing_subscription.current_rate,
+            'frequency': standing_subscription.current_frequency,
+            'paid_through': standing_subscription.get_formatted_paid_through_date(),
         }
 
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':

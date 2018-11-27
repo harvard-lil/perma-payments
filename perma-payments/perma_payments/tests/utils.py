@@ -23,6 +23,7 @@ SENTINEL = {
     'recurring_frequency': fake.random_element(elements=[status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices]),
     'amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
     'recurring_amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
+    'link_limit': str(fake.random_element(elements=(fake.random_int(), 'unlimited'))),
     'bytes': b'sentinel ascii bytes',
     'req_transaction_uuid': fake.uuid4(),
     'decision': fake.random_element(elements=CS_DECISIONS.keys()),

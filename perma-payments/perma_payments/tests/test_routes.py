@@ -20,12 +20,13 @@ from perma_payments.models import STANDING_STATUSES, SubscriptionAgreement
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import *
 
-from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, UpdateRequestFactory
+from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, ChangeRequestFactory, UpdateRequestFactory
 from .utils import GENESIS, SENTINEL, expected_template_used, get_not_allowed, post_not_allowed, put_patch_delete_not_allowed, dict_to_querydict
 
 
 register(SubscriptionRequestFactory)
 register(SubscriptionRequestResponseFactory)
+register(ChangeRequestFactory)
 register(UpdateRequestFactory)
 
 
@@ -54,7 +55,8 @@ def subscribe():
             'amount': SENTINEL['amount'],
             'recurring_amount': SENTINEL['recurring_amount'],
             'recurring_frequency': SENTINEL['recurring_frequency'],
-            'recurring_start_date': SENTINEL['datetime']
+            'recurring_start_date': SENTINEL['datetime'],
+            'link_limit': SENTINEL['link_limit']
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
@@ -65,6 +67,31 @@ def subscribe():
 @pytest.fixture
 def subscribe_redirect_fields():
     return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['subscribe']}
+
+
+@pytest.fixture
+def change():
+    data = {
+        'route': '/change/',
+        'template': 'redirect.html',
+        'valid_data': {
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
+            'amount': SENTINEL['amount'],
+            'recurring_amount': SENTINEL['recurring_amount'],
+            'recurring_frequency': SENTINEL['recurring_frequency'],
+            'recurring_start_date': SENTINEL['datetime'],
+            'link_limit': SENTINEL['link_limit']
+        }
+    }
+    for field in FIELDS_REQUIRED_FROM_PERMA['change']:
+        assert field in data['valid_data']
+    return data
+
+
+@pytest.fixture
+def change_redirect_fields():
+    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['change']}
 
 
 @pytest.fixture
@@ -195,6 +222,12 @@ def canceled_sa(sa_w_cancellation_requested):
 @pytest.mark.django_db
 def update_request(update_request_factory):
     return update_request_factory()
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def change_request(change_request_factory):
+    return change_request_factory()
 
 
 @pytest.fixture()
@@ -338,7 +371,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
         amount=subscribe['valid_data']['amount'],
         recurring_amount=subscribe['valid_data']['recurring_amount'],
         recurring_frequency=subscribe['valid_data']['recurring_frequency'],
-        recurring_start_date=subscribe['valid_data']['recurring_start_date']
+        recurring_start_date=subscribe['valid_data']['recurring_start_date'],
+        link_limit=subscribe['valid_data']['link_limit']
     )
     assert sr_instance.full_clean.call_count == 1
     assert sr_instance.save.call_count == 1
@@ -405,6 +439,197 @@ def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, sub
 def test_subscribe_other_methods(client, subscribe):
     get_not_allowed(client, subscribe['route'])
     put_patch_delete_not_allowed(client, subscribe['route'])
+
+
+# change
+
+def test_change_post_invalid_perma_transmission(client, change, mocker):
+    # mocks
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, side_effect=InvalidTransmissionException)
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+
+    # request
+    response = client.post(change['route'], change['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(change['valid_data']), FIELDS_REQUIRED_FROM_PERMA['change'])
+    assert not cr_instance.save.called
+
+
+def test_change_post_no_standing_subscription(client, change, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa.customer_standing_subscription.return_value = None
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+
+    # request
+    response = client.post(change['route'], change['valid_data'])
+
+    # assertions
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b"can't find any active subscriptions" in response.content
+    sa.customer_standing_subscription.assert_called_once_with(change['valid_data']['customer_pk'], change['valid_data']['customer_type'])
+    assert not cr_instance.save.called
+
+
+def test_change_post_subscription_unalterable(client, change, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.can_be_altered.return_value = False
+    sa.customer_standing_subscription.return_value = sa_instance
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+
+    # request
+    response = client.post(change['route'], change['valid_data'])
+
+    # assertions
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b"can't find any active subscriptions" in response.content
+    assert sa_instance.can_be_altered.call_count == 1
+    assert not cr_instance.save.called
+
+
+@pytest.mark.django_db
+def test_change_post_cr_validation_fails(client, change, complete_standing_sa, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
+        return_value=complete_standing_sa
+    )
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+    cr_instance.full_clean.side_effect=ValidationError('oh no!')
+    log = mocker.patch('perma_payments.views.logger.warning', autospec=True)
+
+    # request
+    response = client.post(change['route'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    assert cr_instance.full_clean.call_count == 1
+    assert not cr_instance.save.called
+    assert log.call_count == 1
+
+
+@pytest.mark.django_db
+def test_change_post_cr_validated_and_saved_correctly(client, change, complete_standing_sa, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription,
+        return_value=complete_standing_sa
+    )
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+
+    # request
+    response = client.post(change['route'])
+
+    # assertions
+    assert response.status_code == 200
+    cr.assert_called_once_with(
+        subscription_agreement=complete_standing_sa,
+        amount=change['valid_data']['amount'],
+        recurring_amount=change['valid_data']['recurring_amount'],
+        recurring_frequency=change['valid_data']['recurring_frequency'],
+        recurring_start_date=change['valid_data']['recurring_start_date'],
+        link_limit=change['valid_data']['link_limit']
+    )
+    assert cr_instance.full_clean.call_count == 1
+    assert cr_instance.save.call_count == 1
+
+
+def test_change_post_data_prepped_correctly(client, change, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa.customer_standing_subscription.return_value = sa_instance
+    sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
+    sr_instance = sr.return_value
+    srr = mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
+    srr_instance = srr.return_value
+    sa_instance.subscription_request = sr_instance
+    sr_instance.subscription_request_response = srr_instance
+    cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    cr_instance = cr.return_value
+    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
+
+    # request
+    response = client.post(change['route'])
+
+    # assertions
+    assert response.status_code == 200
+    fields_to_prep = {
+        'access_key': settings.CS_ACCESS_KEY,
+        'allow_payment_token_update': 'true',
+        'amount': cr_instance.amount,
+        'currency': cr_instance.currency,
+        'locale': cr_instance.locale,
+        'payment_method': cr_instance.payment_method,
+        'payment_token': srr_instance.payment_token,
+        'profile_id': settings.CS_PROFILE_ID,
+        'recurring_amount': cr_instance.recurring_amount,
+        'recurring_frequency': cr_instance.recurring_frequency,
+        'recurring_start_date': cr_instance.get_formatted_start_date(),
+        'reference_number': sr_instance.reference_number,
+        'signed_date_time': cr_instance.get_formatted_datetime(),
+        'transaction_type': cr_instance.transaction_type,
+        'transaction_uuid': cr_instance.transaction_uuid,
+    }
+    prepped.assert_called_once_with(fields_to_prep)
+    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['change']:
+        assert field in fields_to_prep
+
+
+def test_change_post_redirect_form_populated_correctly(client, change, change_redirect_fields, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    mocker.patch(
+        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
+        spec_set=SubscriptionAgreement.customer_standing_subscription
+    )
+    mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
+    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=change_redirect_fields)
+
+
+    # request
+    response = client.post(change['route'])
+
+    # assertions
+    assert response.status_code == 200
+    assert response.context['fields_to_post'] == change_redirect_fields
+    context = list(response.context.keys())
+    for field in ['fields_to_post', 'post_to_url']:
+        assert field in context
+    expected_template_used(response, 'redirect.html')
+    for field in change_redirect_fields:
+        assert bytes('<input type="hidden" name="{0}" value="{0}">'.format(field), 'utf-8') in response.content
+
+
+def test_change_other_methods(client, change):
+    get_not_allowed(client, change['route'])
+    put_patch_delete_not_allowed(client, change['route'])
 
 
 # update
@@ -556,6 +781,7 @@ def test_update_post_data_prepped_correctly(client, update, mocker):
     for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']:
         assert field in fields_to_prep
 
+
 def test_update_post_redirect_form_populated_correctly(client, update, update_redirect_fields, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
@@ -634,6 +860,41 @@ def test_cybersource_callback_post_update_request(client, cybersource_callback, 
 
 
 @pytest.mark.django_db
+def test_cybersource_callback_post_change_request(client, cybersource_callback, change_request, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    get_request = mocker.patch(
+        'perma_payments.views.OutgoingTransaction.objects.get',
+        autospec=True,
+        return_value = change_request
+    )
+    mocker.patch.object(change_request.subscription_agreement, 'update_after_cs_decision')
+    r = mocker.patch('perma_payments.views.Response', autospec=True)
+
+    # request
+    response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
+
+    # assertions
+    get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
+    r.save_new_with_encrypted_full_response.assert_called_once_with(
+        ChangeRequestResponse,
+        dict_to_querydict(cybersource_callback['valid_data']),
+        {
+            'related_request': change_request,
+            'decision': cybersource_callback['valid_data']['decision'],
+            'reason_code': cybersource_callback['valid_data']['reason_code'],
+            'message': cybersource_callback['valid_data']['message']
+        }
+    )
+    change_request.subscription_agreement.update_after_cs_decision.assert_called_once_with(
+        cybersource_callback['valid_data']['decision'],
+        redact(cybersource_callback['valid_data'])
+    )
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b'OK' in response.content
+
+
+@pytest.mark.django_db
 def test_cybersource_callback_post_subscription_request(client, cybersource_callback, pending_sa, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
     get_request = mocker.patch(
@@ -641,7 +902,7 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
         autospec=True,
         return_value = pending_sa.subscription_request
     )
-    mocker.patch.object(pending_sa, 'update_status_after_cs_decision')
+    mocker.patch.object(pending_sa, 'update_after_cs_decision')
     r = mocker.patch('perma_payments.views.Response', autospec=True)
 
     # request
@@ -660,7 +921,7 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
             'payment_token': cybersource_callback['valid_data']['payment_token']
         }
     )
-    pending_sa.update_status_after_cs_decision.assert_called_once_with(
+    pending_sa.update_after_cs_decision.assert_called_once_with(
         cybersource_callback['valid_data']['decision'],
         redact(cybersource_callback['valid_data'])
     )
@@ -673,7 +934,7 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
 def test_cybersource_callback_payment_token_invalid(client, cybersource_callback, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['data_w_invalid_payment_token'])
     mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
-    mocker.patch('perma_payments.views.isinstance', side_effect=[False, True])
+    mocker.patch('perma_payments.views.isinstance', side_effect=[False, False, True])  # force isinstance to return True third, for SubscriptionRequest
     mocker.patch('perma_payments.views.Response', autospec=True)
     log = mocker.patch('perma_payments.views.logger.error', autospec=True)
 
@@ -760,10 +1021,11 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
         'customer_pk': subscription['valid_data']['customer_pk'],
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': {
-            'rate': complete_standing_sa.subscription_request.recurring_amount,
-            'frequency': complete_standing_sa.subscription_request.recurring_frequency,
+            'link_limit': complete_standing_sa.current_link_limit,
+            'rate': complete_standing_sa.current_rate,
+            'frequency': complete_standing_sa.current_frequency,
             'status': complete_standing_sa.status,
-            'paid_through': complete_standing_sa.paid_through
+            'paid_through': complete_standing_sa.paid_through,
         },
         'timestamp': mocker.sentinel.timestamp
     })
