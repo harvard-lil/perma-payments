@@ -14,6 +14,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils.timezone import make_aware
 
 
 import pytest
@@ -63,9 +64,9 @@ def subscribe():
             'amount': SENTINEL['amount'],
             'recurring_amount': SENTINEL['recurring_amount'],
             'recurring_frequency': SENTINEL['recurring_frequency'],
-            'recurring_start_date': SENTINEL['datetime'],
+            'recurring_start_date': SENTINEL['date'],
             'link_limit': SENTINEL['link_limit'],
-            'link_limit_effective_timestamp': SENTINEL['datetime']
+            'link_limit_effective_timestamp': SENTINEL['datetime'].timestamp()
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
@@ -89,7 +90,7 @@ def change():
             'amount': SENTINEL['amount'],
             'recurring_amount': SENTINEL['recurring_amount'],
             'link_limit': SENTINEL['link_limit'],
-            'link_limit_effective_timestamp': SENTINEL['datetime']
+            'link_limit_effective_timestamp': SENTINEL['datetime'].timestamp()
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['change']:
@@ -386,7 +387,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
         recurring_amount=subscribe['valid_data']['recurring_amount'],
         recurring_frequency=subscribe['valid_data']['recurring_frequency'],
         recurring_start_date=subscribe['valid_data']['recurring_start_date'],
-        link_limit=subscribe['valid_data']['link_limit']
+        link_limit=subscribe['valid_data']['link_limit'],
+        link_limit_effective_timestamp=make_aware(datetime.fromtimestamp(subscribe['valid_data']['link_limit_effective_timestamp']))
     )
     assert sr_instance.full_clean.call_count == 1
     assert sr_instance.save.call_count == 1
@@ -564,7 +566,7 @@ def test_change_post_cr_validated_and_saved_correctly(client, change, complete_s
         amount=change['valid_data']['amount'],
         recurring_amount=change['valid_data']['recurring_amount'],
         link_limit=change['valid_data']['link_limit'],
-        link_limit_effective_timestamp=change['valid_data']['link_limit_effective_timestamp']
+        link_limit_effective_timestamp=make_aware(datetime.fromtimestamp(change['valid_data']['link_limit_effective_timestamp']))
     )
     assert cr_instance.full_clean.call_count == 1
     assert cr_instance.save.call_count == 1
