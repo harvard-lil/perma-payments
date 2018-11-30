@@ -95,7 +95,8 @@ def complete_pending_sa():
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
         recurring_frequency=SENTINEL['recurring_frequency'],
-        link_limit=SENTINEL['link_limit']
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     return sa
@@ -121,7 +122,8 @@ def complete_current_sa(mocker, request):
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
         recurring_frequency=request.param,
-        link_limit=SENTINEL['link_limit']
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     assert tz.call_count > 0
@@ -142,6 +144,7 @@ def complete_canceled_sa(mocker):
         current_link_limit=SENTINEL['link_limit'],
         current_rate=SENTINEL['recurring_amount'],
         current_frequency=SENTINEL['recurring_frequency'],
+        current_link_limit_effective_timestamp=GENESIS,
         # None in fixture to force type errors if not subsequently set.
         paid_through=None
     )
@@ -152,13 +155,15 @@ def complete_canceled_sa(mocker):
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
         recurring_frequency=SENTINEL['recurring_frequency'],
-        link_limit=SENTINEL['link_limit']
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     assert tz.call_count > 0
     assert sa.current_link_limit == sr.link_limit
     assert sa.current_rate == sr.recurring_amount
     assert sa.current_frequency == sr.recurring_frequency
+    assert sa.current_link_limit_effective_timestamp == sr.link_limit_effective_timestamp
     return sa
 
 
@@ -217,7 +222,8 @@ def complete_subscription_request(not_standing_sa):
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
         recurring_frequency=SENTINEL['recurring_frequency'],
-        link_limit=SENTINEL['link_limit']
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     return sr
@@ -225,11 +231,13 @@ def complete_subscription_request(not_standing_sa):
 
 @pytest.fixture()
 @pytest.mark.django_db
-def barebones_change_request(standing_sa):
+def change_request(complete_current_sa):
     return ChangeRequest(
-        subscription_agreement=standing_sa,
-        recurring_start_date=GENESIS,
-        link_limit=SENTINEL['link_limit']
+        subscription_agreement=complete_current_sa,
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['new_recurring_amount'],
+        link_limit=SENTINEL['new_link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
 
 
@@ -247,8 +255,8 @@ def barebones_subscription_request_response(barebones_subscription_request):
 
 @pytest.fixture()
 @pytest.mark.django_db
-def barebones_change_request_response(barebones_change_request):
-    return ChangeRequestResponse(related_request=barebones_change_request)
+def change_request_response(change_request):
+    return ChangeRequestResponse(related_request=change_request)
 
 
 @pytest.fixture()
@@ -376,23 +384,44 @@ def test_sa_can_be_altered_false_if_cancellation_requested(standing_sa_cancellat
 def test_sa_can_be_altered_false_if_not_standing(not_standing_sa):
     assert not not_standing_sa.can_be_altered()
 
+@pytest.mark.django_db
+def test_sa_update_after_cs_decision_sr(decision, mocker, complete_subscription_request):
+    log = mocker.patch('perma_payments.models.logger.log', autospec=True)
+    sa = complete_subscription_request.subscription_agreement
+    assert not sa.current_link_limit
+    assert not sa.current_rate
+    assert not sa.current_frequency
+    sa.update_after_cs_decision(complete_subscription_request, decision, {})
+    assert sa.status != 'Pending'
+    if decision in ["ACCEPT", "REVIEW"]:
+        assert sa.current_link_limit == complete_subscription_request.link_limit
+        assert sa.current_rate == complete_subscription_request.recurring_amount
+        assert sa.current_frequency == complete_subscription_request.recurring_frequency
+    else:
+        assert not sa.current_link_limit
+        assert not sa.current_rate
+        assert not sa.current_frequency
+    assert log.call_count == 1
+
 
 @pytest.mark.django_db
-def test_sa_update_after_cs_decision(complete_pending_sa, decision, mocker):
+def test_sa_update_after_cs_decision_cr(decision, mocker, change_request):
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
-    assert not complete_pending_sa.current_link_limit
-    assert not complete_pending_sa.current_rate
-    assert not complete_pending_sa.current_frequency
-    complete_pending_sa.update_after_cs_decision(decision, {})
-    assert complete_pending_sa.status != 'Pending'
+    sa = change_request.subscription_agreement
+    old_limit = sa.current_link_limit
+    old_rate = sa.current_rate
+    old_frequency = sa.current_frequency
+    assert old_limit != change_request.link_limit
+    assert old_rate != change_request.recurring_amount
+    sa.update_after_cs_decision(change_request, decision, {})
+    assert sa.status != 'Pending'
     if decision in ["ACCEPT", "REVIEW"]:
-        assert complete_pending_sa.current_link_limit == complete_pending_sa.subscription_request.link_limit
-        assert complete_pending_sa.current_rate == complete_pending_sa.subscription_request.recurring_amount
-        assert complete_pending_sa.current_frequency == complete_pending_sa.subscription_request.recurring_frequency
+        assert sa.current_link_limit == change_request.link_limit
+        assert sa.current_rate == change_request.recurring_amount
     else:
-        assert not complete_pending_sa.current_link_limit
-        assert not complete_pending_sa.current_rate
-        assert not complete_pending_sa.current_frequency
+        assert sa.current_link_limit == old_limit
+        assert sa.current_rate == old_rate
+    assert sa.current_frequency == old_frequency
     assert log.call_count == 1
 
 
@@ -441,7 +470,8 @@ def test_sr_required_fields(mocker):
             'recurring_amount',
             'recurring_start_date',
             'recurring_frequency',
-            'link_limit'
+            'link_limit',
+            'link_limit_effective_timestamp'
         ]
     )
 
@@ -484,9 +514,8 @@ def test_cr_required_fields(mocker):
             'subscription_agreement',
             'amount',
             'recurring_amount',
-            'recurring_start_date',
-            'recurring_frequency',
-            'link_limit'
+            'link_limit',
+            'link_limit_effective_timestamp'
         ]
     )
 
@@ -505,14 +534,9 @@ def test_cr_autopopulated_fields(mocker):
 
 
 @pytest.mark.django_db
-def test_cr_customer_retrived(barebones_change_request):
-    assert barebones_change_request.customer_pk == SENTINEL['customer_pk']
-    assert barebones_change_request.customer_type == SENTINEL['customer_type']
-
-
-@pytest.mark.django_db
-def test_cr_get_formatted_start_date(barebones_change_request):
-    assert barebones_change_request.get_formatted_start_date() == '19700101'
+def test_cr_customer_retrived(change_request):
+    assert change_request.customer_pk == SENTINEL['customer_pk']
+    assert change_request.customer_type == SENTINEL['customer_type']
 
 
 # UpdateRequest
@@ -692,14 +716,14 @@ def test_crr_required_fields():
 
 
 @pytest.mark.django_db
-def test_crr_sa_retrived(barebones_change_request_response, standing_sa):
-    assert barebones_change_request_response.subscription_agreement == standing_sa
+def test_crr_sa_retrived(change_request_response, complete_current_sa):
+    assert change_request_response.subscription_agreement == complete_current_sa
 
 
 @pytest.mark.django_db
-def test_crr_customer_retrived(barebones_change_request_response):
-    assert barebones_change_request_response.customer_pk == SENTINEL['customer_pk']
-    assert barebones_change_request_response.customer_type == SENTINEL['customer_type']
+def test_crr_customer_retrived(change_request_response):
+    assert change_request_response.customer_pk == SENTINEL['customer_pk']
+    assert change_request_response.customer_type == SENTINEL['customer_type']
 
 
 # UpdateRequestResponse

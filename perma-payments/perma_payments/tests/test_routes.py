@@ -64,7 +64,8 @@ def subscribe():
             'recurring_amount': SENTINEL['recurring_amount'],
             'recurring_frequency': SENTINEL['recurring_frequency'],
             'recurring_start_date': SENTINEL['datetime'],
-            'link_limit': SENTINEL['link_limit']
+            'link_limit': SENTINEL['link_limit'],
+            'link_limit_effective_timestamp': SENTINEL['datetime']
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
@@ -87,9 +88,8 @@ def change():
             'customer_type': SENTINEL['customer_type'],
             'amount': SENTINEL['amount'],
             'recurring_amount': SENTINEL['recurring_amount'],
-            'recurring_frequency': SENTINEL['recurring_frequency'],
-            'recurring_start_date': SENTINEL['datetime'],
-            'link_limit': SENTINEL['link_limit']
+            'link_limit': SENTINEL['link_limit'],
+            'link_limit_effective_timestamp': SENTINEL['datetime']
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['change']:
@@ -224,6 +224,12 @@ def canceled_sa(sa_w_cancellation_requested):
     sa_w_cancellation_requested.save()
     assert sa_w_cancellation_requested.cancellation_requested
     return sa_w_cancellation_requested
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def subscription_request(subscription_request_factory):
+    return subscription_request_factory()
 
 
 @pytest.fixture
@@ -557,9 +563,8 @@ def test_change_post_cr_validated_and_saved_correctly(client, change, complete_s
         subscription_agreement=complete_standing_sa,
         amount=change['valid_data']['amount'],
         recurring_amount=change['valid_data']['recurring_amount'],
-        recurring_frequency=change['valid_data']['recurring_frequency'],
-        recurring_start_date=change['valid_data']['recurring_start_date'],
-        link_limit=change['valid_data']['link_limit']
+        link_limit=change['valid_data']['link_limit'],
+        link_limit_effective_timestamp=change['valid_data']['link_limit_effective_timestamp']
     )
     assert cr_instance.full_clean.call_count == 1
     assert cr_instance.save.call_count == 1
@@ -597,8 +602,6 @@ def test_change_post_data_prepped_correctly(client, change, mocker):
         'payment_token': srr_instance.payment_token,
         'profile_id': settings.CS_PROFILE_ID,
         'recurring_amount': cr_instance.recurring_amount,
-        'recurring_frequency': cr_instance.recurring_frequency,
-        'recurring_start_date': cr_instance.get_formatted_start_date(),
         'reference_number': sr_instance.reference_number,
         'signed_date_time': cr_instance.get_formatted_datetime(),
         'transaction_type': cr_instance.transaction_type,
@@ -894,6 +897,7 @@ def test_cybersource_callback_post_change_request(client, cybersource_callback, 
         }
     )
     change_request.subscription_agreement.update_after_cs_decision.assert_called_once_with(
+        change_request,
         cybersource_callback['valid_data']['decision'],
         redact(cybersource_callback['valid_data'])
     )
@@ -930,6 +934,7 @@ def test_cybersource_callback_post_subscription_request(client, cybersource_call
         }
     )
     pending_sa.update_after_cs_decision.assert_called_once_with(
+        pending_sa.subscription_request,
         cybersource_callback['valid_data']['decision'],
         redact(cybersource_callback['valid_data'])
     )
@@ -1030,6 +1035,7 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': {
             'link_limit': complete_standing_sa.current_link_limit,
+            'link_limit_effective_timestamp': complete_standing_sa.current_link_limit_effective_timestamp,
             'rate': complete_standing_sa.current_rate,
             'frequency': complete_standing_sa.current_frequency,
             'status': complete_standing_sa.status,

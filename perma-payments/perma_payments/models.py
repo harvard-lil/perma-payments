@@ -67,8 +67,10 @@ def this_day_next_year(now):
     # relativedelta handles leap years: 2/29 -> 2/28
     return now + relativedelta(years=1)
 
+
 def just_before_midnight(dt):
     return dt.replace(hour=23, minute=59, second=59)
+
 
 #
 # CLASSES
@@ -157,6 +159,10 @@ class SubscriptionAgreement(models.Model):
         blank=True,
         null=True
     )
+    current_link_limit_effective_timestamp = models.DateTimeField(
+        null=True,
+        blank=True
+    )
 
     @classmethod
     def customer_standing_subscription(cls, customer_pk, customer_type):
@@ -216,33 +222,39 @@ class SubscriptionAgreement(models.Model):
         return self.paid_through
 
 
-    def get_formatted_paid_through_date(self):
-        if self.paid_through:
-            return datetime.datetime.strftime(self.paid_through, '%Y-%m-%dT%H:%M:%S.%fZ')
-        return None
+    def update_after_cs_decision(self, request, decision, redacted_response):
+        link_limit = request.link_limit
+        link_limit_effective_timestamp = request.link_limit_effective_timestamp
+        rate = request.recurring_amount
+        if isinstance(request, SubscriptionRequest):
+            frequency = request.recurring_frequency
+        elif isinstance(request, ChangeRequest):
+            frequency = request.subscription_agreement.current_frequency
+        else:
+            raise NotImplementedError()
 
-
-    def update_after_cs_decision(self, decision, redacted_response):
         decision_map = {
             # Successful transaction. Reason codes 100 and 110.
             'ACCEPT': {
                 'status': 'Current',
-                'current_link_limit': self.subscription_request.link_limit,
-                'current_rate': self.subscription_request.recurring_amount,
-                'current_frequency': self.subscription_request.recurring_frequency,
+                'current_link_limit': link_limit,
+                'current_link_limit_effective_timestamp': link_limit_effective_timestamp,
+                'current_rate': rate,
+                'current_frequency': frequency,
                 'log_level': logging.INFO,
-                'message': "Subscription request for {} {} (subscription request {}) accepted.".format(self.customer_type, self.customer_pk, self.subscription_request.pk)
+                'message': "{} {} for {} {} accepted.".format(type(request), request.pk, self.customer_type, self.customer_pk)
             },
             # Authorization was declined; however, the capture may still be possible.
             # Review payment details. See reason codes 200, 201, 230, and 520.
             # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
             'REVIEW': {
                 'status': 'Current',
-                'current_link_limit': self.subscription_request.link_limit,
-                'current_rate': self.subscription_request.recurring_amount,
-                'current_frequency': self.subscription_request.recurring_frequency,
+                'current_link_limit': link_limit,
+                'current_link_limit_effective_timestamp': link_limit_effective_timestamp,
+                'current_rate': rate,
+                'current_frequency': frequency,
                 'log_level': logging.ERROR,
-                'message': "Subscription request for {} {} (subscription request {}) flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
+                'message': "{} {} for {} {} flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
             },
             # Transaction was declined.See reason codes 102, 200, 202, 203,
             # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
@@ -250,38 +262,40 @@ class SubscriptionAgreement(models.Model):
             'DECLINE': {
                 'status': 'Rejected',
                 'log_level': logging.WARNING,
-                'message': "Subscription request for {} {} (subscription request {}) declined by CyberSource. Redacted response: {}".format(self.customer_type, self.customer_pk, self.subscription_request.pk, redacted_response)
+                'message': "{} {} for {} {} declined by CyberSource. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
             },
             # Access denied, page not found, or internal server error.
             # See reason codes 102, 104, 150, 151 and 152.
             'ERROR': {
                 'status': 'Rejected',
                 'log_level': logging.ERROR,
-                'message': "Error submitting subscription request {} to CyberSource for {} {}. Redacted reponse: {}".format(self.subscription_request.pk, self.customer_type, self.customer_pk, redacted_response)
+                'message': "Error submitting {} {} to CyberSource for {} {}. Redacted reponse: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
             },
             # The customer did not accept the service fee conditions,
             # or the customer canceled the transaction.
             'CANCEL': {
                 'status': 'Aborted',
                 'log_level': logging.INFO,
-                'message': "Subscription request {} aborted by {} {}.".format(self.subscription_request.pk, self.customer_type, self.customer_pk)
+                'message': "{} {} aborted by {} {}.".format(type(request), request.pk, self.customer_type, self.customer_pk)
             }
         }
         mapped = decision_map.get(decision, {
             # Keep 'Pending' until we review and figure out what is going on
             'status': 'Pending',
             'log_level': logging.ERROR,
-            'message': "Unexpected decision from CyberSource regarding subscription request {} for {} {}. Please investigate ASAP. Redacted response: {}".format(self.subscription_request.pk, self.customer_type, self.customer_pk, redacted_response)
+            'message': "Unexpected decision from CyberSource regarding {} {} for {} {}. Please investigate ASAP. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
         })
         self.status = mapped['status']
         if mapped.get('current_link_limit'):
             self.current_link_limit = mapped['current_link_limit']
+        if mapped.get('current_link_limit_effective_timestamp'):
+            self.current_link_limit_effective_timestamp = mapped['current_link_limit_effective_timestamp']
         if mapped.get('current_rate'):
             self.current_rate = mapped['current_rate']
         if mapped.get('current_frequency'):
             self.current_frequency = mapped['current_frequency']
         self.paid_through = self.calculate_paid_through_date_from_reported_status(self.status)
-        self.save(update_fields=['status', 'current_link_limit', 'current_rate', 'current_frequency', 'paid_through'])
+        self.save(update_fields=['status', 'current_link_limit', 'current_link_limit_effective_timestamp', 'current_rate', 'current_frequency', 'paid_through'])
         logger.log(mapped['log_level'], mapped['message'])
 
 
@@ -319,6 +333,9 @@ class SubscriptionFields(models.Model):
         max_length=20,
         help_text="For internal use only: link limit associated with the subscription"
     )
+    link_limit_effective_timestamp = models.DateTimeField(
+        help_text="For internal use only: when Perma should apply the new link limit associated with this purchase"
+    )
     # N.B. the Cybersource test environment returns error codes for certain amounts, by design.
     # The docs are very unclear about the specifics.
     # Try to charge under $1,000 or over $10,000 when testing to avoid.
@@ -332,22 +349,6 @@ class SubscriptionFields(models.Model):
         decimal_places=2,
         help_text="Amount to be charged repeatedly, beginning on recurring_start_date"
     )
-    recurring_start_date = models.DateField(
-        help_text="Date on which to commence charging recurring_amount"
-    )
-    recurring_frequency = models.CharField(
-        max_length=20,
-        choices=(
-            ('weekly', 'weekly'),
-            ('bi-weekly', 'bi-weekly (every 2 weeks)'),
-            ('quad-weekly', 'quad-weekly (every 4 weeks)'),
-            ('monthly', 'monthly'),
-            ('semi-monthly', 'semi-monthly (1st and 15th of each month)'),
-            ('quarterly', 'quarterly'),
-            ('semi-annually', 'semi-annually (twice every year)'),
-            ('annually', 'annually')
-        )
-    )
     currency = models.CharField(
         max_length=3,
         default='USD'
@@ -360,10 +361,6 @@ class SubscriptionFields(models.Model):
         max_length=30,
         default='card'
     )
-    transaction_type = models.CharField(
-        max_length=30,
-        default='sale,create_payment_token'
-    )
 
     @property
     def customer_pk(self):
@@ -372,12 +369,6 @@ class SubscriptionFields(models.Model):
     @property
     def customer_type(self):
         return self.subscription_agreement.customer_type
-
-    def get_formatted_start_date(self):
-        """
-        Returns the recurring_start_date in the format required by CyberSource
-        """
-        return self.recurring_start_date.strftime("%Y%m%d")
 
 
 class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
@@ -396,6 +387,10 @@ class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
         SubscriptionAgreement,
         related_name='subscription_request'
     )
+    transaction_type = models.CharField(
+        max_length=30,
+        default='sale,create_payment_token'
+    )
     reference_number = models.CharField(
         max_length=32,
         default=generate_reference_number,
@@ -404,6 +399,28 @@ class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
                   "will all be associated with this reference number. " +
                   "Called 'Merchant Reference Number' in CyberSource Business Center."
     )
+    recurring_start_date = models.DateField(
+        help_text="Date on which to commence charging recurring_amount"
+    )
+    recurring_frequency = models.CharField(
+        max_length=20,
+        choices=(
+            ('weekly', 'weekly'),
+            ('bi-weekly', 'bi-weekly (every 2 weeks)'),
+            ('quad-weekly', 'quad-weekly (every 4 weeks)'),
+            ('monthly', 'monthly'),
+            ('semi-monthly', 'semi-monthly (1st and 15th of each month)'),
+            ('quarterly', 'quarterly'),
+            ('semi-annually', 'semi-annually (twice every year)'),
+            ('annually', 'annually')
+        )
+    )
+
+    def get_formatted_start_date(self):
+        """
+        Returns the recurring_start_date in the format required by CyberSource
+        """
+        return self.recurring_start_date.strftime("%Y%m%d")
 
 
 class ChangeRequest(OutgoingTransaction, SubscriptionFields):
