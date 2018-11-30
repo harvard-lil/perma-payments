@@ -17,7 +17,8 @@ fake = Faker()
 GENESIS = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
 
 SENTINEL = {
-    'datetime': fake.future_date(tzinfo=timezone.utc),
+    'date': fake.future_date(tzinfo=timezone.utc),
+    'datetime': fake.future_datetime(tzinfo=timezone.utc),
     'customer_pk': fake.random_int(),
     'customer_type': fake.random_element(elements=CUSTOMER_TYPES),
     'recurring_frequency': fake.random_element(elements=[status[0] for status in SubscriptionRequest._meta.get_field('recurring_frequency').choices]),
