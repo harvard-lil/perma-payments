@@ -55,16 +55,16 @@ FIELDS_REQUIRED_FROM_PERMA = {
         'recurring_amount',
         'recurring_frequency',
         'recurring_start_date',
-        'link_limit'
+        'link_limit',
+        'link_limit_effective_timestamp'
     ],
     'change': [
         'customer_pk',
         'customer_type',
         'amount',
         'recurring_amount',
-        'recurring_frequency',
-        'recurring_start_date',
-        'link_limit'
+        'link_limit',
+        'link_limit_effective_timestamp'
     ],
     'update': [
         'customer_pk',
@@ -106,8 +106,6 @@ FIELDS_REQUIRED_FOR_CYBERSOURCE = {
         'payment_token',
         'profile_id',
         'recurring_amount',
-        'recurring_frequency',
-        'recurring_start_date',
         'reference_number',
         'signed_date_time',
         'transaction_type',
@@ -195,6 +193,12 @@ def user_passes_test_or_403(test_func):
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
+
+
+def formatted_date_or_none(dt):
+    if dt:
+        return datetime.strftime(dt, '%Y-%m-%dT%H:%M:%S.%fZ')
+    return None
 
 
 #
@@ -303,9 +307,8 @@ def change(request):
             subscription_agreement=sa,
             amount=data['amount'],
             recurring_amount=data['recurring_amount'],
-            recurring_frequency=data['recurring_frequency'],
-            recurring_start_date=data['recurring_start_date'],
-            link_limit=data['link_limit']
+            link_limit=data['link_limit'],
+            link_limit_effective_timestamp=data['link_limit_effective_timestamp']
         )
         c_request.full_clean()
         c_request.save()
@@ -326,8 +329,6 @@ def change(request):
             'payment_token': s_response.payment_token,
             'profile_id': settings.CS_PROFILE_ID,
             'recurring_amount': c_request.recurring_amount,
-            'recurring_frequency': c_request.recurring_frequency,
-            'recurring_start_date': c_request.get_formatted_start_date(),
             'reference_number': s_request.reference_number,
             'signed_date_time': c_request.get_formatted_datetime(),
             'transaction_type': c_request.transaction_type,
@@ -433,7 +434,7 @@ def cybersource_callback(request):
                 'message': message,
             }
         )
-        related_request.subscription_agreement.update_after_cs_decision(decision, redact(request.POST))
+        related_request.subscription_agreement.update_after_cs_decision(related_request, decision, redact(request.POST))
 
     elif isinstance(related_request, SubscriptionRequest):
         payment_token = request.POST.get('payment_token', '')
@@ -454,7 +455,7 @@ def cybersource_callback(request):
                 'payment_token': payment_token,
             }
         )
-        related_request.subscription_agreement.update_after_cs_decision(decision, redact(request.POST))
+        related_request.subscription_agreement.update_after_cs_decision(related_request, decision, redact(request.POST))
 
     else:
         raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
@@ -482,9 +483,10 @@ def subscription(request):
 
         subscription = {
             'link_limit': standing_subscription.current_link_limit,
+            'link_limit_effective_timestamp': formatted_date_or_none(standing_subscription.current_link_limit_effective_timestamp),
             'rate': standing_subscription.current_rate,
             'frequency': standing_subscription.current_frequency,
-            'paid_through': standing_subscription.get_formatted_paid_through_date(),
+            'paid_through': formatted_date_or_none(standing_subscription.paid_through),
         }
 
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
