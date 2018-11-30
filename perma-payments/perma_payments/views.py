@@ -247,7 +247,8 @@ def subscribe(request):
                 recurring_amount=data['recurring_amount'],
                 recurring_frequency=data['recurring_frequency'],
                 recurring_start_date=data['recurring_start_date'],
-                link_limit=data['link_limit']
+                link_limit=data['link_limit'],
+                link_limit_effective_timestamp=make_aware(datetime.fromtimestamp(data['link_limit_effective_timestamp']))
             )
             s_request.full_clean()
             s_request.save()
