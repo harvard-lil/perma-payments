@@ -10,6 +10,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.utils.decorators import available_attrs
+from django.utils.timezone import make_aware
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
@@ -308,7 +309,7 @@ def change(request):
             amount=data['amount'],
             recurring_amount=data['recurring_amount'],
             link_limit=data['link_limit'],
-            link_limit_effective_timestamp=data['link_limit_effective_timestamp']
+            link_limit_effective_timestamp=make_aware(datetime.fromtimestamp(data['link_limit_effective_timestamp']))
         )
         c_request.full_clean()
         c_request.save()
