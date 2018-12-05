@@ -534,6 +534,16 @@ def test_cr_customer_retrived(change_request):
     assert change_request.customer_type == SENTINEL['customer_type']
 
 
+@pytest.mark.django_db
+def test_cr_transaction_type_changes_with_amount(change_request):
+    change_request.amount = 0
+    change_request.save()
+    assert change_request.transaction_type == 'update_payment_token'
+    change_request.amount = 1
+    change_request.save()
+    assert change_request.transaction_type == 'sale,update_payment_token'
+
+
 # UpdateRequest
 
 def test_update_inherits_from_outgiong_transaction():
