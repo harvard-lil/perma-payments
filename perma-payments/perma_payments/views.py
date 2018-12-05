@@ -1,6 +1,5 @@
 import csv
 from datetime import datetime
-from decimal import Decimal
 from functools import wraps
 import io
 
@@ -309,7 +308,6 @@ def change(request):
         c_request = ChangeRequest(
             subscription_agreement=sa,
             amount=data['amount'],
-            transaction_type='update_payment_token' if not Decimal(data['amount']) else 'sale,update_payment_token',
             recurring_amount=data['recurring_amount'],
             link_limit=data['link_limit'],
             link_limit_effective_timestamp=make_aware(datetime.fromtimestamp(data['link_limit_effective_timestamp']))
