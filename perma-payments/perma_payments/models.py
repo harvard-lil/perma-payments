@@ -442,6 +442,8 @@ class ChangeRequest(OutgoingTransaction, SubscriptionFields):
     def save(self, *args, **kwargs):
         if not self.amount:
             self.transaction_type = 'update_payment_token'
+        else:
+            self.transaction_type = 'sale,update_payment_token'
         return super(ChangeRequest, self).save(*args, **kwargs)
 
 
