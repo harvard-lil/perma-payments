@@ -439,6 +439,11 @@ class ChangeRequest(OutgoingTransaction, SubscriptionFields):
         default='sale,update_payment_token'
     )
 
+    def save(self, *args, **kwargs):
+        if not self.amount:
+            self.transaction_type = 'update_payment_token'
+        return super(ChangeRequest, self).save(*args, **kwargs)
+
 
 class UpdateRequest(OutgoingTransaction):
     """
