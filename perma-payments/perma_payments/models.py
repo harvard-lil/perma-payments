@@ -242,7 +242,7 @@ class SubscriptionAgreement(models.Model):
                 'current_rate': rate,
                 'current_frequency': frequency,
                 'log_level': logging.INFO,
-                'message': "{} {} for {} {} accepted.".format(type(request), request.pk, self.customer_type, self.customer_pk)
+                'message': "{} for {} {} accepted.".format(str(request), self.customer_type, self.customer_pk)
             },
             # Authorization was declined; however, the capture may still be possible.
             # Review payment details. See reason codes 200, 201, 230, and 520.
@@ -254,7 +254,7 @@ class SubscriptionAgreement(models.Model):
                 'current_rate': rate,
                 'current_frequency': frequency,
                 'log_level': logging.ERROR,
-                'message': "{} {} for {} {} flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
+                'message': "{} for {} {} flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(str(request), self.customer_type, self.customer_pk, redacted_response)
             },
             # Transaction was declined.See reason codes 102, 200, 202, 203,
             # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
@@ -262,28 +262,28 @@ class SubscriptionAgreement(models.Model):
             'DECLINE': {
                 'status': 'Rejected',
                 'log_level': logging.WARNING,
-                'message': "{} {} for {} {} declined by CyberSource. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
+                'message': "{} for {} {} declined by CyberSource. Redacted response: {}".format(str(request), self.customer_type, self.customer_pk, redacted_response)
             },
             # Access denied, page not found, or internal server error.
             # See reason codes 102, 104, 150, 151 and 152.
             'ERROR': {
                 'status': 'Rejected',
                 'log_level': logging.ERROR,
-                'message': "Error submitting {} {} to CyberSource for {} {}. Redacted reponse: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
+                'message': "Error submitting {} to CyberSource for {} {}. Redacted reponse: {}".format(str(request), self.customer_type, self.customer_pk, redacted_response)
             },
             # The customer did not accept the service fee conditions,
             # or the customer canceled the transaction.
             'CANCEL': {
                 'status': 'Aborted',
                 'log_level': logging.INFO,
-                'message': "{} {} aborted by {} {}.".format(type(request), request.pk, self.customer_type, self.customer_pk)
+                'message': "{} aborted by {} {}.".format(str(request), self.customer_type, self.customer_pk)
             }
         }
         mapped = decision_map.get(decision, {
             # Keep 'Pending' until we review and figure out what is going on
             'status': 'Pending',
             'log_level': logging.ERROR,
-            'message': "Unexpected decision from CyberSource regarding {} {} for {} {}. Please investigate ASAP. Redacted response: {}".format(type(request), request.pk, self.customer_type, self.customer_pk, redacted_response)
+            'message': "Unexpected decision from CyberSource regarding {} for {} {}. Please investigate ASAP. Redacted response: {}".format(str(request), self.customer_type, self.customer_pk, redacted_response)
         })
         self.status = mapped['status']
         if mapped.get('current_link_limit'):
