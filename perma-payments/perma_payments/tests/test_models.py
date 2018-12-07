@@ -1,14 +1,19 @@
 import datetime
 from dateutil.relativedelta import relativedelta
 from pytz import timezone
+import random
 
 from django.apps import apps
+from django.conf import settings
 from django.http import QueryDict
 
 import pytest
 
 from perma_payments.constants import CS_DECISIONS
-from perma_payments.models import *
+from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
+    RN_SET, generate_reference_number, SubscriptionAgreement, SubscriptionRequest,
+    SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
+    OutgoingTransaction, Response)
 
 from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 

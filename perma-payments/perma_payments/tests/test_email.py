@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.http import HttpRequest
 from django.test.utils import override_settings
 
 import pytest
 
-from perma_payments.email import *
+from perma_payments.email import send_self_email
 
 @pytest.fixture()
 def email():
