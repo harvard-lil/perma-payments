@@ -9,6 +9,7 @@ These are integration tests covering:
 
 import csv
 import io
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -22,7 +23,7 @@ from pytest_factoryboy import register
 
 from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL
 from perma_payments.models import (STANDING_STATUSES,
-    SubscriptionAgreement, UpdateRequestResponse,
+    SubscriptionAgreement, UpdateRequestResponse, ChangeRequestResponse,
     SubscriptionRequestResponse)
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import (FIELDS_REQUIRED_FROM_PERMA,
