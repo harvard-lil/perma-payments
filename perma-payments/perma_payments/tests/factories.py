@@ -2,7 +2,9 @@ import factory
 from faker import Faker
 
 from perma_payments.constants import CS_DECISIONS
-from perma_payments.models import *
+from perma_payments.models import (CUSTOMER_TYPES, SubscriptionAgreement,
+    SubscriptionRequest, SubscriptionRequestResponse, UpdateRequest,
+    UpdateRequestResponse)
 
 
 fake = Faker()
