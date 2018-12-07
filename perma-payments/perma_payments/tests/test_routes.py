@@ -21,7 +21,8 @@ from django.utils.timezone import make_aware
 import pytest
 from pytest_factoryboy import register
 
-from perma_payments.models import (STANDING_STATUSES, CS_SUBSCRIPTION_SEARCH_URL,
+from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL
+from perma_payments.models import (STANDING_STATUSES,
     SubscriptionAgreement, UpdateRequestResponse, ChangeRequestResponse,
     SubscriptionRequestResponse)
 from perma_payments.security import InvalidTransmissionException
