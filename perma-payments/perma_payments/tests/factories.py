@@ -4,7 +4,9 @@ from faker import Faker
 import django.utils.timezone
 
 from perma_payments.constants import CS_DECISIONS
-from perma_payments.models import *
+from perma_payments.models import (CUSTOMER_TYPES, SubscriptionAgreement,
+    SubscriptionRequest, SubscriptionRequestResponse, UpdateRequest,
+    UpdateRequestResponse, ChangeRequest)
 
 
 fake = Faker()
