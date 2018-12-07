@@ -18,7 +18,7 @@ django==1.11.15
 dnspython==1.15.0         # via email-validator
 email-validator==1.0.2    # via faker
 execnet==1.4.1            # via pytest-xdist
-fabric3==1.13.1.post1
+fabric3==1.14.post1
 factory-boy==2.8.1
 faker==0.8.3              # via factory-boy
 first==2.0.1              # via pip-tools

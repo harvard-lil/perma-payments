@@ -12,7 +12,7 @@ django-simple-history==1.9.0 # tracks changes made to model instances
 
 # Admin stuff
 pip-tools==2.0.2            # freeze requirements.txt
-Fabric3==1.13.1.post1       # project automation
+Fabric3==1.14.post1       # project automation
 
 # Testing
 pytest-django==3.1.2        # testing
