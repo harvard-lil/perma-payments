@@ -1,4 +1,4 @@
-FROM python:3.4.8
+FROM python:3.5.3
 ENV PYTHONUNBUFFERED 1
 RUN mkdir /perma-payments
 WORKDIR /perma-payments
