@@ -13,7 +13,7 @@ from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
     RN_SET, generate_reference_number, SubscriptionAgreement, SubscriptionRequest,
     SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
-    OutgoingTransaction, Response)
+    ChangeRequest, ChangeRequestResponse, OutgoingTransaction, Response)
 
 from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
@@ -94,7 +94,9 @@ def complete_pending_sa():
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
-        recurring_frequency=SENTINEL['recurring_frequency']
+        recurring_frequency=SENTINEL['recurring_frequency'],
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     return sa
@@ -107,7 +109,11 @@ def complete_current_sa(mocker, request):
     sa = SubscriptionAgreement(
         customer_pk=SENTINEL['customer_pk'],
         customer_type=SENTINEL['customer_type'],
-        status='Current'
+        status='Current',
+        current_link_limit=SENTINEL['link_limit'],
+        current_rate=SENTINEL['recurring_amount'],
+        current_frequency=request.param
+
     )
     sa.save()
     sr = SubscriptionRequest(
@@ -115,10 +121,15 @@ def complete_current_sa(mocker, request):
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
-        recurring_frequency=request.param
+        recurring_frequency=request.param,
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     assert tz.call_count > 0
+    assert sa.current_link_limit == sr.link_limit
+    assert sa.current_rate == sr.recurring_amount
+    assert sa.current_frequency == sr.recurring_frequency
     return sa
 
 
@@ -130,6 +141,10 @@ def complete_canceled_sa(mocker):
         customer_pk=SENTINEL['customer_pk'],
         customer_type=SENTINEL['customer_type'],
         status='Canceled',
+        current_link_limit=SENTINEL['link_limit'],
+        current_rate=SENTINEL['recurring_amount'],
+        current_frequency=SENTINEL['recurring_frequency'],
+        current_link_limit_effective_timestamp=GENESIS,
         # None in fixture to force type errors if not subsequently set.
         paid_through=None
     )
@@ -139,10 +154,16 @@ def complete_canceled_sa(mocker):
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
-        recurring_frequency=SENTINEL['recurring_frequency']
+        recurring_frequency=SENTINEL['recurring_frequency'],
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     assert tz.call_count > 0
+    assert sa.current_link_limit == sr.link_limit
+    assert sa.current_rate == sr.recurring_amount
+    assert sa.current_frequency == sr.recurring_frequency
+    assert sa.current_link_limit_effective_timestamp == sr.link_limit_effective_timestamp
     return sa
 
 
@@ -200,10 +221,24 @@ def complete_subscription_request(not_standing_sa):
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
         recurring_start_date=GENESIS,
-        recurring_frequency=SENTINEL['recurring_frequency']
+        recurring_frequency=SENTINEL['recurring_frequency'],
+        link_limit=SENTINEL['link_limit'],
+        link_limit_effective_timestamp=GENESIS
     )
     sr.save()
     return sr
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def change_request(complete_current_sa):
+    return ChangeRequest(
+        subscription_agreement=complete_current_sa,
+        amount=SENTINEL['amount'],
+        recurring_amount=SENTINEL['new_recurring_amount'],
+        link_limit=SENTINEL['new_link_limit'],
+        link_limit_effective_timestamp=GENESIS
+    )
 
 
 @pytest.fixture()
@@ -216,6 +251,12 @@ def barebones_update_request(standing_sa):
 @pytest.mark.django_db
 def barebones_subscription_request_response(barebones_subscription_request):
     return SubscriptionRequestResponse(related_request=barebones_subscription_request)
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def change_request_response(change_request):
+    return ChangeRequestResponse(related_request=change_request)
 
 
 @pytest.fixture()
@@ -343,12 +384,44 @@ def test_sa_can_be_altered_false_if_cancellation_requested(standing_sa_cancellat
 def test_sa_can_be_altered_false_if_not_standing(not_standing_sa):
     assert not not_standing_sa.can_be_altered()
 
+@pytest.mark.django_db
+def test_sa_update_after_cs_decision_sr(decision, mocker, complete_subscription_request):
+    log = mocker.patch('perma_payments.models.logger.log', autospec=True)
+    sa = complete_subscription_request.subscription_agreement
+    assert not sa.current_link_limit
+    assert not sa.current_rate
+    assert not sa.current_frequency
+    sa.update_after_cs_decision(complete_subscription_request, decision, {})
+    assert sa.status != 'Pending'
+    if decision in ["ACCEPT", "REVIEW"]:
+        assert sa.current_link_limit == complete_subscription_request.link_limit
+        assert sa.current_rate == complete_subscription_request.recurring_amount
+        assert sa.current_frequency == complete_subscription_request.recurring_frequency
+    else:
+        assert not sa.current_link_limit
+        assert not sa.current_rate
+        assert not sa.current_frequency
+    assert log.call_count == 1
+
 
 @pytest.mark.django_db
-def test_sa_update_status_after_cs_decision(complete_pending_sa, decision, mocker):
+def test_sa_update_after_cs_decision_cr(decision, mocker, change_request):
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
-    complete_pending_sa.update_status_after_cs_decision(decision, {})
-    assert complete_pending_sa.status != 'Pending'
+    sa = change_request.subscription_agreement
+    old_limit = sa.current_link_limit
+    old_rate = sa.current_rate
+    old_frequency = sa.current_frequency
+    assert old_limit != change_request.link_limit
+    assert old_rate != change_request.recurring_amount
+    sa.update_after_cs_decision(change_request, decision, {})
+    assert sa.status != 'Pending'
+    if decision in ["ACCEPT", "REVIEW"]:
+        assert sa.current_link_limit == change_request.link_limit
+        assert sa.current_rate == change_request.recurring_amount
+    else:
+        assert sa.current_link_limit == old_limit
+        assert sa.current_rate == old_rate
+    assert sa.current_frequency == old_frequency
     assert log.call_count == 1
 
 
@@ -396,7 +469,9 @@ def test_sr_required_fields(mocker):
             'amount',
             'recurring_amount',
             'recurring_start_date',
-            'recurring_frequency'
+            'recurring_frequency',
+            'link_limit',
+            'link_limit_effective_timestamp'
         ]
     )
 
@@ -423,6 +498,55 @@ def test_sr_customer_retrived(barebones_subscription_request):
 @pytest.mark.django_db
 def test_sr_get_formatted_start_date(barebones_subscription_request):
     assert barebones_subscription_request.get_formatted_start_date() == '19700101'
+
+
+# ChangeRequest
+
+def test_cr_inherits_from_outgiong_transaction():
+    assert issubclass(SubscriptionRequest, OutgoingTransaction)
+
+
+def test_cr_required_fields(mocker):
+    # Mocked to avoid hitting DB
+    mocker.patch('perma_payments.models.is_ref_number_available', return_value=True)
+    absent_required_fields_raise_validation_error(
+        ChangeRequest(), [
+            'subscription_agreement',
+            'amount',
+            'recurring_amount',
+            'link_limit',
+            'link_limit_effective_timestamp'
+        ]
+    )
+
+
+def test_cr_autopopulated_fields(mocker):
+    # Mocked to avoid hitting DB
+    mocker.patch('perma_payments.models.is_ref_number_available', return_value=True)
+    autopopulated_fields_present(
+        ChangeRequest(), [
+            'currency',
+            'locale',
+            'payment_method',
+            'transaction_type'
+        ]
+    )
+
+
+@pytest.mark.django_db
+def test_cr_customer_retrived(change_request):
+    assert change_request.customer_pk == SENTINEL['customer_pk']
+    assert change_request.customer_type == SENTINEL['customer_type']
+
+
+@pytest.mark.django_db
+def test_cr_transaction_type_changes_with_amount(change_request):
+    change_request.amount = 0
+    change_request.save()
+    assert change_request.transaction_type == 'update_payment_token'
+    change_request.amount = 1
+    change_request.save()
+    assert change_request.transaction_type == 'sale,update_payment_token'
 
 
 # UpdateRequest
@@ -578,6 +702,38 @@ def test_srr_sa_retrived(barebones_subscription_request_response, not_standing_s
 def test_srr_customer_retrived(barebones_subscription_request_response):
     assert barebones_subscription_request_response.customer_pk == SENTINEL['customer_pk']
     assert barebones_subscription_request_response.customer_type == SENTINEL['customer_type']
+
+
+# ChangeRequestResponse
+
+def test_crr_inherits_from_outgoing_transaction():
+    assert issubclass(ChangeRequestResponse, Response)
+
+
+def test_crr_required_fields():
+    absent_required_fields_raise_validation_error(
+        ChangeRequestResponse(), [
+            'related_request',
+            'full_response',
+            'encryption_key_id'
+        ]
+    )
+
+
+# None yet!
+# def test_crr_autopopulated_fields():
+#     pass
+
+
+@pytest.mark.django_db
+def test_crr_sa_retrived(change_request_response, complete_current_sa):
+    assert change_request_response.subscription_agreement == complete_current_sa
+
+
+@pytest.mark.django_db
+def test_crr_customer_retrived(change_request_response):
+    assert change_request_response.customer_pk == SENTINEL['customer_pk']
+    assert change_request_response.customer_type == SENTINEL['customer_type']
 
 
 # UpdateRequestResponse

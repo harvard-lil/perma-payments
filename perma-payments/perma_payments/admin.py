@@ -9,8 +9,10 @@ from .models import (
     SubscriptionAgreement,
     SubscriptionRequest,
     UpdateRequest,
+    ChangeRequest,
     SubscriptionRequestResponse,
     UpdateRequestResponse,
+    ChangeRequestResponse,
 )
 
 # remove builtin models
@@ -60,6 +62,21 @@ class UpdateRequestInline(ReadOnlyTabularInline):
     ]
 
 
+class ChangeRequestResponseInline(ReadOnlyTabularInline):
+    model = ChangeRequestResponse
+    fk_name = 'related_request'
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
+
+
+class ChangeRequestInline(ReadOnlyTabularInline):
+    model = ChangeRequest
+    fk_name = 'subscription_agreement'
+    exclude = ['polymorphic_ctype', 'outgoingtransaction_ptr']
+    inlines = [
+        ChangeRequestResponseInline,
+    ]
+
+
 class SubscriptionRequestResponseInline(ReadOnlyTabularInline):
     model = SubscriptionRequestResponse
     fk_name = 'related_request'
@@ -81,12 +98,13 @@ class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
     # duplicate the tuple that is currently 'readonly_fields' as 'fields'.
     # Then, remove the field you want to be editable from readonly_fields.
     # N.B. settings.READONLY_ADMIN must also be set to False for alterations to work.
-    readonly_fields =  ('id', 'customer_type', 'customer_pk', 'cancellation_requested', 'status', 'updated_date', 'created_date', 'paid_through')
+    readonly_fields =  ('id', 'customer_type', 'customer_pk', 'cancellation_requested', 'status', 'updated_date', 'created_date', 'paid_through', 'current_link_limit', 'current_link_limit_effective_timestamp', 'current_rate', 'current_frequency')
     list_display = ('id', 'customer_type', 'customer_pk', 'cancellation_requested', 'status', 'updated_date', 'get_reference_number')
     list_filter = ('customer_type', 'customer_pk', 'cancellation_requested', 'status')
     search_fields = ['customer_type', 'customer_pk','subscription_request__reference_number']
     inlines = [
         SubscriptionRequestInline,
+        ChangeRequestInline,
         UpdateRequestInline,
     ]
 

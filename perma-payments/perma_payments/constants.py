@@ -33,9 +33,13 @@ CS_TOKEN_URL = {
 #
 # You can update all fields except:
 # recurring_frequency, recurring_start_date, recurring_number_of_payments
+# CS_TOKEN_UPDATE_URL = {
+#     'test': 'https://testsecureacceptance.cybersource.com/token/update',
+#     'prod': 'https://secureacceptance.cybersource.com/token/update'
+# }
 CS_TOKEN_UPDATE_URL = {
-    'test': 'https://testsecureacceptance.cybersource.com/token/update',
-    'prod': 'https://secureacceptance.cybersource.com/token/update'
+    'test': 'https://testsecureacceptance.cybersource.com/pay',
+    'prod': 'https://secureacceptance.cybersource.com/pay'
 }
 
 # URL in the Business Center to find subscriptions

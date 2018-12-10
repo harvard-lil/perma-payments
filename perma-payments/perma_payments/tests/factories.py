@@ -1,10 +1,12 @@
 import factory
 from faker import Faker
 
+import django.utils.timezone
+
 from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import (CUSTOMER_TYPES, SubscriptionAgreement,
     SubscriptionRequest, SubscriptionRequestResponse, UpdateRequest,
-    UpdateRequestResponse)
+    UpdateRequestResponse, ChangeRequest)
 
 
 fake = Faker()
@@ -28,6 +30,23 @@ class SubscriptionRequestFactory(factory.django.DjangoModelFactory):
     recurring_amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
     recurring_start_date = factory.Faker('future_date')
     recurring_frequency = 'monthly'
+    link_limit = str(fake.random_element(elements=(fake.random_int(), 'unlimited')))
+    link_limit_effective_timestamp = django.utils.timezone.now()
+
+
+class ChangeRequestFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ChangeRequest
+
+    subscription_agreement = factory.SubFactory(
+        SubscriptionAgreementFactory,
+        subscription_request=factory.SubFactory(SubscriptionRequestFactory)
+    )
+
+    amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
+    recurring_amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
+    link_limit = str(fake.random_element(elements=(fake.random_int(), 'unlimited')))
+    link_limit_effective_timestamp = django.utils.timezone.now()
 
 
 class UpdateRequestFactory(factory.django.DjangoModelFactory):

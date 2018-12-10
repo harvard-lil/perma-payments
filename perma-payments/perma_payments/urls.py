@@ -10,5 +10,6 @@ urlpatterns = [
     url(r'^subscription/$', views.subscription, name='subscription'),
     url(r'^update-statuses/$', views.update_statuses, name='update_statuses'),
     url(r'^update/$', views.update, name='update'),
+    url(r'^change/$', views.change, name='change'),
 ]
 
