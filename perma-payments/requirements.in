@@ -1,6 +1,6 @@
 # After updating this file, run `pip-compile` to update requirements.txt.
 
-psycopg2                    # postgres connector
+psycopg2-binary             # postgres connector
 pynacl                      # encryption
 werkzeug                    # for its utilities
 
