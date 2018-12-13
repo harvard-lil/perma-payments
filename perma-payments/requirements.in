@@ -1,8 +1,8 @@
 # After updating this file, run `pip-compile` to update requirements.txt.
 
-psycopg2-binary             # postgres connector
-pynacl                      # encryption
-werkzeug                    # for its utilities
+psycopg2 --no-binary psycopg2        # postgres connector
+pynacl                               # encryption
+werkzeug                             # for its utilities
 
 # Django stuff
 Django==1.11.15
