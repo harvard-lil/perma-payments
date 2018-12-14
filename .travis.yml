@@ -24,8 +24,8 @@ before_install:
   - cp config/settings/settings_travis.py config/settings/settings.py
 
 install:
-  - pip install -U pip wheel
-  - pip install -r requirements.txt
+  - pip install pipenv
+  - pipenv install --deploy --dev
   - pip install coveralls
 
 before_script:
