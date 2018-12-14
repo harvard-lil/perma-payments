@@ -29,9 +29,8 @@ RUN apt-get update \
 COPY Pipfile /perma-payments
 COPY Pipfile.lock /perma-payments
 RUN pip3 install -U pip \
-    && pip install pipenv
-
-RUN pipenv --python 3.5 install --ignore-pipfile --dev \
+    && pip install pipenv \
+    && pipenv --python 3.5 install --ignore-pipfile --dev \
     && rm Pipfile.lock
 
 # dev personalizations / try installing packages without rebuilding everything
