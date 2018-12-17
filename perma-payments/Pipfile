@@ -13,6 +13,7 @@ django-simple-history = "*"              # tracks changes made to model instance
 fabric3 = "*"                            # project automation
 psycopg2 = "*"                           # postgres connector
 pynacl = "*"                             # encryption
+python-dateutil = "*"                    # for relativedelta and other utils
 werkzeug = "*"                           # for its utilities
 
 
