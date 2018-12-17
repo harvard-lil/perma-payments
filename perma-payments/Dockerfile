@@ -2,7 +2,7 @@ FROM debian:stretch-20180426
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_BINARY=:all: \
+    PIP_NO_BINARY=psycopg2 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_SRC=/usr/local/src \
@@ -19,7 +19,6 @@ RUN apt-get update \
     && apt-get install -y git \
     \
     && apt-get install -y libffi-dev \
-    && apt-get install -y libssl-dev\
     && apt-get install -y libpq-dev \
     && apt-get install -y postgresql-client
 
