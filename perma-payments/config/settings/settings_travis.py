@@ -1,5 +1,3 @@
-# copied to settings.py by .travis.yml:
-
 from .settings_testing import *
 
 DATABASES = {

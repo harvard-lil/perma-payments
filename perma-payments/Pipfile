@@ -1,0 +1,31 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[packages]
+
+django = "~=1.11.15"
+django-nested-inline = "*"               # show all related record in the admin
+django-polymorphic = "*"                 # for model inheritance
+django-simple-history = "*"              # tracks changes made to model instances
+
+fabric3 = "*"                            # project automation
+psycopg2 = "*"                           # postgres connector
+pynacl = "*"                             # encryption
+werkzeug = "*"                           # for its utilities
+
+
+[dev-packages]
+flake8 = "*"                             # code linting
+flake8-mock = "*"                        # code linitng for tests
+hypothesis = "*"                         # run tests with lots of generated input
+mock = "*"                               # current mock version, not older bundled version
+pytest-cov = "*"                         # record code coverage
+pytest-django = "*"                      # testing
+pytest-factoryboy = "*"                  # pop up model instances
+pytest-mock = "*"                        # more powerful mocking
+pytest-xdist = "*"                       # run tests in parallel with pytest -n
+
+[requires]
+python_version = "3.5"

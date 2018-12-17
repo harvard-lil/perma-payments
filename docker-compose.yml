@@ -4,8 +4,8 @@ services:
   db:
     image: postgres:9.6.2
   web:
-    build: .
-    image: perma-payments:0.8
+    build: ./perma-payments
+    image: perma-payments:0.9
     tty: true
     command: bash
     volumes:

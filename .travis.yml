@@ -21,11 +21,10 @@ cache:
 
 before_install:
   - cd perma-payments
-  - cp config/settings/settings_travis.py config/settings/settings.py
 
 install:
-  - pip install -U pip wheel
-  - pip install -r requirements.txt
+  - pip install pipenv
+  - pipenv install --deploy --dev
   - pip install coveralls
 
 before_script:
@@ -33,7 +32,7 @@ before_script:
   - flake8 .
 
 script:
-  - fab test
+  - fab test:travis=True
 
 after_success:
   - coverage report

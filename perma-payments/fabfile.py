@@ -17,8 +17,12 @@ def run_django():
 
 
 @task
-def test():
-    local("pytest --fail-on-template-vars --cov --cov-report= ")
+def test(travis=False):
+    # NB: all arguments to Fabric tasks are interpreted as strings
+    if travis == 'True':
+        local("pytest --ds=config.settings.settings_travis --fail-on-template-vars --cov --cov-report= ")
+    else:
+        local("pytest --ds=config.settings.settings_testing --fail-on-template-vars --cov --cov-report= ")
 
 
 @task
