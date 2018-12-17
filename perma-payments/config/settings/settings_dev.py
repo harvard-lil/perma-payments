@@ -9,4 +9,4 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 ADMIN_ENABLED = True
-ADMIN_URL = 'admin'
+ADMIN_URL = 'admin/'
