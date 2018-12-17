@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b01c32932922dab3e003b1b908c570cb10429addd1c7e70dccfae71b827f4c98"
+            "sha256": "e67cf2de9bba3a6dc585f40ff93910861bbf51022c85d7508e724e704a5bd306"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -110,11 +110,11 @@
         },
         "django": {
             "hashes": [
-                "sha256:8176ac7985fe6737ce3d6b2531b4a2453cb7c3377c9db00bacb2b3320f4a1311",
-                "sha256:b18235d82426f09733d2de9910cee975cf52ff05e5f836681eb957d105a05a40"
+                "sha256:a787ee66f4b4cf8ed753661cabcec603989677fa3a107fcb7f15511a44bdb483",
+                "sha256:f1a961b954d96bb24b397db4c35e9a128d12e044d6b57984c122282b592d508d"
             ],
             "index": "pypi",
-            "version": "==1.11.15"
+            "version": "==1.11.17"
         },
         "django-nested-inline": {
             "hashes": [
@@ -125,19 +125,19 @@
         },
         "django-polymorphic": {
             "hashes": [
-                "sha256:8737b465ebf5fad772b4c52272189c352f5904f468d298584a3469187e3207ad",
-                "sha256:8f4e36ada0ec16b98de0b6e53477772fcac3ece89a1da8473ee6aa4e658775a7"
+                "sha256:1fb5505537bcaf71cfc951ff94c4e3ba83c761eaca04b7b2ce9cb63937634ea5",
+                "sha256:79e7df455fdc8c3d28d38b7ab8323fc21d109a162b8ca282119e0e9ce8db7bdb"
             ],
             "index": "pypi",
-            "version": "==1.3"
+            "version": "==2.0.3"
         },
         "django-simple-history": {
             "hashes": [
-                "sha256:2faca872d730068025fb19678048d6f3c2de52e0a141189df798a697e67c9886",
-                "sha256:d34c9e8e3c73e39ff3500b59ae836767fcbc43bc9c71333c55d7de273d4dc721"
+                "sha256:7de82377ff468ee7d091fcef23130d9ffbdee11d172f6893dc633243be85375b",
+                "sha256:9d08ab3409f7fc48ed127fa1bb33b5b0f9e6efa35f26211f61bb84891edc0dbd"
             ],
             "index": "pypi",
-            "version": "==1.9.0"
+            "version": "==2.6.0"
         },
         "fabric3": {
             "hashes": [
