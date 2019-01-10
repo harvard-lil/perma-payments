@@ -26,12 +26,12 @@ RUN apt-get update \
 # python requirements via pipenv.
 # to access the virtualenv, invoke python like this: `pipenv run python`
 # COPY Pipfile though it is ignored, per https://github.com/pypa/pipenv/issues/2834
-COPY Pipfile /perma-payments
-COPY Pipfile.lock /perma-payments
-RUN pip3 install -U pip \
+# COPY Pipfile /perma-payments
+# COPY Pipfile.lock /perma-payments
+ADD . /perma-payments/
+RUN pip3 install -U pip==18.1 \
     && pip install pipenv \
-    && pipenv --python 3.5 install --ignore-pipfile --dev \
-    && rm Pipfile.lock
+    && pipenv --python 3.5 install --ignore-pipfile --dev
 
 # dev personalizations / try installing packages without rebuilding everything
 RUN apt-get install -y nano
