@@ -30,7 +30,6 @@ PERMA_ENCRYPTION_KEYS = {
     'perma_payments_public_key': base64encodedstring,
     'perma_public_key': 'base64encodedstring',
 }
-PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
 
 # Admin
 ADMIN_URL = 'admin/'

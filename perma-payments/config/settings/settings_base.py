@@ -143,6 +143,8 @@ ADMIN_ENABLED = False
 READONLY_ADMIN = True
 # in non-dev environments, set ADMIN_URL in private settings.py
 
+PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
+
 # Direct all Perma.cc communications to perma dev by default
 PERMA_URL = 'https://perma-dev.org'
 PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL = 'https://perma-dev.org/settings/subscription/'
