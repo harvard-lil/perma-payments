@@ -1,4 +1,5 @@
 from .settings_dev import *
+#from .settings_prod import *
 
 SECRET_KEY = 'k2#@_q=1$(__n7#(zax6#46fu)x=3&^lz&bwb8ol-_097k_rj5'
 
@@ -15,6 +16,11 @@ STORAGE_ENCRYPTION_KEYS = {
     'vault_public_key': 'base64encodedstring',
 }
 
+# Perma
+
+PERMA_URL = 'https://url'
+PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL = 'https://url'
+
 # Encryption keys for communicating with Perma.cc
 # generated using perma_payments.security.generate_public_private_keys
 # SECURITY WARNING: keep the production secret key secret!
@@ -26,7 +32,5 @@ PERMA_ENCRYPTION_KEYS = {
 }
 PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
 
-
 # Admin
 ADMIN_URL = 'admin/'
-
