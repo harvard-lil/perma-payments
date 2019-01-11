@@ -28,7 +28,6 @@ PERMA_ENCRYPTION_KEYS = {
     'perma_payments_public_key': 'DG8o9cS5Lgeuu7XAF08sw0aOX7mJFu9TVEtdrrBQHDY=',
     'perma_public_key': 'ZmkWU6AdQlNrDCLNI154HSGH96jjs21UA3K+YpqezWg=',
 }
-PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
 
 ADMINS = (
     ("Admin's Name", 'admin@example.com'),
