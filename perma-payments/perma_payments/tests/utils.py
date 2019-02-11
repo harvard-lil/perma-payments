@@ -69,7 +69,7 @@ def autopopulated_fields_present(o, fields):
     """
     for field in fields:
         value = getattr(o, field)
-        assert value is not None and value is not ''
+        assert value is not None and value != ''
 
 
 # Views

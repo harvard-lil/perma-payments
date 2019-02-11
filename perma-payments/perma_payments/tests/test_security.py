@@ -131,7 +131,7 @@ def test_prep_for_cybersource_unsigned_fields_optional():
 
 def test_prep_for_cybersource_signed_and_unsigned_field_names_added_and_listed_as_signed(one_two_three_dict, reverse_ascii_ordered_dict):
     assert prep_for_cybersource({})['signed_field_names'] == 'signed_field_names,unsigned_field_names'
-    assert prep_for_cybersource({})['unsigned_field_names'] is ''
+    assert prep_for_cybersource({})['unsigned_field_names'] == ''
 
 
 def test_prep_for_cybersource_signed_and_unsigned_fields_names_added(one_two_three_dict, reverse_ascii_ordered_dict):
