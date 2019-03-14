@@ -163,7 +163,7 @@ prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybers
 
 ### Update Subscription Statuses
 
-1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do](https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do) (the production Business Center).
+1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do](https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do) (the production Business Center). **IMPORTANT** Make sure you are using the Classic Business Center, NOT the new, redesigned business center. There is a bug in the export code of the redesigned business center that breaks everything.
 
 2) Verify that you can see all the subscriptions. (If there are no pagination buttons, then you can see all the subscriptions.)
 
@@ -172,6 +172,8 @@ prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybers
 4) Log in to the Perma Payments admin.
 
 5) Upload the CSV to the "Update Subscription Statuses" form. Submit.
+
+6) *Important* Safety check: review the list of subscriptions in the Perma Payments admin, and verify that everything looks good, especially that subscription statuses look correct, and that there's nothing weird in the subscriptions filter. (Cybersource recently broke the spreadsheet we use, and this is how we found out.)
 
 Et voilà.
 
