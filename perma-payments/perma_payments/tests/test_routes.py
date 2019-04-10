@@ -1271,7 +1271,7 @@ def test_update_statuses_post_doesnt_alert_if_multiple_found_without_setting(adm
 @pytest.mark.django_db
 def test_update_statuses_post_rejects_invalid(admin_client, broken_update_statuses, complete_standing_sa, mocker):
     # mocks
-    skip_lines = mocker.patch('perma_payments.views.skip_lines', autospec=True)
+    mocker.patch('perma_payments.views.skip_lines', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     matching_sa = sa.objects.filter
     matching_sa.return_value.get.return_value = complete_standing_sa
@@ -1279,7 +1279,7 @@ def test_update_statuses_post_rejects_invalid(admin_client, broken_update_status
 
     # request
     with pytest.raises(ValidationError):
-        response = admin_client.post(broken_update_statuses['route'], broken_update_statuses["valid_data"])
+        admin_client.post(broken_update_statuses['route'], broken_update_statuses["valid_data"])
     assert info_log.call_count == 0
 
 
