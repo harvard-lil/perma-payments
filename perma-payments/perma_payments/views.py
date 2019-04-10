@@ -553,14 +553,18 @@ def update_statuses(request):
         try:
             sa = SubscriptionAgreement.objects.filter(subscription_request__reference_number=reference).get()
         except ObjectDoesNotExist:
-            logger.error("CyberSource reports a subscription {}: no corresponding record found".format(reference))
             if settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND:
-                raise
+                log_level = logging.ERROR
+            else:
+                log_level = logging.INFO
+            logger.log(log_level, "CyberSource reports a subscription {}: no corresponding record found".format(reference))
             continue
         except MultipleObjectsReturned:
-            logger.error("Multiple subscription requests associated with {}.".format(reference))
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:
-                raise
+                log_level = logging.ERROR
+            else:
+                log_level = logging.INFO
+            logger.log(log_level, "Multiple subscription requests associated with {}.".format(reference))
             continue
 
         sa.status = status
