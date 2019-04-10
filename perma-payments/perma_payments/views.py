@@ -549,7 +549,7 @@ def update_statuses(request):
     skip_lines(csv_file, 4)
     for row in in_mem_csv_to_dict_reader(csv_file):
         reference = row['Merchant Reference Code']
-        status = row['Status']
+        status = row['Status'].capitalize()
         try:
             sa = SubscriptionAgreement.objects.filter(subscription_request__reference_number=reference).get()
         except ObjectDoesNotExist:

@@ -197,8 +197,9 @@ def status_csv():
     fieldnames = ['Merchant Reference Code', 'Status']
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
-    writer.writerow({'Merchant Reference Code': 'ref1', 'Status': 'Superseded'})
-    writer.writerow({'Merchant Reference Code': 'ref2', 'Status': 'Superseded'})
+    # This fixture uses statuses with incorrect capitalization, to make sure we can handle that
+    writer.writerow({'Merchant Reference Code': 'ref1', 'Status': 'SUPERSEDED'})
+    writer.writerow({'Merchant Reference Code': 'ref2', 'Status': 'sUpErSeDeD'})
     return SimpleUploadedFile("csv.csv", bytes(output.getvalue(), 'utf-8'), content_type="text/csv")
 
 
