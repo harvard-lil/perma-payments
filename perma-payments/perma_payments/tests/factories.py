@@ -16,7 +16,7 @@ class SubscriptionAgreementFactory(factory.django.DjangoModelFactory):
         model = SubscriptionAgreement
 
     customer_pk = factory.Sequence(lambda n: n)
-    customer_type = fake.random_element(elements=CUSTOMER_TYPES),
+    customer_type = fake.random_element(elements=CUSTOMER_TYPES)
     status = 'Pending'
 
 
