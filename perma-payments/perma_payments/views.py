@@ -569,6 +569,7 @@ def update_statuses(request):
 
         sa.status = status
         sa.paid_through = sa.calculate_paid_through_date_from_reported_status(status)
+        sa.full_clean()
         sa.save(update_fields=['status', 'paid_through'])
         logger.info("Updated subscription status for {} to {}".format(reference, status))
 
