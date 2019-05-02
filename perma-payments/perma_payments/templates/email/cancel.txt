@@ -2,16 +2,24 @@
 subscription to Perma.cc.
 
 At your earliest convenience, please log in to the "Recurring Billing"
-section of the CyberSource Business Center and cancel the subscription
-associated with Merchant Reference Number "{{ merchant_reference_number }}":
+section of the CyberSource Business Center (part of the "Virtual Terminal")
+and cancel the subscription associated with Merchant Reference Number "{{ merchant_reference_number }}":
 {{ search_url }}
 
-- Search for "all subscriptions".
-- Locate the row for {{ merchant_reference_number }}.
+- Under the "Manage Subscriptions" heading, look for a row of filters
+- Click the last filter, which should read "Scope: All Subscriptions".
+  A menu will appear. Scroll to the bottom and select "Field and Value",
+  and then Order/Merchant Reference Number. The button you initially clicked,
+  "Scope: All Subscriptions", will be replaced by a text field, prompting
+  you to enter a merchant reference number. Enter {{ merchant_reference_number }}
+  and press return. A single subscription should now be visible.
 - Click the hyperlinked "Subscription ID". The "Subscription Information"
-tab should now be visible.
-- Scroll to the bottom and click the "Cancel Subscription" button. DO
-NOT CLICK the "Delete Subscription" button.
+page should now be visible.
+- To the far right of the page heading, "Subscription Details:",
+  look for a series of icons. One is a credit card with a diagonal line
+  through it. If you hover on that icon, a tool-tip appears that reads
+  "Cancel Subscription". Click that, and then click "Confirm".
+  DO NOT click the trash can with the tool-tip that reads "Delete Subscription".
 
 The customer will continue to be charged until this task is completed.
 

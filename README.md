@@ -163,17 +163,15 @@ prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybers
 
 ### Update Subscription Statuses
 
-1) Go to [https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do](https://ebctest.cybersource.com/ebctest/subscriptions/SubscriptionSearchExecute.do) (the test Business Center) or [https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do](https://ebc.cybersource.com/ebc/subscriptions/SubscriptionSearchLoad.do) (the production Business Center). **IMPORTANT** Make sure you are using the Classic Business Center, NOT the new, redesigned business center. There is a bug in the export code of the redesigned business center that breaks everything.
+1) Go to [https://ebctest.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling](https://ebctest.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling) (the test Business Center) or [https://ebc.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling](https://ebc.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling) (the production Business Center).
 
-2) Verify that you can see all the subscriptions. (If there are no pagination buttons, then you can see all the subscriptions.)
+2) In the Subscription List header, next to the "New Subscription" button, there is a download button (visually, an underlined arrow). Click it, and then select CSV. (Don't worry about pagination, unlike with previous versions of CyberSource's software.)
 
-3) Scroll to the bottom of the page and click the "Export CSV" button.
+3) Log in to the Perma Payments admin.
 
-4) Log in to the Perma Payments admin.
+4) Upload the CSV to the "Update Subscription Statuses" form. Submit.
 
-5) Upload the CSV to the "Update Subscription Statuses" form. Submit.
-
-6) *Important* Safety check: review the list of subscriptions in the Perma Payments admin, and verify that everything looks good, especially that subscription statuses look correct, and that there's nothing weird in the subscriptions filter. (Cybersource recently broke the spreadsheet we use, and this is how we found out.)
+5) *Important* Safety check: review the list of subscriptions in the Perma Payments admin, and verify that everything looks good, especially that subscription statuses look correct, and that there's nothing weird in the subscriptions filter. (Cybersource recently broke the spreadsheet we use, and this is how we found out.)
 
 Et voilà.
 
