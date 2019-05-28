@@ -10,7 +10,7 @@ from perma_payments.email import send_self_email
 def email():
     return {
        'subject': 'the subject',
-       'message': 'the message'
+       'message': "the message has an apostrophe in it: '"
     }
 
 def test_send_self_email(email, mailoutbox):
@@ -32,10 +32,3 @@ def test_send_self_email_everybody(email, mailoutbox):
     assert m.from_email == settings.DEFAULT_FROM_EMAIL
     assert m.to == [settings.DEFAULT_FROM_EMAIL]
     assert m.reply_to == ['from@example.com']
-
-
-def test_send_self_email_template(email, mocker):
-    stringified = mocker.patch('perma_payments.email.render_to_string', autospec=True)
-    request = HttpRequest()
-    send_self_email(email['subject'], request, template="test")
-    stringified.assert_called_once_with("test", context={}, request=request)
