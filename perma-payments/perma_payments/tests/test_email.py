@@ -38,4 +38,4 @@ def test_send_self_email_template(email, mocker):
     stringified = mocker.patch('perma_payments.email.render_to_string', autospec=True)
     request = HttpRequest()
     send_self_email(email['subject'], request, template="test")
-    stringified.assert_called_once_with("test", context={}, request=request, using='AUTOESCAPE_OFF')
+    stringified.assert_called_once_with("test", context={}, request=request)

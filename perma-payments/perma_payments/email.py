@@ -11,7 +11,7 @@ def send_self_email(title, request, template="email/default.txt", context={}, de
     if devs_only:
         EmailMessage(
             title,
-            render_to_string(template, context=context, request=request, using="AUTOESCAPE_OFF"),
+            render_to_string(template, context=context, request=request),
             settings.DEFAULT_FROM_EMAIL,
             [admin[1] for admin in settings.ADMINS]
         ).send(fail_silently=False)
@@ -19,7 +19,7 @@ def send_self_email(title, request, template="email/default.txt", context={}, de
         # Use a special reply-to address to avoid Freshdesk's filters: a ticket will be opened.
         EmailMessage(
             title,
-            render_to_string(template, context=context, request=request, using="AUTOESCAPE_OFF"),
+            render_to_string(template, context=context, request=request),
             settings.DEFAULT_FROM_EMAIL,
             [settings.DEFAULT_FROM_EMAIL],
             reply_to=[settings.DEFAULT_REPLYTO_EMAIL]
