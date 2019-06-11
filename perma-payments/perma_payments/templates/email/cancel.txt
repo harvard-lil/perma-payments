@@ -9,7 +9,7 @@ and cancel the subscription associated with Merchant Reference Number "{{ mercha
 - Under the "Manage Subscriptions" heading, look for a row of filters
 - Click the last filter, which should read "Scope: All Subscriptions".
   A menu will appear. Scroll to the bottom and select "Field and Value",
-  and then Order/Merchant Reference Number. The button you initially clicked,
+  and then "Order/Merchant Reference Number." The button you initially clicked,
   "Scope: All Subscriptions", will be replaced by a text field, prompting
   you to enter a merchant reference number. Enter {{ merchant_reference_number }}
   and press return. A single subscription should now be visible.
