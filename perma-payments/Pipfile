@@ -5,7 +5,7 @@ verify_ssl = true
 
 [packages]
 
-django = "~=1.11.15"
+django = "~=1.11.21"
 django-nested-inline = "*"               # show all related record in the admin
 django-polymorphic = "*"                 # for model inheritance
 django-simple-history = "*"              # tracks changes made to model instances
