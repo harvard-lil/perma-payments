@@ -188,8 +188,8 @@ Running Locally
 3. `cd perma-payments`
 
 4. (recommended) Nickname some commonly-used commands by adding the following to your .bash_profile or similar:
-`alias dfab="docker-compose exec web fab"`
-`alias dmanage.py="docker-compose exec web manage.py"`
+`alias dfab="docker-compose exec web pipenv run fab"`
+`alias dmanage.py="docker-compose exec web pipenv run ./manage.py"`
 
 5. Run `docker-compose up -d` to start two containers in the background:
     -  a "db" container with a postgres database
@@ -220,9 +220,9 @@ To access the Django shell, `dmanage.py shell`.
 To run make and run migrations, `dmanage.py makemigrations; dmanage.py migrate`
 
 To add new python dependencies to an existing image:
-  - `docker-compose exec web pip install <package>` to install a new package
-  - `docker-compose exec web pip-compile` to recompile requirements.txt from requirements.in
-  - `docker-compose exec web pip-sync` to rebuild the virtualenv from requirements.txt
+  - `docker-compose exec web pipenv install <package>` to install a new package and update `Pipfile`
+  - `docker-compose exec web pipenv lock` to recompile `Pipfile.lock` from requirements.in
+  - `docker-compose exec web pipenv install` to rebuild the virtual environment
 
 To run the tests, `dfab test`.
 
