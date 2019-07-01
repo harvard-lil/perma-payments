@@ -22,6 +22,7 @@ flake8 = "*"                             # code linting
 flake8-mock = "*"                        # code linitng for tests
 hypothesis = "*"                         # run tests with lots of generated input
 mock = "*"                               # current mock version, not older bundled version
+pytest = "~=4.0"                         # temporarily pin
 pytest-cov = "*"                         # record code coverage
 pytest-django = "*"                      # testing
 pytest-factoryboy = "*"                  # pop up model instances
