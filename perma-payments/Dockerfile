@@ -1,4 +1,4 @@
-FROM debian:stretch-20180426
+FROM debian:buster
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONUNBUFFERED=1 \
@@ -30,7 +30,7 @@ COPY Pipfile /perma-payments/
 COPY Pipfile.lock /perma-payments/
 RUN pip3 install -U pip \
     && pip install pipenv \
-    && pipenv --python 3.5 install --ignore-pipfile --dev
+    && pipenv --python 3.7 install --ignore-pipfile --dev
 
 # dev personalizations / try installing packages without rebuilding everything
 RUN apt-get install -y nano
