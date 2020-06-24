@@ -1,5 +1,6 @@
 import csv
 from datetime import datetime
+from pytz import timezone
 from functools import wraps
 import io
 
@@ -28,10 +29,12 @@ from .models import (
     SubscriptionRequest,
     ChangeRequest,
     UpdateRequest,
+    PurchaseRequest,
     Response,
     SubscriptionRequestResponse,
     ChangeRequestResponse,
     UpdateRequestResponse,
+    PurchaseRequestResponse
 )
 from .security import (
    InvalidTransmissionException,
@@ -49,6 +52,15 @@ logger = logging.getLogger(__name__)
 #
 
 FIELDS_REQUIRED_FROM_PERMA = {
+    'purchase': [
+        'customer_pk',
+        'customer_type',
+        'amount',
+        'link_quantity'
+    ],
+    'acknowledge_purchase': [
+        'purchase_pk'
+    ],
     'subscribe': [
         'customer_pk',
         'customer_type',
@@ -82,6 +94,18 @@ FIELDS_REQUIRED_FROM_PERMA = {
 }
 
 FIELDS_REQUIRED_FOR_CYBERSOURCE = {
+    'purchase': [
+        'access_key',
+        'amount',
+        'currency',
+        'locale',
+        'payment_method',
+        'profile_id',
+        'reference_number',
+        'signed_date_time',
+        'transaction_type',
+        'transaction_uuid'
+    ],
     'subscribe': [
         'access_key',
         'amount',
@@ -210,6 +234,83 @@ def formatted_date_or_none(dt):
 def index(request):
     return render(request, 'generic.html', {'heading': "Perma Payments",
                                             'message': "A window to CyberSource Secure Acceptance Web/Mobile"})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
+def purchase(request):
+    """
+    Processes user-initiated one-time purchase requests from Perma.cc;
+    Redirects user to CyberSource for payment.
+    """
+    try:
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['purchase'])
+    except InvalidTransmissionException:
+        return bad_request(request)
+
+    # The purchase request fields must each be valid.
+    try:
+        with transaction.atomic():
+            p_request = PurchaseRequest(
+                customer_pk=data['customer_pk'],
+                customer_type=data['customer_type'],
+                amount=data['amount'],
+                link_quantity=data['link_quantity'],
+            )
+            p_request.full_clean()
+            p_request.save()
+    except ValidationError as e:
+        logger.warning('Invalid POST from Perma.cc purchase form: {}'.format(e))
+        return bad_request(request)
+
+    # If all that worked, we can finally bounce the user to CyberSource.
+    context = {
+        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE],
+        'fields_to_post': prep_for_cybersource({
+            'access_key': settings.CS_ACCESS_KEY,
+            'amount': p_request.amount,
+            'currency': p_request.currency,
+            'locale': p_request.locale,
+            'payment_method': p_request.payment_method,
+            'profile_id': settings.CS_PROFILE_ID,
+            'reference_number': p_request.reference_number,
+            'signed_date_time': p_request.get_formatted_datetime(),
+            'transaction_type': p_request.transaction_type,
+            'transaction_uuid': p_request.transaction_uuid,
+        })
+    }
+    logger.info("Purchase request received for {} {}".format(data['customer_type'], data['customer_pk']))
+    return render(request, 'redirect.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
+def acknowledge_purchase(request):
+    """
+    Records that Perma has acknowledged a purchase.
+    """
+    try:
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['acknowledge_purchase'])
+    except InvalidTransmissionException:
+        return bad_request(request)
+
+    with transaction.atomic():
+        try:
+            purchase = PurchaseRequestResponse.objects.select_for_update().get(pk=data['purchase_pk'])
+        except PurchaseRequestResponse.DoesNotExist:
+            logger.warning('Perma attempted to acknowledge non-existent purchase {}'.format(data['purchase_pk']))
+            return bad_request(request)
+
+        if purchase.perma_acknowleged_at:
+            logger.warning('Perma attempted to acknowledge already-acknowledged purchase {}'.format(data['purchase_pk']))
+            return bad_request(request)
+
+        purchase.perma_acknowleged_at = datetime.now(tz=timezone(settings.TIME_ZONE))
+        purchase.save(update_fields=['perma_acknowleged_at'])
+        logger.info("Purchase {} acknowledged by Perma".format(data['purchase_pk']))
+        return JsonResponse({'status': 'ok'})
 
 
 @csrf_exempt
@@ -459,6 +560,19 @@ def cybersource_callback(request):
         )
         related_request.subscription_agreement.update_after_cs_decision(related_request, decision, redact(request.POST))
 
+    elif isinstance(related_request, PurchaseRequest):
+        response = Response.save_new_with_encrypted_full_response(
+            PurchaseRequestResponse,
+            request.POST,
+            {
+                'related_request': related_request,
+                'decision': decision,
+                'reason_code': reason_code,
+                'message': message,
+            }
+        )
+        response.act_on_cs_decision(redact(request.POST))
+
     else:
         raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
 
@@ -496,11 +610,15 @@ def subscription(request):
         else:
             subscription['status'] = standing_subscription.status
 
+    # Mention any bonus links that have been purchased, but not yet acknowledged
+    purchases = PurchaseRequestResponse.customer_unacknowledged(data['customer_pk'], data['customer_type'])
+
     response = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
         'subscription': subscription,
-        'timestamp': datetime.utcnow().timestamp()
+        'timestamp': datetime.utcnow().timestamp(),
+        'purchases': purchases
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 

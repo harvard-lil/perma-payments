@@ -55,7 +55,7 @@ def generate_reference_number():
 
 
 def is_ref_number_available(rn):
-    return not SubscriptionRequest.objects.filter(reference_number=rn).exists()
+    return not SubscriptionRequest.objects.filter(reference_number=rn).exists() and not PurchaseRequest.objects.filter(reference_number=rn).exists()
 
 
 def last_day_of_month(now):
@@ -76,7 +76,23 @@ def just_before_midnight(dt):
 # CLASSES
 #
 
-class SubscriptionAgreement(models.Model):
+class SubscriptionAndPurchaseMixin(models.Model):
+    """
+    Fields common to SubscriptionAgreements and PurchaseRequests
+    """
+
+    class Meta:
+        abstract = True
+
+    customer_pk = models.IntegerField()
+    customer_type = models.CharField(
+        max_length=20,
+        choices=((key, key) for key in CUSTOMER_TYPES)
+    )
+    created_date = models.DateTimeField(auto_now_add=True)
+
+
+class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
     """
     A Subscription Agreement comprises:
         a) A request to pay an amount, on a schedule, with a particular card and particular billing address
@@ -102,11 +118,6 @@ class SubscriptionAgreement(models.Model):
         return 'SubscriptionAgreement {}'.format(self.id)
 
     history = HistoricalRecords()
-    customer_pk = models.IntegerField()
-    customer_type = models.CharField(
-        max_length=20,
-        choices=((key, key) for key in CUSTOMER_TYPES)
-    )
     status = models.CharField(
         max_length=20,
         choices=(
@@ -142,7 +153,6 @@ class SubscriptionAgreement(models.Model):
             ('Superseded', 'Superseded')
         )
     )
-    created_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
     paid_through = models.DateTimeField(
         null=True,
@@ -320,10 +330,40 @@ class OutgoingTransaction(PolymorphicModel):
         return self.request_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-class SubscriptionFields(models.Model):
+class PurchaseFields(models.Model):
     """
-        Abstract base class to hold fields used to create a new subscription
-        or change an existing one.
+    Abstract base class to hold fields used for all purchases
+    """
+
+    class Meta:
+        abstract = True
+
+    currency = models.CharField(
+        max_length=3,
+        default='USD'
+    )
+    locale = models.CharField(
+        max_length=5,
+        default='en-us'
+    )
+    payment_method = models.CharField(
+        max_length=30,
+        default='card'
+    )
+    # N.B. the Cybersource test environment returns error codes for certain amounts, by design.
+    # The docs are very unclear about the specifics.
+    # Try to charge under $1,000 or over $10,000 when testing to avoid.
+    amount = models.DecimalField(
+        max_digits=19,
+        decimal_places=2,
+        help_text="Amount to be charged immediately"
+    )
+
+
+class SubscriptionFields(PurchaseFields):
+    """
+    Abstract base class to hold fields used to create a new subscription
+    or change an existing one.
     """
 
     class Meta:
@@ -339,27 +379,10 @@ class SubscriptionFields(models.Model):
     # N.B. the Cybersource test environment returns error codes for certain amounts, by design.
     # The docs are very unclear about the specifics.
     # Try to charge under $1,000 or over $10,000 when testing to avoid.
-    amount = models.DecimalField(
-        max_digits=19,
-        decimal_places=2,
-        help_text="Amount to be charged immediately"
-    )
     recurring_amount = models.DecimalField(
         max_digits=19,
         decimal_places=2,
         help_text="Amount to be charged repeatedly, beginning on recurring_start_date"
-    )
-    currency = models.CharField(
-        max_length=3,
-        default='USD'
-    )
-    locale = models.CharField(
-        max_length=5,
-        default='en-us'
-    )
-    payment_method = models.CharField(
-        max_length=30,
-        default='card'
     )
 
     @property
@@ -477,6 +500,26 @@ class UpdateRequest(OutgoingTransaction):
         return self.subscription_agreement.customer_type
 
 
+class PurchaseRequest(SubscriptionAndPurchaseMixin, OutgoingTransaction, PurchaseFields):
+    """
+    A one-time request to purchase more links, independent of any subscription.
+    """
+    def __str__(self):
+        return 'PurchaseRequest {}'.format(self.id)
+
+    transaction_type = models.CharField(
+        max_length=30,
+        default='sale'
+    )
+    reference_number = models.CharField(
+        max_length=32,
+        default=generate_reference_number,
+        help_text="Unique ID for this purchase. " +
+                  "Called 'Merchant Reference Number' in CyberSource Business Center."
+    )
+    link_quantity = models.PositiveIntegerField()
+
+
 class Response(PolymorphicModel):
     """
     Base model for all responses we receive from CyberSource.
@@ -562,6 +605,7 @@ class Response(PolymorphicModel):
         #
         # response.full_clean()
         response.save()
+        return response
 
 
 class SubscriptionRequestResponse(Response):
@@ -642,3 +686,96 @@ class UpdateRequestResponse(Response):
     @property
     def customer_type(self):
         return self.related_request.subscription_agreement.customer_type
+
+
+class PurchaseRequestResponse(Response):
+    """
+    All (non-confidential) specifics of CyberSource's response to a purchase request.
+    """
+    def __str__(self):
+        return 'PurchaseRequestResponse {}'.format(self.id)
+
+    related_request = models.OneToOneField(
+        PurchaseRequest,
+        related_name='purchase_request_response'
+    )
+    inform_perma = models.BooleanField(
+        default=False,
+        help_text='Should Perma be informed that this customer has successfully purchased more links?'
+    )
+    perma_acknowleged_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+    @classmethod
+    def customer_unacknowledged(cls, customer_pk, customer_type):
+        purchases = cls.objects.filter(
+            inform_perma=True,
+            perma_acknowleged_at__isnull=True,
+            related_request__customer_pk=customer_pk,
+            related_request__customer_type=customer_type
+        ).select_related('related_request')
+        return [{'id': purchase.pk, 'link_quantity': purchase.related_request.link_quantity} for purchase in purchases]
+
+    @property
+    def subscription_agreement(self):
+        return None
+
+    @property
+    def customer_pk(self):
+        return self.related_request.customer_pk
+
+    @property
+    def customer_type(self):
+        return self.related_request.customer_type
+
+    def act_on_cs_decision(self, redacted_response):
+        request = self.related_request
+        decision_map = {
+            # Successful transaction. Reason codes 100 and 110.
+            'ACCEPT': {
+                'inform_perma': True,
+                'log_level': logging.INFO,
+                'message': "{} for {} {} accepted.".format(str(request), request.customer_type, request.customer_pk)
+            },
+            # Authorization was declined; however, the capture may still be possible.
+            # Review payment details. See reason codes 200, 201, 230, and 520.
+            # (for now, we are treating this like 'ACCEPT', until we see an example in real life and can improve the logic)
+            'REVIEW': {
+                'inform_perma': True,
+                'log_level': logging.ERROR,
+                'message': "{} for {} {} flagged for review by CyberSource. Please investigate ASAP. Redacted response: {}".format(str(request), request.customer_type, request.customer_pk, redacted_response)
+            },
+            # Transaction was declined.See reason codes 102, 200, 202, 203,
+            # 204, 205, 207, 208, 210, 211, 221, 222, 230, 231, 232, 233,
+            # 234, 236, 240, 475, 476, and 481.
+            'DECLINE': {
+                'inform_perma': False,
+                'log_level': logging.WARNING,
+                'message': "{} for {} {} declined by CyberSource. Redacted response: {}".format(str(request), request.customer_type, request.customer_pk, redacted_response)
+            },
+            # Access denied, page not found, or internal server error.
+            # See reason codes 102, 104, 150, 151 and 152.
+            'ERROR': {
+                'inform_perma': False,
+                'log_level': logging.ERROR,
+                'message': "Error submitting {} to CyberSource for {} {}. Redacted reponse: {}".format(str(request), request.customer_type, request.customer_pk, redacted_response)
+            },
+            # The customer did not accept the service fee conditions,
+            # or the customer canceled the transaction.
+            'CANCEL': {
+                'inform_perma': False,
+                'log_level': logging.INFO,
+                'message': "{} aborted by {} {}.".format(str(request), request.customer_type, request.customer_pk)
+            }
+        }
+        mapped = decision_map.get(self.decision, {
+            # Keep 'False' until we review and figure out what is going on
+            'inform_perma': False,
+            'log_level': logging.ERROR,
+            'message': "Unexpected decision from CyberSource regarding {} for {} {}. Please investigate ASAP. Redacted response: {}".format(str(request), request.customer_type, request.customer_pk, redacted_response)
+        })
+        self.inform_perma = mapped['inform_perma']
+        self.save(update_fields=['inform_perma'])
+        logger.log(mapped['log_level'], mapped['message'])

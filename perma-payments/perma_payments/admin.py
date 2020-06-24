@@ -6,6 +6,8 @@ from django.contrib import admin
 from django.contrib.auth.models import Group, User
 
 from .models import (
+    PurchaseRequest,
+    PurchaseRequestResponse,
     SubscriptionAgreement,
     SubscriptionRequest,
     UpdateRequest,
@@ -112,6 +114,40 @@ class SubscriptionAgreementAdmin(NestedModelAdmin, SimpleHistoryAdmin):
         return obj.subscription_request.reference_number
     get_reference_number.short_description = 'Reference Number'
     get_reference_number.admin_order_field  = 'subscription_request__reference_number'
+
+    if settings.READONLY_ADMIN:
+        def has_delete_permission(self, request, obj=None):
+            # Disable delete
+            return False
+
+    def has_add_permission(self, request, obj=None):
+        # Disable manual creation of new instances
+        return False
+
+    if settings.READONLY_ADMIN:
+        def save_model(self, request, obj, form, change):
+            # Return nothing to make sure user can't update any data
+            pass
+
+
+class PurchaseRequestResponseInline(ReadOnlyTabularInline):
+    model = PurchaseRequestResponse
+    fk_name = 'related_request'
+    exclude = ['full_response', 'polymorphic_ctype', 'response_ptr']
+
+
+@admin.register(PurchaseRequest)
+class PurchaseRequestAdmin(NestedModelAdmin):
+    # If you need fields to be editable, but want to keep this order,
+    # duplicate the tuple that is currently 'readonly_fields' as 'fields'.
+    # Then, remove the field you want to be editable from readonly_fields.
+    # N.B. settings.READONLY_ADMIN must also be set to False for alterations to work.
+    readonly_fields =  ('id', 'customer_type', 'customer_pk', 'created_date', 'link_quantity', 'amount', 'reference_number', 'transaction_uuid')
+    list_display = ('id', 'customer_type', 'reference_number', 'link_quantity', 'amount')
+    exclude = ['currency', 'locale', 'payment_method', 'transaction_type']
+    list_filter = ('customer_type', 'customer_pk')
+    search_fields = ['customer_type', 'customer_pk','reference_number']
+    inlines = [PurchaseRequestResponseInline]
 
     if settings.READONLY_ADMIN:
         def has_delete_permission(self, request, obj=None):
