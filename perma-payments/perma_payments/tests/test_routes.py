@@ -500,6 +500,7 @@ def test_change_post_invalid_perma_transmission(client, change, mocker):
     assert not cr_instance.save.called
 
 
+@pytest.mark.django_db
 def test_change_post_no_standing_subscription(client, change, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
@@ -1011,6 +1012,7 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
     process.assert_called_once_with(dict_to_querydict(subscription['valid_data']), FIELDS_REQUIRED_FROM_PERMA['subscription'])
 
 
+@pytest.mark.django_db
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch(
@@ -1032,7 +1034,8 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
         'customer_pk': subscription['valid_data']['customer_pk'],
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': None,
-        'timestamp': mocker.sentinel.timestamp
+        'timestamp': mocker.sentinel.timestamp,
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1067,7 +1070,8 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
             'status': complete_standing_sa.status,
             'paid_through': complete_standing_sa.paid_through,
         },
-        'timestamp': mocker.sentinel.timestamp
+        'timestamp': mocker.sentinel.timestamp,
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
