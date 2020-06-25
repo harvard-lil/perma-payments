@@ -314,6 +314,19 @@ def change_request(change_request_factory):
     return change_request_factory()
 
 
+@pytest.fixture
+@pytest.mark.django_db
+def get_prr_for_user(purchase_request_response_factory):
+    def factory(customer_pk, customer_type, inform_perma=True):
+        return purchase_request_response_factory(
+            related_request__customer_pk=customer_pk,
+            related_request__customer_type=customer_type,
+            inform_perma=inform_perma
+        )
+    return factory
+
+
+
 @pytest.fixture()
 @pytest.mark.django_db
 def non_admin():
@@ -1391,13 +1404,10 @@ def test_subscription_post_standing_subscription_canceled(client, subscription, 
 
 
 @pytest.mark.django_db
-def test_subscription_single_purchase_to_acknowledge(client, subscription, purchase_request_response_factory, mocker):
+def test_subscription_single_purchase_to_acknowledge(client, subscription, get_prr_for_user, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
-    prr = purchase_request_response_factory(
-        inform_perma=True,
-        related_request__customer_pk=SENTINEL['customer_pk']
-    )
+    prr = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
 
     # request
     response = client.post(subscription['route'])
@@ -1411,12 +1421,12 @@ def test_subscription_single_purchase_to_acknowledge(client, subscription, purch
 
 
 @pytest.mark.django_db
-def test_subscription_multiple_purchase_to_acknowledge(client, subscription, purchase_request_response_factory, mocker):
+def test_subscription_multiple_purchase_to_acknowledge(client, subscription, get_prr_for_user, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
-    prr1 = purchase_request_response_factory(inform_perma=True, related_request__customer_pk=SENTINEL['customer_pk'])
-    prr2 = purchase_request_response_factory(inform_perma=True, related_request__customer_pk=SENTINEL['customer_pk'])
-    purchase_request_response_factory(inform_perma=False, related_request__customer_pk=SENTINEL['customer_pk'])
+    prr1 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    prr2 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'], inform_perma=False)
 
     # request
     response = client.post(subscription['route'])
