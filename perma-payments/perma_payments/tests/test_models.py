@@ -536,7 +536,7 @@ def test_outgoing_get_formatted_datetime(blank_outgoing_transaction):
 
 # SubscriptionRequest
 
-def test_sr_inherits_from_outgiong_transaction():
+def test_sr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequest, OutgoingTransaction)
 
 
@@ -582,7 +582,7 @@ def test_sr_get_formatted_start_date(barebones_subscription_request):
 
 # ChangeRequest
 
-def test_cr_inherits_from_outgiong_transaction():
+def test_cr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequest, OutgoingTransaction)
 
 
@@ -631,7 +631,7 @@ def test_cr_transaction_type_changes_with_amount(change_request):
 
 # UpdateRequest
 
-def test_update_inherits_from_outgiong_transaction():
+def test_update_inherits_from_outgoing_transaction():
     assert issubclass(UpdateRequest, OutgoingTransaction)
 
 
@@ -775,7 +775,7 @@ def test_response_save_new_with_encrypted_full_response_pr(mocker, purchase_requ
 
 # PurchaseRequestResponse
 
-def test_prr_inherits_from_outgiong_transaction():
+def test_prr_inherits_from_outgoing_transaction():
     assert issubclass(PurchaseRequestResponse, Response)
 
 
@@ -836,7 +836,7 @@ def test_prr_customer_unacknowledged(mocker, processed_purchase_request_response
 
 # SubscriptionRequestResponse
 
-def test_srr_inherits_from_outgiong_transaction():
+def test_srr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequestResponse, Response)
 
 
@@ -905,7 +905,7 @@ def test_crr_customer_retrived(change_request_response):
 
 # UpdateRequestResponse
 
-def test_urr_inherits_from_outgiong_transaction():
+def test_urr_inherits_from_outgoing_transaction():
     assert issubclass(UpdateRequestResponse, Response)
 
 
