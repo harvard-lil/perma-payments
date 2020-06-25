@@ -269,7 +269,7 @@ def barebones_update_request_response(barebones_update_request):
 @pytest.fixture()
 @pytest.mark.django_db
 def purchase_request(mocker):
-    tz = mocker.patch('django.utils.timezone.now', return_value=GENESIS)
+    mocker.patch('django.utils.timezone.now', return_value=GENESIS)
     pr = PurchaseRequest(
         customer_pk=SENTINEL['customer_pk'],
         customer_type=SENTINEL['customer_type'],
@@ -284,8 +284,8 @@ def purchase_request(mocker):
 @pytest.fixture()
 @pytest.mark.django_db
 def purchase_request_response(mocker, purchase_request, decision):
-    stringified = mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
-    encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
+    mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
+    mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
 
     prr = Response.save_new_with_encrypted_full_response(
         PurchaseRequestResponse,

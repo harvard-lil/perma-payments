@@ -528,7 +528,7 @@ def test_acknowledge_nonexistent_purchase(client, acknowledge_purchase, purchase
     assert not prr.perma_acknowleged_at
 
 
-def test_purchase_other_methods(client, acknowledge_purchase):
+def test_acknowledge_purchase_other_methods(client, acknowledge_purchase):
     get_not_allowed(client, acknowledge_purchase['route'])
     put_patch_delete_not_allowed(client, acknowledge_purchase['route'])
 
@@ -1416,7 +1416,7 @@ def test_subscription_multiple_purchase_to_acknowledge(client, subscription, pur
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
     prr1 = purchase_request_response_factory(inform_perma=True, related_request__customer_pk=SENTINEL['customer_pk'])
     prr2 = purchase_request_response_factory(inform_perma=True, related_request__customer_pk=SENTINEL['customer_pk'])
-    prr3 = purchase_request_response_factory(inform_perma=False, related_request__customer_pk=SENTINEL['customer_pk'])
+    purchase_request_response_factory(inform_perma=False, related_request__customer_pk=SENTINEL['customer_pk'])
 
     # request
     response = client.post(subscription['route'])
