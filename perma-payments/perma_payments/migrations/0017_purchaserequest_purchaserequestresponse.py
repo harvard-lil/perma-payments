@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('response_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='perma_payments.Response')),
                 ('inform_perma', models.BooleanField(default=False, help_text='Should Perma be informed that this customer has successfully purchased more links?')),
-                ('perma_acknowleged_at', models.DateTimeField(blank=True, null=True)),
+                ('perma_acknowledged_at', models.DateTimeField(blank=True, null=True)),
                 ('related_request', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='purchase_request_response', to='perma_payments.PurchaseRequest')),
             ],
             options={

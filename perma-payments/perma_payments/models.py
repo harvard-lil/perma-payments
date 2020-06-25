@@ -703,7 +703,7 @@ class PurchaseRequestResponse(Response):
         default=False,
         help_text='Should Perma be informed that this customer has successfully purchased more links?'
     )
-    perma_acknowleged_at = models.DateTimeField(
+    perma_acknowledged_at = models.DateTimeField(
         blank=True,
         null=True
     )
@@ -712,7 +712,7 @@ class PurchaseRequestResponse(Response):
     def customer_unacknowledged(cls, customer_pk, customer_type):
         purchases = cls.objects.filter(
             inform_perma=True,
-            perma_acknowleged_at__isnull=True,
+            perma_acknowledged_at__isnull=True,
             related_request__customer_pk=customer_pk,
             related_request__customer_type=customer_type
         ).select_related('related_request')

@@ -306,12 +306,12 @@ def acknowledge_purchase(request):
         if not purchase.inform_perma:
             logger.warning('Perma attempted to acknowledge unacknowledgeable purchase {}'.format(data['purchase_pk']))
             return bad_request(request)
-        if purchase.perma_acknowleged_at:
+        if purchase.perma_acknowledged_at:
             logger.warning('Perma attempted to acknowledge already-acknowledged purchase {}'.format(data['purchase_pk']))
             return bad_request(request)
 
-        purchase.perma_acknowleged_at = datetime.now(tz=timezone(settings.TIME_ZONE))
-        purchase.save(update_fields=['perma_acknowleged_at'])
+        purchase.perma_acknowledged_at = datetime.now(tz=timezone(settings.TIME_ZONE))
+        purchase.save(update_fields=['perma_acknowledged_at'])
         logger.info("Purchase {} acknowledged by Perma".format(data['purchase_pk']))
         return JsonResponse({'status': 'ok'})
 

@@ -464,7 +464,7 @@ def test_acknowledge_purchase(client, acknowledge_purchase, purchase_request_res
         id=SENTINEL['purchase_pk'],
         inform_perma=True
     )
-    assert not prr.perma_acknowleged_at
+    assert not prr.perma_acknowledged_at
 
     # request
     response = client.post(acknowledge_purchase['route'])
@@ -472,7 +472,7 @@ def test_acknowledge_purchase(client, acknowledge_purchase, purchase_request_res
     # assertions
     assert response.status_code == 200
     prr.refresh_from_db()
-    assert prr.perma_acknowleged_at
+    assert prr.perma_acknowledged_at
 
 
 @pytest.mark.django_db
@@ -482,7 +482,7 @@ def test_acknowledge_unacknowledgeable_purchase(client, acknowledge_purchase, pu
         id=SENTINEL['purchase_pk'],
         inform_perma=False
     )
-    assert not prr.perma_acknowleged_at
+    assert not prr.perma_acknowledged_at
 
     # request
     response = client.post(acknowledge_purchase['route'])
@@ -497,9 +497,9 @@ def test_acknowledge_already_acknowledged_purchase(client, acknowledge_purchase,
     prr = purchase_request_response_factory(
         id=SENTINEL['purchase_pk'],
         inform_perma=True,
-        perma_acknowleged_at=GENESIS
+        perma_acknowledged_at=GENESIS
     )
-    assert prr.perma_acknowleged_at == GENESIS
+    assert prr.perma_acknowledged_at == GENESIS
 
     # request
     response = client.post(acknowledge_purchase['route'])
@@ -507,7 +507,7 @@ def test_acknowledge_already_acknowledged_purchase(client, acknowledge_purchase,
     # assertions
     assert response.status_code == 400
     prr.refresh_from_db()
-    assert prr.perma_acknowleged_at == GENESIS
+    assert prr.perma_acknowledged_at == GENESIS
 
 
 @pytest.mark.django_db
@@ -517,7 +517,7 @@ def test_acknowledge_nonexistent_purchase(client, acknowledge_purchase, purchase
         id=SENTINEL['purchase_pk'] + 1,
         inform_perma=True
     )
-    assert not prr.perma_acknowleged_at
+    assert not prr.perma_acknowledged_at
 
     # request
     response = client.post(acknowledge_purchase['route'])
@@ -525,7 +525,7 @@ def test_acknowledge_nonexistent_purchase(client, acknowledge_purchase, purchase
     # assertions
     assert response.status_code == 400
     prr.refresh_from_db()
-    assert not prr.perma_acknowleged_at
+    assert not prr.perma_acknowledged_at
 
 
 def test_acknowledge_purchase_other_methods(client, acknowledge_purchase):
