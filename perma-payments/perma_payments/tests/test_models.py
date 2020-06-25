@@ -11,9 +11,9 @@ import pytest
 
 from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
-    RN_SET, generate_reference_number, SubscriptionAgreement, SubscriptionRequest,
+    RN_SET, generate_reference_number, is_ref_number_available, SubscriptionAgreement, SubscriptionRequest,
     SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
-    ChangeRequest, ChangeRequestResponse, OutgoingTransaction, Response)
+    ChangeRequest, ChangeRequestResponse, PurchaseRequest, PurchaseRequestResponse, OutgoingTransaction, Response)
 
 from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
@@ -96,7 +96,8 @@ def complete_pending_sa():
         recurring_start_date=GENESIS,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
-        link_limit_effective_timestamp=GENESIS
+        link_limit_effective_timestamp=GENESIS,
+        reference_number=SENTINEL['reference_number']
     )
     sr.save()
     return sa
@@ -265,6 +266,47 @@ def barebones_update_request_response(barebones_update_request):
     return UpdateRequestResponse(related_request=barebones_update_request)
 
 
+@pytest.fixture()
+@pytest.mark.django_db
+def purchase_request(mocker):
+    mocker.patch('django.utils.timezone.now', return_value=GENESIS)
+    pr = PurchaseRequest(
+        customer_pk=SENTINEL['customer_pk'],
+        customer_type=SENTINEL['customer_type'],
+        amount=SENTINEL['amount'],
+        link_quantity=SENTINEL['link_quantity']
+
+    )
+    pr.save()
+    return pr
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def purchase_request_response(mocker, purchase_request, decision):
+    mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
+    mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
+
+    prr = Response.save_new_with_encrypted_full_response(
+        PurchaseRequestResponse,
+        {},
+        {
+            'related_request': purchase_request,
+            'decision': decision,
+            'reason_code': SENTINEL['reason_code'],
+            'message': SENTINEL['message'],
+        }
+    )
+    return prr
+
+
+@pytest.fixture()
+@pytest.mark.django_db
+def processed_purchase_request_response(purchase_request_response):
+    purchase_request_response.act_on_cs_decision({})
+    return purchase_request_response
+
+
 @pytest.fixture
 def spoof_django_post_object():
     return QueryDict('a=1,b=2,c=3')
@@ -295,6 +337,17 @@ def test_generate_reference_number_fails_after_100_tries(mocker):
     assert available.call_count == 100
 
 
+@pytest.mark.django_db
+def test_is_ref_number_available_considers_subscription_agreements(complete_current_sa):
+    assert not is_ref_number_available(complete_current_sa.subscription_request.reference_number)
+
+
+@pytest.mark.django_db
+def test_is_ref_number_available_considers_purchase_requests(purchase_request):
+    assert not is_ref_number_available(purchase_request.reference_number)
+
+
+
 # All Models
 
 def test_model_str_methods(mocker):
@@ -303,6 +356,33 @@ def test_model_str_methods(mocker):
     mocker.patch('perma_payments.models.is_ref_number_available', return_value=True)
     for model in apps.get_app_config('perma_payments').get_models():
         assert 'object' not in str(model())
+
+
+# PurchaseRequest
+
+@pytest.mark.django_db
+def test_pr_required_fields():
+    absent_required_fields_raise_validation_error(
+        PurchaseRequest(), [
+            'customer_pk',
+            'customer_type',
+            'amount',
+            'link_quantity'
+        ]
+    )
+
+@pytest.mark.django_db
+def test_pr_autopopulated_fields(purchase_request):
+    autopopulated_fields_present(
+        purchase_request, [
+            'reference_number',
+            'created_date',
+            'currency',
+            'locale',
+            'payment_method',
+            'transaction_type'
+        ]
+    )
 
 
 # SubscriptionAgreement
@@ -456,7 +536,7 @@ def test_outgoing_get_formatted_datetime(blank_outgoing_transaction):
 
 # SubscriptionRequest
 
-def test_sr_inherits_from_outgiong_transaction():
+def test_sr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequest, OutgoingTransaction)
 
 
@@ -502,7 +582,7 @@ def test_sr_get_formatted_start_date(barebones_subscription_request):
 
 # ChangeRequest
 
-def test_cr_inherits_from_outgiong_transaction():
+def test_cr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequest, OutgoingTransaction)
 
 
@@ -551,7 +631,7 @@ def test_cr_transaction_type_changes_with_amount(change_request):
 
 # UpdateRequest
 
-def test_update_inherits_from_outgiong_transaction():
+def test_update_inherits_from_outgoing_transaction():
     assert issubclass(UpdateRequest, OutgoingTransaction)
 
 
@@ -666,10 +746,97 @@ def test_response_save_new_with_encrypted_full_response_ur(mocker, barebones_upd
     encrypted.assert_called_once_with(mocker.sentinel.stringified)
 
 
+@pytest.mark.django_db
+def test_response_save_new_with_encrypted_full_response_pr(mocker, purchase_request, spoof_django_post_object):
+    # mocks
+    stringified = mocker.patch('perma_payments.models.stringify_data', return_value=mocker.sentinel.stringified)
+    encrypted = mocker.patch('perma_payments.models.encrypt_for_storage', return_value=b'someencryptedbytes')
+
+    # call
+    fields = {
+        'related_request': purchase_request,
+        'decision': random.choice([choice[0] for choice in Response._meta.get_field('decision').choices]),
+        'reason_code': SENTINEL['reason_code'],
+        'message': SENTINEL['message']
+    }
+    Response.save_new_with_encrypted_full_response(PurchaseRequestResponse, spoof_django_post_object, fields)
+    response = purchase_request.purchase_request_response
+
+    # save worked
+    assert isinstance(response, PurchaseRequestResponse)
+    for key, value in fields.items():
+        assert getattr(response, key) == value
+    assert response.full_response == b'someencryptedbytes'
+
+    # mocks called as expected
+    stringified.assert_called_once_with(spoof_django_post_object)
+    encrypted.assert_called_once_with(mocker.sentinel.stringified)
+
+
+# PurchaseRequestResponse
+
+def test_prr_inherits_from_outgoing_transaction():
+    assert issubclass(PurchaseRequestResponse, Response)
+
+
+def test_prr_required_fields():
+    absent_required_fields_raise_validation_error(
+        SubscriptionRequestResponse(), [
+            'related_request',
+            'full_response',
+            'encryption_key_id'
+        ]
+    )
+
+
+def test_prr_autopopulated_fields():
+    autopopulated_fields_present(
+        PurchaseRequestResponse(), [
+            'inform_perma'
+        ]
+    )
+
+
+@pytest.mark.django_db
+def test_prr_pr_retrived(purchase_request_response, purchase_request):
+    assert purchase_request_response.related_request == purchase_request
+
+
+@pytest.mark.django_db
+def test_prr_has_no_sa(purchase_request_response, purchase_request):
+    assert purchase_request_response.subscription_agreement is None
+
+
+@pytest.mark.django_db
+def test_prr_customer_retrived(purchase_request_response):
+    assert purchase_request_response.customer_pk == SENTINEL['customer_pk']
+    assert purchase_request_response.customer_type == SENTINEL['customer_type']
+
+
+@pytest.mark.django_db
+def test_prr_act_on_cs_decision(mocker, purchase_request_response):
+    log = mocker.patch('perma_payments.models.logger.log', autospec=True)
+    assert not purchase_request_response.inform_perma
+    purchase_request_response.act_on_cs_decision({})
+    if purchase_request_response.decision in ["ACCEPT", "REVIEW"]:
+        assert purchase_request_response.inform_perma
+    else:
+        assert not purchase_request_response.inform_perma
+    assert log.call_count == 1
+
+
+@pytest.mark.django_db
+def test_prr_customer_unacknowledged(mocker, processed_purchase_request_response):
+    prr = processed_purchase_request_response
+    if prr.inform_perma:
+        assert PurchaseRequestResponse.customer_unacknowledged(prr.customer_pk, prr.customer_type)
+    else:
+        assert not PurchaseRequestResponse.customer_unacknowledged(prr.customer_pk, prr.customer_type)
+
 
 # SubscriptionRequestResponse
 
-def test_srr_inherits_from_outgiong_transaction():
+def test_srr_inherits_from_outgoing_transaction():
     assert issubclass(SubscriptionRequestResponse, Response)
 
 
@@ -738,7 +905,7 @@ def test_crr_customer_retrived(change_request_response):
 
 # UpdateRequestResponse
 
-def test_urr_inherits_from_outgiong_transaction():
+def test_urr_inherits_from_outgoing_transaction():
     assert issubclass(UpdateRequestResponse, Response)
 
 

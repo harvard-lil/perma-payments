@@ -25,16 +25,20 @@ from pytest_factoryboy import register
 from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL
 from perma_payments.models import (STANDING_STATUSES,
     SubscriptionAgreement, UpdateRequestResponse, ChangeRequestResponse,
-    SubscriptionRequestResponse)
+    SubscriptionRequestResponse, PurchaseRequestResponse)
 from perma_payments.security import InvalidTransmissionException
 from perma_payments.views import (FIELDS_REQUIRED_FROM_PERMA,
     FIELDS_REQUIRED_FOR_CYBERSOURCE, FIELDS_REQUIRED_FROM_CYBERSOURCE, redact)
 
 
-from .factories import SubscriptionRequestFactory, SubscriptionRequestResponseFactory, ChangeRequestFactory, UpdateRequestFactory
+from .factories import (PurchaseRequestFactory, PurchaseRequestResponseFactory,
+    SubscriptionRequestFactory, SubscriptionRequestResponseFactory, ChangeRequestFactory, UpdateRequestFactory
+)
 from .utils import GENESIS, SENTINEL, expected_template_used, get_not_allowed, post_not_allowed, put_patch_delete_not_allowed, dict_to_querydict
 
 
+register(PurchaseRequestFactory)
+register(PurchaseRequestResponseFactory)
 register(SubscriptionRequestFactory)
 register(SubscriptionRequestResponseFactory)
 register(ChangeRequestFactory)
@@ -53,6 +57,41 @@ def index():
         'route': '/',
         'template': 'generic.html'
     }
+
+
+@pytest.fixture
+def purchase():
+    data = {
+        'route': '/purchase/',
+        'template': 'redirect.html',
+        'valid_data': {
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
+            'amount': SENTINEL['amount'],
+            'link_quantity': SENTINEL['link_quantity'],
+        }
+    }
+    for field in FIELDS_REQUIRED_FROM_PERMA['purchase']:
+        assert field in data['valid_data']
+    return data
+
+
+@pytest.fixture
+def purchase_redirect_fields():
+    return {field: field for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['purchase']}
+
+
+@pytest.fixture
+def acknowledge_purchase():
+    data = {
+        'route': '/acknowledge-purchase/',
+        'valid_data': {
+            'purchase_pk': SENTINEL['purchase_pk'],
+        }
+    }
+    for field in FIELDS_REQUIRED_FROM_PERMA['acknowledge_purchase']:
+        assert field in data['valid_data']
+    return data
 
 
 @pytest.fixture
@@ -253,6 +292,12 @@ def canceled_sa(sa_w_cancellation_requested):
 
 @pytest.fixture
 @pytest.mark.django_db
+def purchase_request(purchase_request_factory):
+    return purchase_request_factory()
+
+
+@pytest.fixture
+@pytest.mark.django_db
 def subscription_request(subscription_request_factory):
     return subscription_request_factory()
 
@@ -267,6 +312,19 @@ def update_request(update_request_factory):
 @pytest.mark.django_db
 def change_request(change_request_factory):
     return change_request_factory()
+
+
+@pytest.fixture
+@pytest.mark.django_db
+def get_prr_for_user(purchase_request_response_factory):
+    def factory(customer_pk, customer_type, inform_perma=True):
+        return purchase_request_response_factory(
+            related_request__customer_pk=customer_pk,
+            related_request__customer_type=customer_type,
+            inform_perma=inform_perma
+        )
+    return factory
+
 
 
 @pytest.fixture()
@@ -290,6 +348,202 @@ def test_index_get(client, index):
 def test_index_other_methods(client, index):
     post_not_allowed(client, index['route'])
     put_patch_delete_not_allowed(client, index['route'])
+
+
+# purchase
+
+def test_purchase_post_invalid_perma_transmission(client, purchase, mocker):
+    # mocks
+    process = mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, side_effect=InvalidTransmissionException)
+    pr = mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
+    pr_instance = pr.return_value
+
+    # request
+    response = client.post(purchase['route'], purchase['valid_data'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    process.assert_called_once_with(dict_to_querydict(purchase['valid_data']), FIELDS_REQUIRED_FROM_PERMA['purchase'])
+    assert not pr_instance.save.called
+
+
+def test_purchase_post_pr_validation_fails(client, purchase, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    pr = mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
+    pr_instance = pr.return_value
+    pr_instance.full_clean.side_effect=ValidationError('oh no!')
+    log = mocker.patch('perma_payments.views.logger.warning', autospec=True)
+
+    # request
+    response = client.post(purchase['route'])
+
+    # assertions
+    assert response.status_code == 400
+    expected_template_used(response, 'generic.html')
+    assert b'Bad Request' in response.content
+    assert pr_instance.full_clean.call_count == 1
+    assert not pr_instance.save.called
+    assert log.call_count == 1
+
+
+def test_purchase_post_pr_validated_and_saved_correctly(client, purchase, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    pr = mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
+    pr_instance = pr.return_value
+
+    # request
+    response = client.post(purchase['route'])
+
+    # assertions
+    assert response.status_code == 200
+    pr.assert_called_once_with(
+        customer_pk=purchase['valid_data']['customer_pk'],
+        customer_type=purchase['valid_data']['customer_type'],
+        amount=purchase['valid_data']['amount'],
+        link_quantity=purchase['valid_data']['link_quantity'],
+    )
+    assert pr_instance.full_clean.call_count == 1
+    assert pr_instance.save.call_count == 1
+
+
+def test_purchase_post_data_prepped_correctly(client, purchase, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    pr = mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
+    pr_instance = pr.return_value
+    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
+
+    # request
+    response = client.post(purchase['route'])
+
+    # assertions
+    assert response.status_code == 200
+    fields_to_prep = {
+        'access_key': settings.CS_ACCESS_KEY,
+        'amount': pr_instance.amount,
+        'currency': pr_instance.currency,
+        'locale': pr_instance.locale,
+        'payment_method': pr_instance.payment_method,
+        'profile_id': settings.CS_PROFILE_ID,
+        'reference_number': pr_instance.reference_number,
+        'signed_date_time': pr_instance.get_formatted_datetime(),
+        'transaction_type': pr_instance.transaction_type,
+        'transaction_uuid': pr_instance.transaction_uuid,
+    }
+    prepped.assert_called_once_with(fields_to_prep)
+    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['purchase']:
+        assert field in fields_to_prep
+
+
+def test_purchase_post_redirect_form_populated_correctly(client, purchase, purchase_redirect_fields, mocker):
+    # mocks
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
+    mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
+    mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
+    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=purchase_redirect_fields)
+
+    # request
+    response = client.post(purchase['route'])
+
+    # assertions
+    assert response.status_code == 200
+    assert response.context['fields_to_post'] == purchase_redirect_fields
+    context = list(response.context.keys())
+    for field in ['fields_to_post', 'post_to_url']:
+        assert field in context
+    expected_template_used(response, 'redirect.html')
+    for field in purchase_redirect_fields:
+        assert bytes('<input type="hidden" name="{0}" value="{0}">'.format(field), 'utf-8') in response.content
+
+
+def test_purchase_other_methods(client, purchase):
+    get_not_allowed(client, purchase['route'])
+    put_patch_delete_not_allowed(client, purchase['route'])
+
+
+# acknowledge-purchase
+
+@pytest.mark.django_db
+def test_acknowledge_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=acknowledge_purchase['valid_data'])
+    prr = purchase_request_response_factory(
+        id=SENTINEL['purchase_pk'],
+        inform_perma=True
+    )
+    assert not prr.perma_acknowledged_at
+
+    # request
+    response = client.post(acknowledge_purchase['route'])
+
+    # assertions
+    assert response.status_code == 200
+    prr.refresh_from_db()
+    assert prr.perma_acknowledged_at
+
+
+@pytest.mark.django_db
+def test_acknowledge_unacknowledgeable_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=acknowledge_purchase['valid_data'])
+    prr = purchase_request_response_factory(
+        id=SENTINEL['purchase_pk'],
+        inform_perma=False
+    )
+    assert not prr.perma_acknowledged_at
+
+    # request
+    response = client.post(acknowledge_purchase['route'])
+
+    # assertions
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_acknowledge_already_acknowledged_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=acknowledge_purchase['valid_data'])
+    prr = purchase_request_response_factory(
+        id=SENTINEL['purchase_pk'],
+        inform_perma=True,
+        perma_acknowledged_at=GENESIS
+    )
+    assert prr.perma_acknowledged_at == GENESIS
+
+    # request
+    response = client.post(acknowledge_purchase['route'])
+
+    # assertions
+    assert response.status_code == 400
+    prr.refresh_from_db()
+    assert prr.perma_acknowledged_at == GENESIS
+
+
+@pytest.mark.django_db
+def test_acknowledge_nonexistent_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=acknowledge_purchase['valid_data'])
+    prr = purchase_request_response_factory(
+        id=SENTINEL['purchase_pk'] + 1,
+        inform_perma=True
+    )
+    assert not prr.perma_acknowledged_at
+
+    # request
+    response = client.post(acknowledge_purchase['route'])
+
+    # assertions
+    assert response.status_code == 400
+    prr.refresh_from_db()
+    assert not prr.perma_acknowledged_at
+
+
+def test_acknowledge_purchase_other_methods(client, acknowledge_purchase):
+    get_not_allowed(client, acknowledge_purchase['route'])
+    put_patch_delete_not_allowed(client, acknowledge_purchase['route'])
 
 
 # subscribe
@@ -500,6 +754,7 @@ def test_change_post_invalid_perma_transmission(client, change, mocker):
     assert not cr_instance.save.called
 
 
+@pytest.mark.django_db
 def test_change_post_no_standing_subscription(client, change, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
@@ -983,6 +1238,43 @@ def test_cybersource_callback_payment_token_invalid(client, cybersource_callback
 
 
 @pytest.mark.django_db
+def test_cybersource_callback_post_purchase_request(client, cybersource_callback, purchase_request, mocker):
+    mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    get_request = mocker.patch(
+        'perma_payments.views.OutgoingTransaction.objects.get',
+        autospec=True,
+        return_value = purchase_request
+    )
+    purchase_request_response =  mocker.patch('perma_payments.views.PurchaseRequest.purchase_request_response', autospec=True)
+    act_on_cs_decision =  mocker.patch.object(purchase_request_response.return_value, 'act_on_cs_decision', autospec=True)
+    r = mocker.patch('perma_payments.views.Response', autospec=True)
+
+    # request
+    response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
+
+    # assertions
+    get_request.assert_called_once_with(transaction_uuid=cybersource_callback['valid_data']['req_transaction_uuid'])
+    r.save_new_with_encrypted_full_response.assert_called_once_with(
+        PurchaseRequestResponse,
+        dict_to_querydict(cybersource_callback['valid_data']),
+        {
+            'related_request': purchase_request,
+            'decision': cybersource_callback['valid_data']['decision'],
+            'reason_code': cybersource_callback['valid_data']['reason_code'],
+            'message': cybersource_callback['valid_data']['message'],
+        }
+    )
+    act_on_cs_decision.assert_called_once_with(
+        purchase_request,
+        cybersource_callback['valid_data']['decision'],
+        redact(cybersource_callback['valid_data'])
+    )
+    assert response.status_code == 200
+    expected_template_used(response, 'generic.html')
+    assert b'OK' in response.content
+
+
+@pytest.mark.django_db
 def test_cybersource_callback_post_type_not_handled(client, cybersource_callback, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
     mocker.patch('perma_payments.views.OutgoingTransaction', autospec=True)
@@ -1011,6 +1303,7 @@ def test_subscription_post_invalid_transmission(client, subscription, mocker):
     process.assert_called_once_with(dict_to_querydict(subscription['valid_data']), FIELDS_REQUIRED_FROM_PERMA['subscription'])
 
 
+@pytest.mark.django_db
 def test_subscription_post_no_standing_subscription(client, subscription, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     sa = mocker.patch(
@@ -1032,7 +1325,8 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
         'customer_pk': subscription['valid_data']['customer_pk'],
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': None,
-        'timestamp': mocker.sentinel.timestamp
+        'timestamp': mocker.sentinel.timestamp,
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1067,7 +1361,8 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
             'status': complete_standing_sa.status,
             'paid_through': complete_standing_sa.paid_through,
         },
-        'timestamp': mocker.sentinel.timestamp
+        'timestamp': mocker.sentinel.timestamp,
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1106,6 +1401,45 @@ def test_subscription_post_standing_subscription_canceled(client, subscription, 
 
     assert response.status_code == 200
     assert prepped.mock_calls[0][1][0]['subscription']['status'] == 'Canceled'
+
+
+@pytest.mark.django_db
+def test_subscription_single_purchase_to_acknowledge(client, subscription, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
+    prr = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    purchases = prepped.mock_calls[0][1][0]['purchases']
+    assert purchases == [{
+        "id": prr.id,
+        "link_quantity": prr.related_request.link_quantity
+    }]
+
+
+@pytest.mark.django_db
+def test_subscription_multiple_purchase_to_acknowledge(client, subscription, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
+    prr1 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    prr2 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'], inform_perma=False)
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    purchases = prepped.mock_calls[0][1][0]['purchases']
+    assert purchases == [{
+        "id": prr1.id,
+        "link_quantity": prr1.related_request.link_quantity
+    },{
+        "id": prr2.id,
+        "link_quantity": prr2.related_request.link_quantity
+    }]
 
 
 def test_subscription_other_methods(client, subscription):

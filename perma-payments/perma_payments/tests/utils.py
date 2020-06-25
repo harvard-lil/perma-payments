@@ -27,6 +27,7 @@ SENTINEL = {
     'new_recurring_amount': fake.pydecimal(left_digits=6, right_digits=2, positive=True),
     'link_limit': str(fake.random_element(elements=(fake.random_int(min=0, max=4999), 'unlimited'))),
     'new_link_limit': str(fake.random_element(elements=(fake.random_int(min=5000, max=9999), 'another-unlimited'))),
+    'link_quantity': fake.random_int(min=0, max=4999),
     'bytes': b'sentinel ascii bytes',
     'req_transaction_uuid': fake.uuid4(),
     'decision': fake.random_element(elements=CS_DECISIONS.keys()),
@@ -34,6 +35,7 @@ SENTINEL = {
     'message': fake.sentence(nb_words=7),
     'payment_token': fake.password(length=26),
     'invalid_payment_token': fake.password(length=16),
+    'purchase_pk': fake.random_int()
 }
 
 
