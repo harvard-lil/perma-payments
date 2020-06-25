@@ -6,10 +6,21 @@ import django.utils.timezone
 from perma_payments.constants import CS_DECISIONS
 from perma_payments.models import (CUSTOMER_TYPES, SubscriptionAgreement,
     SubscriptionRequest, SubscriptionRequestResponse, UpdateRequest,
-    UpdateRequestResponse, ChangeRequest)
+    UpdateRequestResponse, ChangeRequest, PurchaseRequest, PurchaseRequestResponse)
 
 
 fake = Faker()
+
+
+class PurchaseRequestFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = PurchaseRequest
+
+    customer_pk = factory.Sequence(lambda n: n)
+    customer_type = fake.random_element(elements=CUSTOMER_TYPES)
+    amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
+    link_quantity = fake.random_int()
+
 
 class SubscriptionAgreementFactory(factory.django.DjangoModelFactory):
     class Meta:
@@ -57,6 +68,20 @@ class UpdateRequestFactory(factory.django.DjangoModelFactory):
         SubscriptionAgreementFactory,
         subscription_request=factory.SubFactory(SubscriptionRequestFactory)
     )
+
+
+class PurchaseRequestResponseFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = PurchaseRequestResponse
+
+    related_request = factory.SubFactory(PurchaseRequestFactory)
+
+    decision = factory.Iterator(key for key in CS_DECISIONS)
+    reason_code = factory.Faker('random_int')
+    message = factory.Faker('sentence', nb_words=7)
+    full_response = b''
+    encryption_key_id = factory.Faker('random_int')
+
 
 
 class SubscriptionRequestResponseFactory(factory.django.DjangoModelFactory):
