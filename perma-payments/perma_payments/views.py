@@ -303,6 +303,9 @@ def acknowledge_purchase(request):
             logger.warning('Perma attempted to acknowledge non-existent purchase {}'.format(data['purchase_pk']))
             return bad_request(request)
 
+        if not purchase.inform_perma:
+            logger.warning('Perma attempted to acknowledge unacknowledgeable purchase {}'.format(data['purchase_pk']))
+            return bad_request(request)
         if purchase.perma_acknowleged_at:
             logger.warning('Perma attempted to acknowledge already-acknowledged purchase {}'.format(data['purchase_pk']))
             return bad_request(request)
