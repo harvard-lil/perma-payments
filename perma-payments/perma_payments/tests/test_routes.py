@@ -476,7 +476,7 @@ def test_acknowledge_purchase(client, acknowledge_purchase, purchase_request_res
 
 
 @pytest.mark.django_db
-def test_acknowledge_unacknowledgable_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
+def test_acknowledge_unacknowledgeable_purchase(client, acknowledge_purchase, purchase_request_response_factory, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=acknowledge_purchase['valid_data'])
     prr = purchase_request_response_factory(
         id=SENTINEL['purchase_pk'],
