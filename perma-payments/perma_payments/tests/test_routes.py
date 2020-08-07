@@ -1326,7 +1326,8 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': None,
         'timestamp': mocker.sentinel.timestamp,
-        'purchases': []
+        'purchases': [],
+        'purchase_history': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1362,7 +1363,8 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
             'paid_through': complete_standing_sa.paid_through,
         },
         'timestamp': mocker.sentinel.timestamp,
-        'purchases': []
+        'purchases': [],
+        'purchase_history': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1421,7 +1423,7 @@ def test_subscription_single_purchase_to_acknowledge(client, subscription, get_p
 
 
 @pytest.mark.django_db
-def test_subscription_multiple_purchase_to_acknowledge(client, subscription, get_prr_for_user, mocker):
+def test_subscription_multiple_purchases_to_acknowledge(client, subscription, get_prr_for_user, mocker):
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
     prr1 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
@@ -1440,6 +1442,48 @@ def test_subscription_multiple_purchase_to_acknowledge(client, subscription, get
         "id": prr2.id,
         "link_quantity": prr2.related_request.link_quantity
     }]
+
+@pytest.mark.django_db
+def test_subscription_single_purchase_in_history(client, subscription, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
+    prr = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    purchase_history = prepped.mock_calls[0][1][0]['purchase_history']
+    assert purchase_history == [{
+        "id": prr.id,
+        "link_quantity": prr.related_request.link_quantity,
+        "date": prr.related_request.request_datetime
+    }]
+
+
+@pytest.mark.django_db
+def test_subscription_multiple_purchases_in_history(client, subscription, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+    prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
+    prr1 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    prr2 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
+    get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'], inform_perma=False)
+
+    # request
+    response = client.post(subscription['route'])
+
+    assert response.status_code == 200
+    purchase_history = prepped.mock_calls[0][1][0]['purchase_history']
+    assert purchase_history == [{
+        "id": prr1.id,
+        "link_quantity": prr1.related_request.link_quantity,
+        "date": prr1.related_request.request_datetime
+    },{
+        "id": prr2.id,
+        "link_quantity": prr2.related_request.link_quantity,
+        "date": prr2.related_request.request_datetime
+    }]
+
 
 
 def test_subscription_other_methods(client, subscription):

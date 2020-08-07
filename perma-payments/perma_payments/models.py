@@ -718,6 +718,21 @@ class PurchaseRequestResponse(Response):
         ).select_related('related_request')
         return [{'id': purchase.pk, 'link_quantity': purchase.related_request.link_quantity} for purchase in purchases]
 
+    @classmethod
+    def customer_history(cls, customer_pk, customer_type):
+        purchases = cls.objects.filter(
+            inform_perma=True,
+            related_request__customer_pk=customer_pk,
+            related_request__customer_type=customer_type
+        ).select_related('related_request')
+        return [
+            {
+                'id': purchase.pk,
+                'link_quantity': purchase.related_request.link_quantity,
+                'date': purchase.related_request.request_datetime
+            } for purchase in purchases
+        ]
+
     @property
     def subscription_agreement(self):
         return None
