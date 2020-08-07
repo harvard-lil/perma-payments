@@ -829,9 +829,23 @@ def test_prr_act_on_cs_decision(mocker, purchase_request_response):
 def test_prr_customer_unacknowledged(mocker, processed_purchase_request_response):
     prr = processed_purchase_request_response
     if prr.inform_perma:
-        assert PurchaseRequestResponse.customer_unacknowledged(prr.customer_pk, prr.customer_type)
+        [item] = PurchaseRequestResponse.customer_unacknowledged(prr.customer_pk, prr.customer_type)
+        assert item['id'] == prr.id
+        assert item['link_quantity'] == prr.related_request.link_quantity
     else:
         assert not PurchaseRequestResponse.customer_unacknowledged(prr.customer_pk, prr.customer_type)
+
+
+@pytest.mark.django_db
+def test_prr_customer_history(mocker, processed_purchase_request_response):
+    prr = processed_purchase_request_response
+    if prr.inform_perma:
+        [item] = PurchaseRequestResponse.customer_history(prr.customer_pk, prr.customer_type)
+        assert item['id'] == prr.id
+        assert item['link_quantity'] == prr.related_request.link_quantity
+        assert item['date'] == prr.related_request.request_datetime
+    else:
+        assert not PurchaseRequestResponse.customer_history(prr.customer_pk, prr.customer_type)
 
 
 # SubscriptionRequestResponse

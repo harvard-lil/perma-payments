@@ -616,12 +616,16 @@ def subscription(request):
     # Mention any bonus links that have been purchased, but not yet acknowledged
     purchases = PurchaseRequestResponse.customer_unacknowledged(data['customer_pk'], data['customer_type'])
 
+    # Send the customer's full purchase history too.
+    purchase_history = PurchaseRequestResponse.customer_history(data['customer_pk'], data['customer_type'])
+
     response = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
         'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp(),
-        'purchases': purchases
+        'purchases': purchases,
+        'purchase_history': purchase_history
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
