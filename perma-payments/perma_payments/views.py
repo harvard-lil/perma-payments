@@ -616,16 +616,35 @@ def subscription(request):
     # Mention any bonus links that have been purchased, but not yet acknowledged
     purchases = PurchaseRequestResponse.customer_unacknowledged(data['customer_pk'], data['customer_type'])
 
-    # Send the customer's full purchase history too.
-    purchase_history = PurchaseRequestResponse.customer_history(data['customer_pk'], data['customer_type'])
-
     response = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
         'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp(),
-        'purchases': purchases,
-        'purchase_history': purchase_history
+        'purchases': purchases
+    }
+    return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@sensitive_post_parameters('encrypted_data')
+def purchase_history(request):
+    """
+    Returns a customer's one-time purchase history.
+    """
+    try:
+        data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['subscription'])
+    except InvalidTransmissionException:
+        return bad_request(request)
+
+    purchase_history = PurchaseRequestResponse.customer_history(data['customer_pk'], data['customer_type'])
+
+    response = {
+        'customer_pk': data['customer_pk'],
+        'customer_type': data['customer_type'],
+        'purchase_history': purchase_history,
+        'timestamp': datetime.utcnow().timestamp()
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 

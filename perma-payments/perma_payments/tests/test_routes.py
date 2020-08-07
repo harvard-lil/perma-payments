@@ -95,6 +95,17 @@ def acknowledge_purchase():
 
 
 @pytest.fixture
+def purchase_history():
+    return {
+        'route': '/purchase-history/',
+        'valid_data': {
+            'customer_pk': SENTINEL['customer_pk'],
+            'customer_type': SENTINEL['customer_type'],
+        }
+    }
+
+
+@pytest.fixture
 def subscribe():
     data = {
         'route': '/subscribe/',
@@ -1326,8 +1337,7 @@ def test_subscription_post_no_standing_subscription(client, subscription, mocker
         'customer_type': subscription['valid_data']['customer_type'],
         'subscription': None,
         'timestamp': mocker.sentinel.timestamp,
-        'purchases': [],
-        'purchase_history': []
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1363,8 +1373,7 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
             'paid_through': complete_standing_sa.paid_through,
         },
         'timestamp': mocker.sentinel.timestamp,
-        'purchases': [],
-        'purchase_history': []
+        'purchases': []
     })
     r = response.json()
     assert r and list(r.keys()) == ['encrypted_data']
@@ -1443,14 +1452,22 @@ def test_subscription_multiple_purchases_to_acknowledge(client, subscription, ge
         "link_quantity": prr2.related_request.link_quantity
     }]
 
+
+def test_subscription_other_methods(client, subscription):
+    get_not_allowed(client, subscription['route'])
+    put_patch_delete_not_allowed(client, subscription['route'])
+
+
+# purchase history
+
 @pytest.mark.django_db
-def test_subscription_single_purchase_in_history(client, subscription, get_prr_for_user, mocker):
-    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+def test_single_purchase_in_history(client, purchase_history, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase_history['valid_data'])
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
     prr = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
 
     # request
-    response = client.post(subscription['route'])
+    response = client.post(purchase_history['route'])
 
     assert response.status_code == 200
     purchase_history = prepped.mock_calls[0][1][0]['purchase_history']
@@ -1462,15 +1479,15 @@ def test_subscription_single_purchase_in_history(client, subscription, get_prr_f
 
 
 @pytest.mark.django_db
-def test_subscription_multiple_purchases_in_history(client, subscription, get_prr_for_user, mocker):
-    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscription['valid_data'])
+def test_multiple_purchases_in_history(client, purchase_history, get_prr_for_user, mocker):
+    mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase_history['valid_data'])
     prepped = mocker.patch('perma_payments.views.prep_for_perma', autospec=True, return_value=SENTINEL['bytes'])
     prr1 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
     prr2 = get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'])
     get_prr_for_user(SENTINEL['customer_pk'], SENTINEL['customer_type'], inform_perma=False)
 
     # request
-    response = client.post(subscription['route'])
+    response = client.post(purchase_history['route'])
 
     assert response.status_code == 200
     purchase_history = prepped.mock_calls[0][1][0]['purchase_history']
@@ -1485,10 +1502,9 @@ def test_subscription_multiple_purchases_in_history(client, subscription, get_pr
     }]
 
 
-
-def test_subscription_other_methods(client, subscription):
-    get_not_allowed(client, subscription['route'])
-    put_patch_delete_not_allowed(client, subscription['route'])
+def test_purchase_history_other_methods(client, purchase_history):
+    get_not_allowed(client, purchase_history['route'])
+    put_patch_delete_not_allowed(client, purchase_history['route'])
 
 
 # cancellation request

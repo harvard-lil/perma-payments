@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^cybersource-callback/$', views.cybersource_callback, name='cybersource_callback'),
     url(r'^purchase/$', views.purchase, name='purchase'),
     url(r'^acknowledge-purchase/$', views.acknowledge_purchase, name='acknowledge_purchase'),
+    url(r'^purchase-history/$', views.purchase_history, name='purchase_history'),
     url(r'^subscribe/$', views.subscribe, name='subscribe'),
     url(r'^subscription/$', views.subscription, name='subscription'),
     url(r'^update-statuses/$', views.update_statuses, name='update_statuses'),
