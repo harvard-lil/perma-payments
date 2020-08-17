@@ -408,7 +408,8 @@ class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
 
     subscription_agreement = models.OneToOneField(
         SubscriptionAgreement,
-        related_name='subscription_request'
+        related_name='subscription_request',
+        on_delete=models.CASCADE
     )
     transaction_type = models.CharField(
         max_length=30,
@@ -455,7 +456,8 @@ class ChangeRequest(OutgoingTransaction, SubscriptionFields):
 
     subscription_agreement = models.ForeignKey(
         SubscriptionAgreement,
-        related_name='change_requests'
+        related_name='change_requests',
+        on_delete=models.CASCADE
     )
     transaction_type = models.CharField(
         max_length=30,
@@ -484,7 +486,8 @@ class UpdateRequest(OutgoingTransaction):
 
     subscription_agreement = models.ForeignKey(
         SubscriptionAgreement,
-        related_name='update_requests'
+        related_name='update_requests',
+        on_delete=models.CASCADE
     )
     transaction_type = models.CharField(
         max_length=30,
@@ -617,7 +620,8 @@ class SubscriptionRequestResponse(Response):
 
     related_request = models.OneToOneField(
         SubscriptionRequest,
-        related_name='subscription_request_response'
+        related_name='subscription_request_response',
+        on_delete=models.CASCADE
     )
     payment_token = models.CharField(
         max_length=26,
@@ -647,7 +651,8 @@ class ChangeRequestResponse(Response):
 
     related_request = models.OneToOneField(
         ChangeRequest,
-        related_name='change_request_response'
+        related_name='change_request_response',
+        on_delete=models.CASCADE
     )
 
     @property
@@ -672,7 +677,8 @@ class UpdateRequestResponse(Response):
 
     related_request = models.OneToOneField(
         UpdateRequest,
-        related_name='update_request_response'
+        related_name='update_request_response',
+        on_delete=models.CASCADE
     )
 
     @property
@@ -697,7 +703,8 @@ class PurchaseRequestResponse(Response):
 
     related_request = models.OneToOneField(
         PurchaseRequest,
-        related_name='purchase_request_response'
+        related_name='purchase_request_response',
+        on_delete=models.CASCADE
     )
     inform_perma = models.BooleanField(
         default=False,
