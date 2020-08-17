@@ -55,7 +55,7 @@ def absent_required_fields_raise_validation_error(o, fields):
     if fields:
         with pytest.raises(ValidationError) as excinfo:
             o.full_clean()
-        error_dict = literal_eval(str(excinfo).split(':', 3)[3].strip())
+        error_dict = literal_eval(excinfo.exconly().split(':', 1)[1].strip())
         assert sorted(fields) == sorted(list(error_dict.keys()))
     else:
         # If no required fields, the following should not raise ValidationError
