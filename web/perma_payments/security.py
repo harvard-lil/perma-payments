@@ -77,7 +77,7 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     to_post = {}
     to_post.update(signed_fields)
     to_post.update(unsigned_fields)
-    to_post['signature'] = sign_data(stringify_for_signature(signed_fields))
+    to_post['signature'] = sign_data(stringify_for_signature(signed_fields)).decode('utf-8')
     return to_post
 
 
