@@ -164,13 +164,15 @@ def test_prep_for_cybersource_all_input_fields_in_returned_data(one_two_three_di
 
 def test_prep_for_cybersource_signature(one_two_three_dict, reverse_ascii_ordered_dict, mocker):
     stringify = mocker.patch('perma_payments.security.stringify_for_signature', autospec=True, return_value=mocker.sentinel.stringified)
-    sign = mocker.patch('perma_payments.security.sign_data', autospec=True, return_value=mocker.sentinel.signed)
+    signature_string = str(stringify)
+    signature_bytes = bytes(signature_string, 'utf-8')
+    sign = mocker.patch('perma_payments.security.sign_data', autospec=True, return_value=signature_bytes)
     prepped = prep_for_cybersource(one_two_three_dict, reverse_ascii_ordered_dict)
 
     assert stringify.call_count == 1
     sign.assert_called_once_with(mocker.sentinel.stringified)
     assert 'signature' in prepped
-    assert prepped['signature'] == mocker.sentinel.signed
+    assert prepped['signature'] == signature_string
 
 
 def test_process_cybersource_transmission_returns_desired_fields_when_all_is_well(spoof_cybersource_post, mocker):
