@@ -230,6 +230,13 @@ Migrations
 We use standard Django migrations
 
 
+Build for local Perma development
+-------
+Replacing `0.0` with the correct tag, run:
+```
+docker build -t harvardlil/perma-payments:0.0  -f ./docker/Dockerfile .
+```
+
 Contributions
 -------
 Contributions to this project should be made in individual forks and then merged by pull request. Here's an outline:

@@ -20,4 +20,4 @@ RUN pip install -r requirements.txt \
 # dev personalizations / try installing packages without rebuilding everything
 RUN apt-get install -y nano
 
-COPY . /app/web
+COPY web /app/web
