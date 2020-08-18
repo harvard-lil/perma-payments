@@ -3,14 +3,23 @@ version: '2'
 services:
   db:
     image: postgres:9.6.2
+    volumes:
+      - db_data:/var/lib/postgresql/data:delegated
   web:
-    build: ./perma-payments
-    image: perma-payments:0.26
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    image: perma-payments:0.27
     tty: true
     command: bash
+    environment:
+      - DOCKERIZED=true
     volumes:
-      - ./perma-payments:/perma-payments
+      - .:/app:delegated
     ports:
       - "127.0.0.1:80:80"
     depends_on:
       - db
+
+volumes:
+  db_data:

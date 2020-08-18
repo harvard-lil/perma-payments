@@ -179,65 +179,68 @@ Et voilà.
 Running Locally
 --------------
 
-### Up
+### Spin up some containers
 
-1. Install [Docker](https://docs.docker.com/installation/) or [Docker Toolbox](https://www.docker.com/products/docker-toolbox)
+Start up the Docker containers in the background:
 
-2. `git clone https://github.com/harvard-lil/perma-payments.git`
+    $ docker-compose up -d
 
-3. `cd perma-payments`
+The first time this runs it will build the Docker images, which
+may take several minutes. (After the first time, it should only take
+1-3 seconds.)
 
-4. (recommended) Nickname some commonly-used commands by adding the following to your .bash_profile or similar:
-`alias dfab="docker-compose exec web pipenv run fab"`
-`alias dmanage.py="docker-compose exec web pipenv run ./manage.py"`
+Then log into the main Docker container:
 
-5. Run `docker-compose up -d` to start two containers in the background:
-    -  a "db" container with a postgres database
-    -  a "web" container with python, Django, and the rest of our dev environment.
+    $ docker-compose exec web bash
 
-6. Run `dfab init_dev_db` to initialize a development database.
+(Commands from here on out that start with `#` are being run in Docker.)
 
-7. Run `dfab run` to start the Django development server.
+### Run Django
 
-8. Navigate to perma-payments:
-   -  Docker: head to http://localhost/
-   -  Docker Machine: run `docker-machine ip` to discover the IP address of your virtualbox. Then, head to http://that-ip-address.
+You should now have a working installation!
 
+Spin up the development server:
 
-### Down
+    # fab run
 
-To stop all running containers (and retain any information in your database), run `docker-compose stop`.
+### Stop
 
-To stop and destroy all containers created via docker-compose up, run `docker-compose down`. Note that this will destroy your database and all its data.
+When you are finished, spin down Docker containers by running:
 
+    $ docker-compose down
 
-### Other helpful commands
-
-To get to a bash terminal in the running docker container, run `docker-compose exec web bash`.
-
-To access the Django shell, `dmanage.py shell`.
-
-To run make and run migrations, `dmanage.py makemigrations; dmanage.py migrate`
-
-To add new python dependencies to an existing image:
-  - `docker-compose exec web pipenv install <package>` to install a new package and update `Pipfile`
-  - `docker-compose exec web pipenv lock` to recompile `Pipfile.lock` from requirements.in
-  - `docker-compose exec web pipenv install` to rebuild the virtual environment
-
-To run the tests, `dfab test`.
+Your database will persist and will load automatically the next time you run `docker-compose up -d`.
 
 
-### Updating the Docker image
+Testing
+-------
 
-If you change the Dockerfile or commit changes to requirements.txt,
-you should increment the tag for perma-payments in docker-compose.yml.
-This ensures that an automatic rebuild is triggered for all users, when
-they pull in your changes.
+### Test Commands
 
-To experiment with new builds locally without incrementing the image tag
-(which creates a new image on your machine, rather than replacing the old
-one, thus using up disk space), run `docker-compose build` or
-`docker-compose up -d --build`.
+1. `# fab test` runs python tests
+1. `# flake8` runs python lints
 
-Periodically, you might want to run `docker images` to see if you have
-accumulated a lot of cruft.
+### Coverage
+
+Coverage will be generated automatically for all manually-run tests.
+
+
+Migrations
+-------
+We use standard Django migrations
+
+
+Contributions
+-------
+Contributions to this project should be made in individual forks and then merged by pull request. Here's an outline:
+
+1. Fork and clone the project.
+1. Make a branch for your feature: `git branch feature-1`
+1. Commit your changes with `git add` and `git commit`. (`git diff  --staged` is handy here!)
+1. Push your branch to your fork: `git push origin feature-1`
+1. Submit a pull request to the upstream develop through GitHub.
+
+
+License
+-------
+This codebase is Copyright 2020 The President and Fellows of Harvard College and is licensed under the open-source AGPLv3 for public use and modification. See [LICENSE](LICENSE) for details.
