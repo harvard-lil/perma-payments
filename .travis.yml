@@ -20,11 +20,10 @@ cache:
   pip: true
 
 before_install:
-  - cd perma-payments
+  - cd web
 
 install:
-  - pip install pipenv
-  - pipenv install --deploy --dev
+  - pip install -r requirements.txt
   - pip install coveralls
 
 before_script:
