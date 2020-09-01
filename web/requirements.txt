@@ -4,8 +4,6 @@
 #
 #    fab pip-compile
 #
---no-binary psycopg2
-
 apipkg==1.5 \
     --hash=sha256:37228cda29411948b422fae072f57e31d3396d2ee1c9783775980ee9c9990af6 \
     --hash=sha256:58587dd4dc3daefad0487f6d9ae32b4542b185e1c36db6993290e7c41ca2b47c \
@@ -126,9 +124,9 @@ django-simple-history==2.11.0 \
     --hash=sha256:b46191e97bb59b82e0ef20ae316021f7337fec50e5acbbd5a757b37910759af0 \
     --hash=sha256:d147d441165b802082647c86ca14776fe3574986053bbba90a9eaee1b315b826 \
     # via -r requirements.in
-django==2.2.15 \
-    --hash=sha256:3e2f5d172215862abf2bac3138d8a04229d34dbd2d0dab42c6bf33876cc22323 \
-    --hash=sha256:91f540000227eace0504a24f508de26daa756353aa7376c6972d7920bc339a3a \
+django==2.2.16 \
+    --hash=sha256:62cf45e5ee425c52e411c0742e641a6588b7e8af0d2c274a27940931b2786594 \
+    --hash=sha256:83ced795a0f239f41d8ecabf51cc5fad4b97462a6008dc12e5af3cb9288724ec \
     # via -r requirements.in, django-polymorphic
 execnet==1.7.1 \
     --hash=sha256:cacb9df31c9680ec5f95553976c4da484d407e85e41c83cb812aa014f0eddc50 \
