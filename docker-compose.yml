@@ -2,14 +2,14 @@ version: '2'
 
 services:
   db:
-    image: postgres:9.6.2
+    image: registry.lil.tools/library/postgres:9.6.2
     volumes:
       - db_data:/var/lib/postgresql/data:delegated
   web:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    image: perma-payments:0.28
+    image: registry.lil.tools/harvardlil/perma-payments:0.29
     tty: true
     command: bash
     environment:
