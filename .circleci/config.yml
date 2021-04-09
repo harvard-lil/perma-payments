@@ -45,7 +45,7 @@ jobs:
             docker-compose up -d
             sleep 15
             docker-compose exec web flake8 .
-            docker-compose exec web fab test
+            docker-compose exec web fab test:circle=True
 
       # Upload test details to circleci
       - store_test_results:

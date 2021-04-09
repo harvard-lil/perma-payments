@@ -48,10 +48,10 @@ def run_django(port=None):  # pragma: no cover
 
 
 @task
-def test(travis=False):
+def test(circle=False):
     # NB: all arguments to Fabric tasks are interpreted as strings
-    if travis == 'True':
-        local("pytest --ds=config.settings.settings_travis --fail-on-template-vars --cov --cov-report= ")
+    if circle == 'True':
+        local("pytest --ds=config.settings.settings_testing --junitxml=junit/pytest/test-results.xml --fail-on-template-vars --cov --cov-config=setup.cfg --cov-report xml")
     else:
         local("pytest --ds=config.settings.settings_testing --fail-on-template-vars --cov --cov-report= ")
 
