@@ -1,0 +1,59 @@
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.1.1
+jobs:
+  build:
+    machine: true
+    working_directory: ~/project
+    steps:
+
+      # Initial setup
+      - checkout:
+          path: ~/project
+      - run:
+          name: "Info"
+          command: |
+            docker-compose --version
+            docker version
+
+      # Docker image building and caching
+      # This block shaves a minute or two off of the test runtime by using cached docker images.
+      # Otherwise we could omit this step entirely and let `docker-compose run` build what it needs to.
+      - restore_cache:
+          key: docker-images-{{ checksum "docker-compose.yml" }}
+      - run:
+          name: "Build docker images"
+          command: |
+            if test -f ~/docker-cache.tar; then
+              echo "Loading cached docker images"
+              docker load -i ~/docker-cache.tar
+            else
+              echo "Building new docker images"
+              docker-compose build
+              docker save -o ~/docker-cache.tar perma3
+            fi
+      - save_cache:
+          key: docker-images-{{ checksum "docker-compose.yml" }}
+          paths:
+            - "~/docker-cache.tar"
+
+      # Actual tests
+      - run:
+          name: "Test"
+          command: |
+            mkdir -p junit/pytest                            # storage for circleci test info
+            cp services/docker/webrecorder/wr_circle.env services/docker/webrecorder/wr.env
+            docker-compose up -d
+            sleep 15
+            docker-compose exec web flake8 .
+            docker-compose exec web fab test \
+              --junitxml=junit/pytest/test-results.xml       `# write test results so they can be displayed by circleci` \
+              --cov --cov-config=setup.cfg --cov-report xml  `# write coverage data to .coverage for upload by codecov` \
+
+      # Upload test details to circleci
+      - store_test_results:
+          path: junit
+
+      # Upload coverage to Codecov using third-party orb
+      - codecov/upload:
+          file: perma_payments/.coverage
