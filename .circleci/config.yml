@@ -42,7 +42,6 @@ jobs:
           name: "Test"
           command: |
             mkdir -p junit/pytest                            # storage for circleci test info
-            cp services/docker/webrecorder/wr_circle.env services/docker/webrecorder/wr.env
             docker-compose up -d
             sleep 15
             docker-compose exec web flake8 .
