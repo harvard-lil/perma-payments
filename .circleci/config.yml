@@ -41,7 +41,7 @@ jobs:
       - run:
           name: "Test"
           command: |
-            mkdir -p junit/pytest                            # storage for circleci test info
+            mkdir -p web/junit/pytest                            # storage for circleci test info
             docker-compose up -d
             sleep 15
             docker-compose exec web flake8 .
@@ -49,11 +49,11 @@ jobs:
 
       # Upload test details to circleci
       - store_test_results:
-          path: junit
+          path: web/junit
 
       # Upload coverage to Codecov using third-party orb
       - codecov/upload:
-          file: perma_payments/.coverage
+          file: web/coverage.xml
 
       # Deploy via Salt reactor
       - run:
