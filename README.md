@@ -1,5 +1,7 @@
 # perma-payments
 
+[![harvard-lil](https://circleci.com/gh/harvard-lil/perma-payments.svg?style=svg)](https://github.com/harvard-lil/perma-payments) [![codecov](https://codecov.io/gh/harvard-lil/perma-payments/branch/develop/graph/badge.svg?token=RnJFtYHFZB)](https://codecov.io/gh/harvard-lil/perma-payments)
+
 [![Build Status](https://travis-ci.org/harvard-lil/perma-payments.svg?branch=develop)](https://travis-ci.org/harvard-lil/perma-payments) [![Coverage Status](https://coveralls.io/repos/github/harvard-lil/perma-payments/badge.svg?branch=develop)](https://coveralls.io/github/harvard-lil/perma-payments?branch=develop)
 
 1. [The Plot](#the-plot)
