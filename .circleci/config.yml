@@ -45,9 +45,7 @@ jobs:
             docker-compose up -d
             sleep 15
             docker-compose exec web flake8 .
-            docker-compose exec web fab test \
-              --junitxml=junit/pytest/test-results.xml       `# write test results so they can be displayed by circleci` \
-              --cov --cov-config=setup.cfg --cov-report xml  `# write coverage data to .coverage for upload by codecov` \
+            docker-compose exec web fab test
 
       # Upload test details to circleci
       - store_test_results:
