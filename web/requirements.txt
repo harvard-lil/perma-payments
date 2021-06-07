@@ -117,9 +117,9 @@ django-simple-history==2.11.0 \
     --hash=sha256:b46191e97bb59b82e0ef20ae316021f7337fec50e5acbbd5a757b37910759af0 \
     --hash=sha256:d147d441165b802082647c86ca14776fe3574986053bbba90a9eaee1b315b826 \
     # via -r requirements.in
-django==2.2.20 \
-    --hash=sha256:2484f115891ab1a0e9ae153602a641fbc15d7894c036d79fb78662c0965d7954 \
-    --hash=sha256:2569f9dc5f8e458a5e988b03d6b7a02bda59b006d6782f4ea0fd590ed7336a64 \
+django==2.2.24 \
+    --hash=sha256:3339ff0e03dee13045aef6ae7b523edff75b6d726adf7a7a48f53d5a501f7db7 \
+    --hash=sha256:f2084ceecff86b1e631c2cd4107d435daf4e12f1efcdf11061a73bf0b5e95f92 \
     # via -r requirements.in, django-polymorphic
 execnet==1.7.1 \
     --hash=sha256:cacb9df31c9680ec5f95553976c4da484d407e85e41c83cb812aa014f0eddc50 \
