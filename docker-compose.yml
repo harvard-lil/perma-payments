@@ -2,9 +2,11 @@ version: '2'
 
 services:
   db:
-    image: registry.lil.tools/library/postgres:9.6.2
+    image: registry.lil.tools/library/postgres:12.8
     volumes:
-      - db_data:/var/lib/postgresql/data:delegated
+      - db_data_12:/var/lib/postgresql/data:delegated
+    environment:
+      - POSTGRES_PASSWORD=example
   web:
     build:
       context: .
@@ -22,4 +24,4 @@ services:
       - db
 
 volumes:
-  db_data:
+  db_data_12:
