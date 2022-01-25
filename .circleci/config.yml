@@ -31,7 +31,7 @@ jobs:
             else
               echo "Building new docker images"
               docker-compose build
-              docker save -o ~/docker-cache.tar registry.lil.tools/harvardlil/perma-payments
+              docker save -o ~/docker-cache.tar perma-payments
             fi
       - save_cache:
           key: docker-images-{{ checksum "docker-compose.yml" }}
