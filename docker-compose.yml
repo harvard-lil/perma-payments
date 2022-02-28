@@ -11,7 +11,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    image: perma-payments:0.38
+    image: perma-payments:0.39
     tty: true
     command: bash
     environment:
