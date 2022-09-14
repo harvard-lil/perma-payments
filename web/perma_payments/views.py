@@ -598,8 +598,8 @@ def subscription(request):
     standing_subscription = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
     if not standing_subscription:
         subscription = None
+        subscriptionReference = None
     else:
-
         subscription = {
             'link_limit': standing_subscription.current_link_limit,
             'link_limit_effective_timestamp': formatted_date_or_none(standing_subscription.current_link_limit_effective_timestamp),
@@ -607,6 +607,7 @@ def subscription(request):
             'frequency': standing_subscription.current_frequency,
             'paid_through': formatted_date_or_none(standing_subscription.paid_through),
         }
+        subscriptionReference = SubscriptionRequest.select_subscription_reference(standing_subscription.id)
 
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
             subscription['status'] = 'Cancellation Requested'
@@ -615,13 +616,13 @@ def subscription(request):
 
     # Mention any bonus links that have been purchased, but not yet acknowledged
     purchases = PurchaseRequestResponse.customer_unacknowledged(data['customer_pk'], data['customer_type'])
-
     response = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
         'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp(),
-        'purchases': purchases
+        'purchases': purchases,
+        'reference_number': subscriptionReference
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 
