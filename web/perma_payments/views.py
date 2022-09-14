@@ -599,6 +599,7 @@ def subscription(request):
     if not standing_subscription:
         subscription = None
         subscriptionReference = None
+
     else:
         subscription = {
             'link_limit': standing_subscription.current_link_limit,
@@ -616,6 +617,7 @@ def subscription(request):
 
     # Mention any bonus links that have been purchased, but not yet acknowledged
     purchases = PurchaseRequestResponse.customer_unacknowledged(data['customer_pk'], data['customer_type'])
+
     response = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
