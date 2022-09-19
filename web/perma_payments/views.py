@@ -598,7 +598,6 @@ def subscription(request):
     standing_subscription = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
     if not standing_subscription:
         subscription = None
-        subscriptionReference = None
 
     else:
         subscription = {
@@ -607,9 +606,8 @@ def subscription(request):
             'rate': standing_subscription.current_rate,
             'frequency': standing_subscription.current_frequency,
             'paid_through': formatted_date_or_none(standing_subscription.paid_through),
+            'reference_number': standing_subscription.subscription_request.reference_number
         }
-        subscriptionReference = SubscriptionRequest.select_subscription_reference(standing_subscription.id)
-
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
             subscription['status'] = 'Cancellation Requested'
         else:
@@ -624,7 +622,6 @@ def subscription(request):
         'subscription': subscription,
         'timestamp': datetime.utcnow().timestamp(),
         'purchases': purchases,
-        'reference_number': subscriptionReference
     }
     return JsonResponse({'encrypted_data': prep_for_perma(response).decode('ascii')})
 

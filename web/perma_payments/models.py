@@ -440,17 +440,6 @@ class SubscriptionRequest(OutgoingTransaction, SubscriptionFields):
         )
     )
 
-    @classmethod
-    def select_subscription_reference(cls, sa_id):
-        sub_request = SubscriptionRequest.objects.get(subscription_agreement_id=sa_id)
-
-        if sub_request:
-            return sub_request.reference_number
-        else:
-            logger.error()
-            if settings.RAISE_IF_SUBSCRIPTION_NOT_FOUND:
-                raise cls.ObjectDoesNotExist
-
     def get_formatted_start_date(self):
         """
         Returns the recurring_start_date in the format required by CyberSource

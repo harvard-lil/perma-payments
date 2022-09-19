@@ -35,7 +35,8 @@ SENTINEL = {
     'message': fake.sentence(nb_words=7),
     'payment_token': fake.password(length=26),
     'invalid_payment_token': fake.password(length=16),
-    'purchase_pk': fake.random_int()
+    'purchase_pk': fake.random_int(),
+    'reference_number': f'PERMA-{fake.random_int(min=1000, max=9999)}-{fake.random_int(min=1000, max=9999)}'
 }
 
 
