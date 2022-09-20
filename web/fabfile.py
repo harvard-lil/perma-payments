@@ -47,6 +47,13 @@ def run_django(port=None):  # pragma: no cover
     local(f'python manage.py runserver {port}')
 
 
+@task(alias='run-with-perma')
+def run_django_with_perma(port=None):  # pragma: no cover
+    if port is None:
+        port = "0.0.0.0:80" if os.environ.get('DOCKERIZED') else "127.0.0.1:80"
+    local(f'python manage.py runserver {port} --settings=config.settings.settings_perma')
+
+
 @task
 def test(circle=False):
     # NB: all arguments to Fabric tasks are interpreted as strings

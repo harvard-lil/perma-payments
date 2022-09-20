@@ -212,6 +212,20 @@ When you are finished, spin down Docker containers by running:
 Your database will persist and will load automatically the next time you run `docker-compose up -d`.
 
 
+### To run perma-payments with perma
+
+Start up the Docker containers in the background with the settings to allow you to connect with perma, run:
+
+  $ docker compose -f docker-compose.perma.yml up -d --build
+
+Run the development server with the environment variables to connect with perma:
+
+  $ docker compose exec perma-payments-web fab run-with-perma
+
+Stop the Docker containers by running:
+
+  $ docker-compose -f docker-compose.perma.yml down
+
 Testing
 -------
 
