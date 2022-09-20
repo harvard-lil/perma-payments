@@ -118,7 +118,7 @@ def subscribe():
             'recurring_frequency': SENTINEL['recurring_frequency'],
             'recurring_start_date': SENTINEL['date'],
             'link_limit': SENTINEL['link_limit'],
-            'link_limit_effective_timestamp': SENTINEL['datetime'].timestamp()
+            'link_limit_effective_timestamp': SENTINEL['datetime'].timestamp(),
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
@@ -1371,6 +1371,7 @@ def test_subscription_post_standard_standing_subscription(client, subscription, 
             'frequency': complete_standing_sa.current_frequency,
             'status': complete_standing_sa.status,
             'paid_through': complete_standing_sa.paid_through,
+            'reference_number': complete_standing_sa.subscription_request.reference_number,
         },
         'timestamp': mocker.sentinel.timestamp,
         'purchases': []
@@ -1474,7 +1475,8 @@ def test_single_purchase_in_history(client, purchase_history, get_prr_for_user, 
     assert purchase_history == [{
         "id": prr.id,
         "link_quantity": prr.related_request.link_quantity,
-        "date": prr.related_request.request_datetime
+        "date": prr.related_request.request_datetime,
+        "reference_number": prr.related_request.reference_number
     }]
 
 
@@ -1494,11 +1496,13 @@ def test_multiple_purchases_in_history(client, purchase_history, get_prr_for_use
     assert purchase_history == [{
         "id": prr1.id,
         "link_quantity": prr1.related_request.link_quantity,
-        "date": prr1.related_request.request_datetime
+        "date": prr1.related_request.request_datetime,
+        "reference_number": prr1.related_request.reference_number
     },{
         "id": prr2.id,
         "link_quantity": prr2.related_request.link_quantity,
-        "date": prr2.related_request.request_datetime
+        "date": prr2.related_request.request_datetime,
+        "reference_number": prr2.related_request.reference_number
     }]
 
 

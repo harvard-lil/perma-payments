@@ -736,7 +736,8 @@ class PurchaseRequestResponse(Response):
             {
                 'id': purchase.pk,
                 'link_quantity': purchase.related_request.link_quantity,
-                'date': purchase.related_request.request_datetime
+                'date': purchase.related_request.request_datetime,
+                'reference_number': purchase.related_request.reference_number,
             } for purchase in purchases
         ]
 

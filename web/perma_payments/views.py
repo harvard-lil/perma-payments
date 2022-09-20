@@ -599,13 +599,13 @@ def subscription(request):
     if not standing_subscription:
         subscription = None
     else:
-
         subscription = {
             'link_limit': standing_subscription.current_link_limit,
             'link_limit_effective_timestamp': formatted_date_or_none(standing_subscription.current_link_limit_effective_timestamp),
             'rate': standing_subscription.current_rate,
             'frequency': standing_subscription.current_frequency,
             'paid_through': formatted_date_or_none(standing_subscription.paid_through),
+            'reference_number': standing_subscription.subscription_request.reference_number
         }
 
         if standing_subscription.cancellation_requested and standing_subscription.status != 'Canceled':
