@@ -119,7 +119,6 @@ def subscribe():
             'recurring_start_date': SENTINEL['date'],
             'link_limit': SENTINEL['link_limit'],
             'link_limit_effective_timestamp': SENTINEL['datetime'].timestamp(),
-            'reference_number': SENTINEL['reference_number']
         }
     }
     for field in FIELDS_REQUIRED_FROM_PERMA['subscribe']:
