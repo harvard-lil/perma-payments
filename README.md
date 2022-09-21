@@ -3,9 +3,15 @@
 [![harvard-lil](https://circleci.com/gh/harvard-lil/perma-payments.svg?style=svg)](https://github.com/harvard-lil/perma-payments) [![codecov](https://codecov.io/gh/harvard-lil/perma-payments/branch/develop/graph/badge.svg?token=RnJFtYHFZB)](https://codecov.io/gh/harvard-lil/perma-payments)
 
 1. [The Plot](#the-plot)
-2. [Common Tasks](#common-tasks)
-3. [Design Notes](#design-notes)
-3. [Running Locally](#running-locally)
+2. [Design Notes](#design-notes)
+3. [Common Tasks](#common-tasks)
+4. [Running Locally](#running-locally)
+6. [Testing][#testing]
+7. [Migrations](#migrations)
+8. [Build for local Perma development](#build-for-local-perma-development)
+9. [Running Locally with Perma](#running-locally-with-perma)
+10. [Contributions](#contributions)
+11. [License](#license)
 
 
 The Plot
@@ -211,21 +217,6 @@ When you are finished, spin down Docker containers by running:
 
 Your database will persist and will load automatically the next time you run `docker-compose up -d`.
 
-
-### To run perma-payments with perma
-
-Start up the Docker containers in the background with the settings to allow you to connect with perma, run:
-
-  $ docker compose -f docker-compose.perma.yml up -d --build
-
-Run the development server with the environment variables to connect with perma:
-
-  $ docker compose exec perma-payments-web fab run-with-perma
-
-Stop the Docker containers by running:
-
-  $ docker-compose -f docker-compose.perma.yml down
-
 Testing
 -------
 
@@ -250,6 +241,23 @@ Replacing `0.0` with the correct tag, run:
 ```
 docker build -t harvardlil/perma-payments:0.0  -f ./docker/Dockerfile .
 ```
+
+Running Locally with Perma
+--------------
+
+If you want to work on a feature that spans perma-payments and perma, you can run perma-payments locally on the same network as perma. You'll need to start the Docker containers for perma-payments before doing so for perma. Run these commands in conjunction with their counterparts in the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments)). The Docker containers for `perma-payments` have to be built before you can successfully run these commands in `perma`.
+
+To start up the Docker containers in the background with the settings to allow you to connect with `perma`, run:
+
+  `$ docker compose -f docker-compose.perma.yml up -d --build`
+
+Run the development server with the environment variables to connect with perma:
+
+  `$ docker compose exec perma-payments-web fab run-with-perma`
+
+Stop the Docker containers by running:
+
+  `$ docker compose -f docker-compose.perma.yml down`
 
 Contributions
 -------
