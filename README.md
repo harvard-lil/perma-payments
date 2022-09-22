@@ -3,10 +3,15 @@
 [![harvard-lil](https://circleci.com/gh/harvard-lil/perma-payments.svg?style=svg)](https://github.com/harvard-lil/perma-payments) [![codecov](https://codecov.io/gh/harvard-lil/perma-payments/branch/develop/graph/badge.svg?token=RnJFtYHFZB)](https://codecov.io/gh/harvard-lil/perma-payments)
 
 1. [The Plot](#the-plot)
-2. [Common Tasks](#common-tasks)
-3. [Design Notes](#design-notes)
-3. [Running Locally](#running-locally)
-
+2. [Design Notes](#design-notes)
+3. [Common Tasks](#common-tasks)
+4. [Running Locally](#running-locally)
+5. [Testing][#testing]
+6. [Migrations](#migrations)
+7. [Build for local Perma development](#build-for-local-perma-development)
+8. [Running Locally with Perma](#running-locally-with-perma)
+9.  [Contributions](#contributions)
+10. [License](#license)
 
 The Plot
 --------
@@ -237,15 +242,20 @@ Replacing `0.0` with the correct tag, run:
 docker build -t harvardlil/perma-payments:0.0  -f ./docker/Dockerfile .
 ```
 
+Running Locally with Perma
+--------------
+
+If you want to work on a feature that spans perma-payments and perma, you can run perma-payments locally on the same network as perma. You'll need to start the Docker containers for perma-payments before doing so for perma. After starting the perma-payments container, visit the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments) to run those containers.
+
 Contributions
 -------
 Contributions to this project should be made in individual forks and then merged by pull request. Here's an outline:
 
 1. Fork and clone the project.
-1. Make a branch for your feature: `git branch feature-1`
-1. Commit your changes with `git add` and `git commit`. (`git diff  --staged` is handy here!)
-1. Push your branch to your fork: `git push origin feature-1`
-1. Submit a pull request to the upstream develop through GitHub.
+2. Make a branch for your feature: `git branch feature-1`
+3. Commit your changes with `git add` and `git commit`. (`git diff  --staged` is handy here!)
+4. Push your branch to your fork: `git push origin feature-1`
+5. Submit a pull request to the upstream develop through GitHub.
 
 
 License
