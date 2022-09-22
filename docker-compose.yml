@@ -1,7 +1,7 @@
 version: '2'
 
 services:
-  db:
+  pp-db:
     image: registry.lil.tools/library/postgres:12.8
     volumes:
       - db_data_12:/var/lib/postgresql/data:delegated
@@ -21,7 +21,11 @@ services:
     ports:
       - "127.0.0.1:80:80"
     depends_on:
-      - db
+      - pp-db
+    networks:
+      default:
+        aliases:
+          - 'perma-payments'
 
 volumes:
   db_data_12:
