@@ -188,7 +188,7 @@ Running Locally
 
 Start up the Docker containers in the background:
 
-    $ docker-compose up -d
+    $ docker compose up -d
 
 The first time this runs it will build the Docker images, which
 may take several minutes. (After the first time, it should only take
@@ -196,7 +196,7 @@ may take several minutes. (After the first time, it should only take
 
 Then log into the main Docker container:
 
-    $ docker-compose exec web bash
+    $ docker compose exec web bash
 
 (Commands from here on out that start with `#` are being run in Docker.)
 
@@ -212,9 +212,9 @@ Spin up the development server:
 
 When you are finished, spin down Docker containers by running:
 
-    $ docker-compose down
+    $ docker compose down
 
-Your database will persist and will load automatically the next time you run `docker-compose up -d`.
+Your database will persist and will load automatically the next time you run `docker compose up -d`.
 
 
 Testing

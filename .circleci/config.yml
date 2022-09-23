@@ -14,12 +14,12 @@ jobs:
       - run:
           name: "Info"
           command: |
-            docker-compose --version
+            docker compose --version
             docker version
 
       # Docker image building and caching
       # This block shaves a minute or two off of the test runtime by using cached docker images.
-      # Otherwise we could omit this step entirely and let `docker-compose run` build what it needs to.
+      # Otherwise we could omit this step entirely and let `docker compose run` build what it needs to.
       - restore_cache:
           key: docker-images-{{ checksum "docker-compose.yml" }}
       - run:
@@ -30,7 +30,7 @@ jobs:
               docker load -i ~/docker-cache.tar
             else
               echo "Building new docker images"
-              docker-compose build
+              docker compose build
               docker save -o ~/docker-cache.tar perma-payments
             fi
       - save_cache:
@@ -43,10 +43,10 @@ jobs:
           name: "Test"
           command: |
             mkdir -p web/junit/pytest                            # storage for circleci test info
-            docker-compose up -d
+            docker compose up -d
             sleep 15
-            docker-compose exec web flake8 .
-            docker-compose exec web fab test:circle=True
+            docker compose exec web flake8 .
+            docker compose exec web fab test:circle=True
 
       # Upload test details to circleci
       - store_test_results:
