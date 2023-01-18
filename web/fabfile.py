@@ -48,9 +48,9 @@ def run_django(port=None):  # pragma: no cover
 
 
 @task
-def test(circle=False):
+def test(ci=False):
     # NB: all arguments to Fabric tasks are interpreted as strings
-    if circle == 'True':
+    if ci == 'True':
         local("pytest --ds=config.settings.settings_testing --junitxml=junit/pytest/test-results.xml --fail-on-template-vars --cov --cov-config=setup.cfg --cov-report xml")
     else:
         local("pytest --ds=config.settings.settings_testing --fail-on-template-vars --cov --cov-report= ")
