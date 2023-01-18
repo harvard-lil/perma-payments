@@ -6,7 +6,7 @@
 2. [Design Notes](#design-notes)
 3. [Common Tasks](#common-tasks)
 4. [Running Locally](#running-locally)
-5. [Testing][#testing]
+5. [Testing](#testing)
 6. [Migrations](#migrations)
 7. [Build for local Perma development](#build-for-local-perma-development)
 8. [Running Locally with Perma](#running-locally-with-perma)
