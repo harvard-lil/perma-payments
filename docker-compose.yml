@@ -29,3 +29,6 @@ services:
 
 volumes:
   db_data_12:
+
+networks:
+  default:
