@@ -11,7 +11,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    image: perma-payments:0.41
+    image: registry.lil.tools/harvardlil/perma-payments:1-nohash
     tty: true
     command: bash
     environment:
@@ -29,3 +29,6 @@ services:
 
 volumes:
   db_data_12:
+
+networks:
+  default:
