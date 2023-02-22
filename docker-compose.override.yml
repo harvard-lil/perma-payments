@@ -7,7 +7,7 @@ services:
       dockerfile: ./docker/Dockerfile
       x-bake:
         tags:
-          - registry.lil.tools/harvardlil/perma-payments:3-6126431405d977816229c28f7f895ce1
+          - registry.lil.tools/harvardlil/perma-payments:4-0713c04cf39c839d249be111ebc30b36
         platforms:
           - linux/amd64
           - linux/arm64
