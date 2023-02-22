@@ -29,9 +29,6 @@ class Migration(migrations.Migration):
                 ('reference_number', models.CharField(default=perma_payments.models.generate_reference_number, help_text="Unique ID for this purchase. Called 'Merchant Reference Number' in CyberSource Business Center.", max_length=32)),
                 ('link_quantity', models.PositiveIntegerField()),
             ],
-            options={
-                'manager_inheritance_from_future': True,
-            },
             bases=('perma_payments.outgoingtransaction', models.Model),
         ),
         migrations.CreateModel(
@@ -42,9 +39,6 @@ class Migration(migrations.Migration):
                 ('perma_acknowledged_at', models.DateTimeField(blank=True, null=True)),
                 ('related_request', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='purchase_request_response', to='perma_payments.PurchaseRequest')),
             ],
-            options={
-                'manager_inheritance_from_future': True,
-            },
             bases=('perma_payments.response',),
         ),
     ]

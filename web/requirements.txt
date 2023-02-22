@@ -8,6 +8,10 @@ apipkg==1.5 \
     --hash=sha256:37228cda29411948b422fae072f57e31d3396d2ee1c9783775980ee9c9990af6 \
     --hash=sha256:58587dd4dc3daefad0487f6d9ae32b4542b185e1c36db6993290e7c41ca2b47c
     # via execnet
+asgiref==3.6.0 \
+    --hash=sha256:71e68008da809b957b7ee4b43dbccff33d1b23519fb8344e33f049897077afac \
+    --hash=sha256:9567dfe7bd8d3c8c892227827c41cce860b368104c3431da67a0c5a65a949506
+    # via django
 attrs==19.3.0 \
     --hash=sha256:08a96c641c3a74e44eb59afb61a24f2cb9f4d7188748e76ba4bb5edfa3cb7d1c \
     --hash=sha256:f7b7ce16570fe9965acd6d30101a28f62fb4a7f9e926b3bbc9b61f8b04247e72
@@ -110,9 +114,9 @@ cryptography==3.4.6 \
     --hash=sha256:df186fcbf86dc1ce56305becb8434e4b6b7504bc724b71ad7a3239e0c9d14ef2 \
     --hash=sha256:fec7fb46b10da10d9e1d078d1ff8ed9e05ae14f431fdbd11145edd0550b9a964
     # via paramiko
-django==2.2.28 \
-    --hash=sha256:0200b657afbf1bc08003845ddda053c7641b9b24951e52acd51f6abda33a7413 \
-    --hash=sha256:365429d07c1336eb42ba15aa79f45e1c13a0b04d5c21569e7d596696418a6a45
+django==3.2.18 \
+    --hash=sha256:08208dfe892eb64fff073ca743b3b952311104f939e7f6dae954fe72dcc533ba \
+    --hash=sha256:4d492d9024c7b3dfababf49f94511ab6a58e2c9c3c7207786f1ba4eb77750706
     # via
     #   -r requirements.in
     #   django-polymorphic
@@ -120,9 +124,9 @@ django-nested-inline==0.4.2 \
     --hash=sha256:45c3a91e530ec479359727be4a89ef2446e3dd6424f9574aac038ebfd55c38bf \
     --hash=sha256:a54ea7c39ef5d82c536d2a8eb7ec375dd08f11c04853046bb24e5415a69cd3ed
     # via -r requirements.in
-django-polymorphic==2.1.2 \
-    --hash=sha256:0a25058e95e5e99fe0beeabb8f4734effe242d7b5b77dca416fba9fd3062da6a \
-    --hash=sha256:6e08a76c91066635ccb7ef3ebbe9a0ad149febae6b30be2579716ec16d3c6461
+django-polymorphic==3.1.0 \
+    --hash=sha256:08bc4f4f4a773a19b2deced5a56deddd1ef56ebd15207bf4052e2901c25ef57e \
+    --hash=sha256:d6955b5308bf6e41dcb22ba7c96f00b51dfa497a8a5ab1e9c06c7951bf417bf8
     # via -r requirements.in
 django-simple-history==2.11.0 \
     --hash=sha256:b46191e97bb59b82e0ef20ae316021f7337fec50e5acbbd5a757b37910759af0 \
