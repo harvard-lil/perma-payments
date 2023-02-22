@@ -10,7 +10,6 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist, Multiple
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
-from django.utils.decorators import available_attrs
 from django.utils.timezone import make_aware
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
@@ -211,7 +210,7 @@ def user_passes_test_or_403(test_func):
     """
     def decorator(view_func):
         @login_required()
-        @wraps(view_func, assigned=available_attrs(view_func))
+        @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             if not test_func(request.user):
                 raise PermissionDenied
