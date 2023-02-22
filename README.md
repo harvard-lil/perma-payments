@@ -245,7 +245,9 @@ docker build -t harvardlil/perma-payments:0.0  -f ./docker/Dockerfile .
 Running Locally with Perma
 --------------
 
-If you want to work on a feature that spans perma-payments and perma, you can run perma-payments locally on the same network as perma. You'll need to start the Docker containers for perma-payments before doing so for perma. After starting the perma-payments container, visit the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments) to run those containers.
+If you want to work on a feature that spans Perma Payments and Perma, you can run Perma Payments locally on the same network as Perma.
+
+With no other Docker containers running (`docker ps` returns no results), start the Perma Payments containers (`docker compose up -d`) and run the development server (`docker compose exec web fab run)/`). Then, head over to the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments) to run instructions on how to start up Perma so that it talks to this already-running instance of Perma Payments rather than spinning up its own as usual.
 
 Contributions
 -------
