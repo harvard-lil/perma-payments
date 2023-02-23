@@ -7,7 +7,6 @@ import json
 from nacl import encoding
 from nacl.public import SealedBox, Box, PrivateKey, PublicKey
 import string
-from werkzeug.security import safe_str_cmp
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -201,6 +200,23 @@ def sign_data(data_string):
     secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
+
+
+@sensitive_variables()
+def safe_str_cmp(a: str, b: str) -> bool:
+    """
+    This function compares strings in somewhat constant time.  This
+    requires that the length of at least one string is known in advance.
+    Returns `True` if the two strings are equal, or `False` if they are not.
+    Previously provided by werkzeug.
+    """
+    if isinstance(a, str):
+        a = a.encode("utf-8")  # type: ignore
+
+    if isinstance(b, str):
+        b = b.encode("utf-8")  # type: ignore
+
+    return hmac.compare_digest(a, b)
 
 
 @sensitive_variables()
