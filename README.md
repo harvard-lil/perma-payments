@@ -206,7 +206,7 @@ You should now have a working installation!
 
 Spin up the development server:
 
-    # fab run
+    # invoke run
 
 ### Stop
 
@@ -222,7 +222,7 @@ Testing
 
 ### Test Commands
 
-1. `# fab test` runs python tests
+1. `# invoke test` runs python tests
 1. `# flake8` runs python lints
 
 ### Coverage
@@ -247,7 +247,7 @@ Running Locally with Perma
 
 If you want to work on a feature that spans Perma Payments and Perma, you can run Perma Payments locally on the same network as Perma.
 
-With no other Docker containers running (`docker ps` returns no results), start the Perma Payments containers (`docker compose up -d`) and run the development server (`docker compose exec web fab run)/`). Then, head over to the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments) to run instructions on how to start up Perma so that it talks to this already-running instance of Perma Payments rather than spinning up its own as usual.
+With no other Docker containers running (`docker ps` returns no results), start the Perma Payments containers (`docker compose up -d`) and run the development server (`docker compose exec web invoke run)/`). Then, head over to the [`perma` repo](https://github.com/harvard-lil/perma/blob/develop/developer.md#test-perma-interaction-with-perma-payments) to run instructions on how to start up Perma so that it talks to this already-running instance of Perma Payments rather than spinning up its own as usual.
 
 Contributions
 -------

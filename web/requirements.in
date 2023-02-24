@@ -1,6 +1,6 @@
 # Admin
 pip-tools
-fabric3                     # project automation
+invoke                      # project automation
 
 # Database
 psycopg2                    # postgres connector
