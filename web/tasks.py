@@ -6,8 +6,7 @@ import sys
 
 import django
 
-from fabric.api import local
-from fabric.decorators import task
+from invoke import task
 
 ### Helpers ###
 
@@ -30,39 +29,41 @@ def setup_django(func):  # pragma: no cover
 
 ### Tasks ###
 
-@task(alias='pip-compile')
-def pip_compile(args=''):
+@task
+def pip_compile(ctx, args=''):
     # run pip-compile
     # Use --allow-unsafe because pip --require-hashes needs all requirements to be pinned, including those like
     # setuptools that pip-compile leaves out by default.
     command = ['pip-compile', '--generate-hashes', '--allow-unsafe']+args.split()
     print("Calling %s" % " ".join(command))
-    subprocess.check_call(command, env=dict(os.environ, CUSTOM_COMPILE_COMMAND='fab pip-compile'))
-
-
-@task(alias='run')
-def run_django(port=None):  # pragma: no cover
-    if port is None:
-        port = "0.0.0.0:80" if os.environ.get('DOCKERIZED') else "127.0.0.1:80"
-    local(f'python manage.py runserver {port}')
+    subprocess.check_call(command, env=dict(os.environ, CUSTOM_COMPILE_COMMAND='invoke pip-compile'))
 
 
 @task
-def test(ci=False):
-    # NB: all arguments to Fabric tasks are interpreted as strings
-    if ci == 'True':
-        local("pytest --ds=config.settings.settings_testing --junitxml=junit/pytest/test-results.xml --fail-on-template-vars --cov --cov-config=setup.cfg --cov-report xml")
+def run(ctx, port=None):  # pragma: no cover
+    if port is None:
+        port = "0.0.0.0:80" if os.environ.get('DOCKERIZED') else "127.0.0.1:80"
+    ctx.run(f'python manage.py runserver {port}')
+
+
+@task
+def test(ctx, ci=False):
+    # with Invoke, boolean arguments are switches, and don't have to be considered strings,
+    # as in Fabric3; that is, to run tests in CI, use `invoke test --ci`
+    # see https://docs.pyinvoke.org/en/stable/concepts/invoking-tasks.html#type-casting
+    if ci:
+        ctx.run("pytest --ds=config.settings.settings_testing --junitxml=junit/pytest/test-results.xml --fail-on-template-vars --cov --cov-config=setup.cfg --cov-report xml")
     else:
-        local("pytest --ds=config.settings.settings_testing --fail-on-template-vars --cov --cov-report= ")
+        ctx.run("pytest --ds=config.settings.settings_testing --fail-on-template-vars --cov --cov-report= ")
 
 
 @task
 @setup_django
-def init_dev_db():
+def init_dev_db(ctx):
     """
     Set up a new dev database.
     """
-    local("python3 manage.py migrate")
+    ctx.run("python3 manage.py migrate")
     print("Creating dev admin user.")
     from django.contrib.auth.models import User #noqa
     User.objects.create_superuser('admin', 'admin@example.com', 'admin')
@@ -70,7 +71,7 @@ def init_dev_db():
 
 @task
 @setup_django
-def find_pending_cancellation_requests(tier='dev'):
+def find_pending_cancellation_requests(ctx, tier='dev'):
     """
     Report pending cancellation requests.
     """
