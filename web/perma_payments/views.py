@@ -236,13 +236,19 @@ def index(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 @sensitive_post_parameters('encrypted_data')
 def purchase(request):
     """
     Processes user-initiated one-time purchase requests from Perma.cc;
     Redirects user to CyberSource for payment.
     """
+    if request.method == "GET":
+        return render(request, 'generic.html', {
+            'heading': "Perma Payments",
+            'message': "A window to CyberSource Secure Acceptance Web/Mobile"
+        })
+
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['purchase'])
     except InvalidTransmissionException:
@@ -316,13 +322,19 @@ def acknowledge_purchase(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 @sensitive_post_parameters('encrypted_data')
 def subscribe(request):
     """
     Processes user-initiated subscription requests from Perma.cc;
     Redirects user to CyberSource for payment.
     """
+    if request.method == "GET":
+        return render(request, 'generic.html', {
+            'heading': "Perma Payments",
+            'message': "A window to CyberSource Secure Acceptance Web/Mobile"
+        })
+    
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['subscribe'])
     except InvalidTransmissionException:

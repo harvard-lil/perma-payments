@@ -475,8 +475,13 @@ def test_purchase_post_redirect_form_populated_correctly(client, purchase, purch
 
 
 def test_purchase_other_methods(client, purchase):
-    get_not_allowed(client, purchase['route'])
     put_patch_delete_not_allowed(client, purchase['route'])
+
+
+def test_purchase_get(client, purchase, index):
+    response = client.get(purchase['route'])
+    assert response.status_code == 200
+    expected_template_used(response, index['template'])
 
 
 # acknowledge-purchase
@@ -742,8 +747,13 @@ def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, sub
 
 
 def test_subscribe_other_methods(client, subscribe):
-    get_not_allowed(client, subscribe['route'])
     put_patch_delete_not_allowed(client, subscribe['route'])
+
+
+def test_subscribe_get(client, subscribe, index):
+    response = client.get(subscribe['route'])
+    assert response.status_code == 200
+    expected_template_used(response, index['template'])
 
 
 # change
