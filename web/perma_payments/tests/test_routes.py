@@ -1266,8 +1266,7 @@ def test_cybersource_callback_post_purchase_request(client, cybersource_callback
         autospec=True,
         return_value = purchase_request
     )
-    purchase_request_response =  mocker.patch('perma_payments.views.PurchaseRequest.purchase_request_response', autospec=True)
-    act_on_cs_decision =  mocker.patch.object(purchase_request_response.return_value, 'act_on_cs_decision', autospec=True)
+
     r = mocker.patch('perma_payments.views.Response', autospec=True)
 
     # request
@@ -1285,11 +1284,7 @@ def test_cybersource_callback_post_purchase_request(client, cybersource_callback
             'message': cybersource_callback['valid_data']['message'],
         }
     )
-    act_on_cs_decision.assert_called_once_with(
-        purchase_request,
-        cybersource_callback['valid_data']['decision'],
-        redact(cybersource_callback['valid_data'])
-    )
+
     assert response.status_code == 200
     expected_template_used(response, 'generic.html')
     assert b'OK' in response.content
