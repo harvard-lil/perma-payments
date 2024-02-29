@@ -21,6 +21,7 @@ from django.utils.timezone import make_aware
 
 import pytest
 from pytest_factoryboy import register
+from unittest.mock import Mock
 
 from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL
 from perma_payments.models import (STANDING_STATUSES,
@@ -1259,16 +1260,17 @@ def test_cybersource_callback_payment_token_invalid(client, cybersource_callback
 
 
 @pytest.mark.django_db
-def test_cybersource_callback_post_purchase_request(client, cybersource_callback, purchase_request, mocker):
+def test_cybersource_callback_post_purchase_request(client, cybersource_callback, purchase_request_response, mocker):
     mocker.patch('perma_payments.views.process_cybersource_transmission', autospec=True, return_value=cybersource_callback['valid_data'])
+    purchase_request = purchase_request_response.related_request
     get_request = mocker.patch(
         'perma_payments.views.OutgoingTransaction.objects.get',
         autospec=True,
         return_value = purchase_request
     )
-    purchase_request_response =  mocker.patch('perma_payments.views.PurchaseRequest.purchase_request_response', autospec=True)
-    act_on_cs_decision =  mocker.patch.object(purchase_request_response.return_value, 'act_on_cs_decision', autospec=True)
     r = mocker.patch('perma_payments.views.Response', autospec=True)
+    r.save_new_with_encrypted_full_response.return_value = purchase_request_response
+    purchase_request_response.act_on_cs_decision = Mock()
 
     # request
     response = client.post(cybersource_callback['route'], cybersource_callback['valid_data'])
@@ -1285,9 +1287,7 @@ def test_cybersource_callback_post_purchase_request(client, cybersource_callback
             'message': cybersource_callback['valid_data']['message'],
         }
     )
-    act_on_cs_decision.assert_called_once_with(
-        purchase_request,
-        cybersource_callback['valid_data']['decision'],
+    purchase_request_response.act_on_cs_decision.assert_called_once_with(
         redact(cybersource_callback['valid_data'])
     )
     assert response.status_code == 200

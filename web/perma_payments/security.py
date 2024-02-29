@@ -1,5 +1,6 @@
 import base64
-from collections import OrderedDict, Mapping
+from collections import OrderedDict
+from collections.abc import Mapping
 from datetime import timedelta, datetime
 import hashlib
 import hmac
