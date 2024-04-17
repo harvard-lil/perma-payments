@@ -1,5 +1,3 @@
-version: '2'
-
 services:
   pp-db:
     image: registry.lil.tools/library/postgres:12.11
