@@ -19,20 +19,20 @@ jobs:
 
       ### run tests ###
 
-      - name: docker-compose up
+      - name: docker compose up
         run: |
           # separate pull so downloads run in parallel, with
           # --ignore-pull-failures for PRs with new images that haven't been pushed yet:
-          docker-compose -f docker-compose.yml pull --ignore-pull-failures || true
-          docker-compose -f docker-compose.yml up -d        # use -f to suppress docker-compose.override.yml
+          docker compose -f docker-compose.yml pull --ignore-pull-failures || true
+          docker compose -f docker-compose.yml up -d        # use -f to suppress docker-compose.override.yml
           docker ps -a                                      # show running containers
-          docker-compose logs                               # show logs
+          docker compose logs                               # show logs
 
       - name: Python tests
-        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'  # avoid docker-compose "the input device is not a TTY" -- see https://github.com/actions/runner/issues/241#issuecomment-842566950
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'  # avoid docker compose "the input device is not a TTY" -- see https://github.com/actions/runner/issues/241#issuecomment-842566950
         run: |
           set -x
-          docker-compose exec web invoke test --ci
+          docker compose exec web invoke test --ci
 
       ### codecov ###
       # https://github.com/codecov/codecov-action
@@ -42,7 +42,7 @@ jobs:
       # Commit image version change if necessary, then deploy via Salt reactor
       - name: Deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'  # avoid docker-compose "the input device is not a TTY" -- https://github.com/actions/runner/issues/241#issuecomment-842566950
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'  # avoid docker compose "the input device is not a TTY" -- https://github.com/actions/runner/issues/241#issuecomment-842566950
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
           DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
