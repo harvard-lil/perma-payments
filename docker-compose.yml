@@ -9,7 +9,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    image: registry.lil.tools/harvardlil/perma-payments:19-feb5e21507118e85975cc35a5e15c5c4
+    image: registry.lil.tools/harvardlil/perma-payments:20-cd472eae28bb3affe3b6da1880ff17a2
     tty: true
     command: bash
     environment:
