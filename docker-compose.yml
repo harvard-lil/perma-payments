@@ -1,8 +1,8 @@
 services:
   pp-db:
-    image: registry.lil.tools/library/postgres:12.11
+    image: registry.lil.tools/library/postgres:16.6
     volumes:
-      - db_data_12:/var/lib/postgresql/data:delegated
+      - db_data_16:/var/lib/postgresql/data:delegated
     environment:
       - POSTGRES_PASSWORD=example
   web:
@@ -27,6 +27,7 @@ services:
 
 volumes:
   db_data_12:
+  db_data_16:
 
 networks:
   default:
