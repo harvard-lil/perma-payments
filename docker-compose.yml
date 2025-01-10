@@ -26,7 +26,6 @@ services:
           - 'perma-payments'
 
 volumes:
-  db_data_12:
   db_data_16:
 
 networks:
