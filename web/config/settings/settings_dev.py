@@ -36,7 +36,9 @@ PERMA_ENCRYPTION_KEYS = {
 # }
 
 
-# CyberSource creds
-CS_ACCESS_KEY = 'fake'
-CS_PROFILE_ID = 'fake'
-CS_SECRET_KEY = 'a-really-long-fake-string'
+# Payment provider credentials for development
+PAYMENT_PROVIDERS['cybersource_legacy'].update({
+    'access_key': 'fake',
+    'profile_id': 'fake',
+    'secret_key': 'a-really-long-fake-string',
+})

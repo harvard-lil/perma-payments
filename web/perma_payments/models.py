@@ -24,6 +24,7 @@ RN_SET = "0123456789"
 REFERENCE_NUMBER_PREFIX = "PERMA"
 STANDING_STATUSES = ['Current', 'Hold']
 CUSTOMER_TYPES = ['Registrar', 'Individual']
+PAYMENT_PROVIDER_CHOICES = ['cybersource_legacy', 'cybersource_rest', 'stripe']
 
 
 #
@@ -96,28 +97,40 @@ class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
     """
     A Subscription Agreement comprises:
         a) A request to pay an amount, on a schedule, with a particular card and particular billing address
-        b) CyberSource's initial response to the request.
-           If CyberSource approves the subscription request,
-           a 'Payment Token', also known as a 'Subscription ID', will be included in the response.
-        c) Any subsequent updates from CyberSource about attempted scheduled payments
-           associated with the Subscription ID. Indicates whether payments were successful and
-           the agreement still stands.
+        b) The payment provider's initial response to the request.
+           If approved, provider-specific identifiers will be stored in provider_data.
+        c) Any subsequent updates from the payment provider about attempted scheduled payments.
+           Indicates whether payments were successful and the agreement still stands.
 
-    N.B. Perma-Payments does NOT support 16-digit format-preserving subscription IDs.
+    Supported payment providers:
+        - cybersource_legacy: CyberSource Secure Acceptance Web/Mobile (redirect-based)
+        - cybersource_rest: CyberSource REST API with Flex Microform (embedded)
+        - stripe: Stripe Checkout/Payment Elements
 
-    If a CyberSource account is configured to use a 16-digit format-preserving Payment Token/Subscription ID,
-    and if the customer subsequently updates the card number, CyberSource will mark the original Payment Token
-    as obsolete ("superseded") and issue a new Payment Token/Subscription ID.
-
-    Perma-Payments only supports unchanging, updateable Payment Tokens,
-    which are the CyberSource default as of 8/16/17.
-
-    Perma-Payments will log an error if any 16-digit Payment Tokens are received.
+    Provider-specific data is stored in provider_data JSONField:
+        - cybersource_legacy: {"payment_token": "..."}
+        - cybersource_rest: {"customer_id": "...", "payment_instrument_id": "...", "subscription_id": "..."}
+        - stripe: {"customer_id": "cus_...", "subscription_id": "sub_...", "payment_method_id": "pm_..."}
     """
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
 
     history = HistoricalRecords()
+    
+    # Payment provider fields
+    payment_provider = models.CharField(
+        max_length=30,
+        choices=((p, p) for p in PAYMENT_PROVIDER_CHOICES),
+        default='cybersource_legacy',
+        db_index=True,
+        help_text="The payment provider managing this subscription"
+    )
+    provider_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Provider-specific identifiers (e.g., payment_token, customer_id, subscription_id)"
+    )
+    
     status = models.CharField(
         max_length=20,
         choices=(
@@ -200,6 +213,22 @@ class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
     def can_be_altered(self):
         return self.status in STANDING_STATUSES and not self.cancellation_requested
 
+    @property
+    def payment_token(self):
+        """
+        Get the payment token from provider_data.
+        For cybersource_legacy, this is the payment_token.
+        For cybersource_rest, this could be the subscription_id.
+        For stripe, this could be the subscription_id.
+        Returns None if not set.
+        """
+        if self.payment_provider == 'cybersource_legacy':
+            return self.provider_data.get('payment_token')
+        elif self.payment_provider == 'cybersource_rest':
+            return self.provider_data.get('subscription_id')
+        elif self.payment_provider == 'stripe':
+            return self.provider_data.get('subscription_id')
+        return None
 
     def calculate_paid_through_date_from_reported_status(self, status):
         if status == 'Current':
@@ -509,6 +538,20 @@ class PurchaseRequest(SubscriptionAndPurchaseMixin, OutgoingTransaction, Purchas
     """
     def __str__(self):
         return 'PurchaseRequest {}'.format(self.id)
+
+    # Payment provider fields
+    payment_provider = models.CharField(
+        max_length=30,
+        choices=((p, p) for p in PAYMENT_PROVIDER_CHOICES),
+        default='cybersource_legacy',
+        db_index=True,
+        help_text="The payment provider used for this purchase"
+    )
+    provider_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Provider-specific identifiers"
+    )
 
     transaction_type = models.CharField(
         max_length=30,

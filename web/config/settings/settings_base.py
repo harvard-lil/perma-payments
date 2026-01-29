@@ -150,6 +150,47 @@ REGISTRAR_USERS_PATH = '/manage/registrar-users?registrar='
 # Direct all CyberSource communications to their test server by default
 CS_MODE = 'test'
 
+#
+# Payment Provider Configuration
+#
+# Perma-Payments supports multiple payment providers. Each provider has its own
+# credentials configured as lowercase keys. Set credentials in settings.py
+# (outside version control). Blank values allow the app to run without credentials
+# (providers will report can_handle_new_subscription=False).
+#
+# The CHECKOUT_PROVIDERS list determines which providers to try (in order) for
+# new subscriptions.
+
+PAYMENT_PROVIDERS = {
+    'cybersource_legacy': {
+        'class': 'perma_payments.providers.cybersource_legacy.CybersourceLegacyProvider',
+        'mode': CS_MODE,
+        'access_key': '',
+        'profile_id': '',
+        'secret_key': '',
+    },
+    'cybersource_rest': {
+        'class': 'perma_payments.providers.cybersource_rest.CybersourceRestProvider',
+        'mode': CS_MODE,
+        'merchant_id': '',
+        'key_id': '',
+        'shared_secret': '',
+    },
+    'stripe': {
+        'class': 'perma_payments.providers.stripe.StripeProvider',
+        'secret_key': '',
+        'publishable_key': '',
+        'webhook_secret': '',
+    },
+}
+
+# Providers to try in order for checkout (first available wins)
+# Change this list to migrate to new providers
+CHECKOUT_PROVIDERS = ['cybersource_legacy']
+
+# Default provider for new subscriptions when no probing needed
+DEFAULT_PAYMENT_PROVIDER = 'cybersource_legacy'
+
 # Exception handling for bulk updating subscription statuses;
 # override if desired for easier testing (e.g., in dev)
 RAISE_IF_SUBSCRIPTION_NOT_FOUND = True

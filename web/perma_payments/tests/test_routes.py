@@ -381,7 +381,7 @@ def test_purchase_post_invalid_perma_transmission(client, purchase, mocker):
     assert not pr_instance.save.called
 
 
-def test_purchase_post_pr_validation_fails(client, purchase, mocker):
+def test_purchase_post_pr_validation_fails(client, purchase, mock_checkout_provider, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -402,7 +402,8 @@ def test_purchase_post_pr_validation_fails(client, purchase, mocker):
     assert log.call_count == 1
 
 
-def test_purchase_post_pr_validated_and_saved_correctly(client, purchase, mocker):
+def test_purchase_post_pr_validated_and_saved_correctly(client, purchase, mock_checkout_provider, mocker):
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -419,47 +420,43 @@ def test_purchase_post_pr_validated_and_saved_correctly(client, purchase, mocker
         customer_type=purchase['valid_data']['customer_type'],
         amount=purchase['valid_data']['amount'],
         link_quantity=purchase['valid_data']['link_quantity'],
+        payment_provider=provider_mock.name,
     )
     assert pr_instance.full_clean.call_count == 1
     assert pr_instance.save.call_count == 1
 
 
-def test_purchase_post_data_prepped_correctly(client, purchase, mocker):
+def test_purchase_post_provider_called_correctly(client, purchase, mock_checkout_provider, mocker):
+    """Test that the provider's get_checkout_context is called with correct arguments."""
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     pr = mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
     pr_instance = pr.return_value
-    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
 
     # request
     response = client.post(purchase['route'])
 
     # assertions
     assert response.status_code == 200
-    fields_to_prep = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'amount': pr_instance.amount,
-        'currency': pr_instance.currency,
-        'locale': pr_instance.locale,
-        'payment_method': pr_instance.payment_method,
-        'profile_id': settings.CS_PROFILE_ID,
-        'reference_number': pr_instance.reference_number,
-        'signed_date_time': pr_instance.get_formatted_datetime(),
-        'transaction_type': pr_instance.transaction_type,
-        'transaction_uuid': pr_instance.transaction_uuid,
-    }
-    prepped.assert_called_once_with(fields_to_prep)
-    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['purchase']:
-        assert field in fields_to_prep
+    provider_mock.get_checkout_context.assert_called_once()
+    call_kwargs = provider_mock.get_checkout_context.call_args[1]
+    assert call_kwargs['request_type'] == 'purchase'
+    assert call_kwargs['outgoing_transaction'] == pr_instance
 
 
-def test_purchase_post_redirect_form_populated_correctly(client, purchase, purchase_redirect_fields, mocker):
+def test_purchase_post_redirect_form_populated_correctly(client, purchase, purchase_redirect_fields, mock_checkout_provider, mock_legacy_provider_context, mocker):
+    provider_mock, _ = mock_checkout_provider
+    # Configure the mock provider to return our custom fields
+    provider_mock.get_checkout_context.return_value = mock_legacy_provider_context(
+        fields_to_post=purchase_redirect_fields
+    )
+    
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=purchase['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     mocker.patch('perma_payments.views.PurchaseRequest', autospec=True)
-    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=purchase_redirect_fields)
 
     # request
     response = client.post(purchase['route'])
@@ -606,7 +603,7 @@ def test_subscribe_post_already_standing_subscription(client, subscribe, mocker)
     assert not sr_instance.save.called
 
 
-def test_subscribe_post_sa_validation_fails(client, subscribe, mocker):
+def test_subscribe_post_sa_validation_fails(client, subscribe, mock_checkout_provider, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -631,7 +628,7 @@ def test_subscribe_post_sa_validation_fails(client, subscribe, mocker):
     assert log.call_count == 1
 
 
-def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
+def test_subscribe_post_sr_validation_fails(client, subscribe, mock_checkout_provider, mocker):
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -654,7 +651,8 @@ def test_subscribe_post_sr_validation_fails(client, subscribe, mocker):
     assert log.call_count == 1
 
 
-def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscribe, mocker):
+def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscribe, mock_checkout_provider, mocker):
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -672,7 +670,8 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
     sa.assert_called_once_with(
         customer_pk=subscribe['valid_data']['customer_pk'],
         customer_type=subscribe['valid_data']['customer_type'],
-        status='Pending'
+        status='Pending',
+        payment_provider=provider_mock.name,
     )
     assert sa_instance.full_clean.call_count == 1
     assert sa_instance.save.call_count == 1
@@ -689,7 +688,9 @@ def test_subscribe_post_sa_and_sr_validated_and_saved_correctly(client, subscrib
     assert sr_instance.save.call_count == 1
 
 
-def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
+def test_subscribe_post_provider_called_correctly(client, subscribe, mock_checkout_provider, mocker):
+    """Test that the provider's get_checkout_context is called with correct arguments."""
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
@@ -697,41 +698,31 @@ def test_subscribe_post_data_prepped_correctly(client, subscribe, mocker):
     sa.customer_standing_subscription.return_value = None
     sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
     sr_instance = sr.return_value
-    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
 
     # request
     response = client.post(subscribe['route'])
 
     # assertions
     assert response.status_code == 200
-    fields_to_prep = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'amount': sr_instance.amount,
-        'currency': sr_instance.currency,
-        'locale': sr_instance.locale,
-        'payment_method': sr_instance.payment_method,
-        'profile_id': settings.CS_PROFILE_ID,
-        'recurring_amount': sr_instance.recurring_amount,
-        'recurring_frequency': sr_instance.recurring_frequency,
-        'recurring_start_date': sr_instance.get_formatted_start_date(),
-        'reference_number': sr_instance.reference_number,
-        'signed_date_time': sr_instance.get_formatted_datetime(),
-        'transaction_type': sr_instance.transaction_type,
-        'transaction_uuid': sr_instance.transaction_uuid,
-    }
-    prepped.assert_called_once_with(fields_to_prep)
-    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['subscribe']:
-        assert field in fields_to_prep
+    provider_mock.get_checkout_context.assert_called_once()
+    call_kwargs = provider_mock.get_checkout_context.call_args[1]
+    assert call_kwargs['request_type'] == 'subscribe'
+    assert call_kwargs['outgoing_transaction'] == sr_instance
 
 
-def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, subscribe_redirect_fields, mocker):
+def test_subscribe_post_redirect_form_populated_correctly(client, subscribe, subscribe_redirect_fields, mock_checkout_provider, mock_legacy_provider_context, mocker):
+    provider_mock, _ = mock_checkout_provider
+    # Configure the mock provider to return our custom fields
+    provider_mock.get_checkout_context.return_value = mock_legacy_provider_context(
+        fields_to_post=subscribe_redirect_fields
+    )
+    
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=subscribe['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa.customer_standing_subscription.return_value = None
     mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
-    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=subscribe_redirect_fields)
 
     # request
     response = client.post(subscribe['route'])
@@ -873,59 +864,47 @@ def test_change_post_cr_validated_and_saved_correctly(client, change, complete_s
     assert cr_instance.save.call_count == 1
 
 
-def test_change_post_data_prepped_correctly(client, change, mocker):
+def test_change_post_provider_called_correctly(client, change, mock_checkout_provider, mocker):
+    """Test that the provider's get_checkout_context is called with correct arguments."""
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
+    sa_instance.payment_provider = 'cybersource_legacy'
+    sa_instance.can_be_altered.return_value = True
     sa.customer_standing_subscription.return_value = sa_instance
-    sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
-    sr_instance = sr.return_value
-    srr = mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
-    srr_instance = srr.return_value
-    sa_instance.subscription_request = sr_instance
-    sr_instance.subscription_request_response = srr_instance
     cr = mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
     cr_instance = cr.return_value
-    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
 
     # request
     response = client.post(change['route'])
 
     # assertions
     assert response.status_code == 200
-    fields_to_prep = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'allow_payment_token_update': 'true',
-        'amount': cr_instance.amount,
-        'currency': cr_instance.currency,
-        'locale': cr_instance.locale,
-        'payment_method': cr_instance.payment_method,
-        'payment_token': srr_instance.payment_token,
-        'profile_id': settings.CS_PROFILE_ID,
-        'recurring_amount': cr_instance.recurring_amount,
-        'reference_number': sr_instance.reference_number,
-        'signed_date_time': cr_instance.get_formatted_datetime(),
-        'transaction_type': cr_instance.transaction_type,
-        'transaction_uuid': cr_instance.transaction_uuid,
-    }
-    prepped.assert_called_once_with(fields_to_prep)
-    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['change']:
-        assert field in fields_to_prep
+    provider_mock.get_checkout_context.assert_called_once()
+    call_kwargs = provider_mock.get_checkout_context.call_args[1]
+    assert call_kwargs['request_type'] == 'change'
+    assert call_kwargs['outgoing_transaction'] == cr_instance
 
 
-def test_change_post_redirect_form_populated_correctly(client, change, change_redirect_fields, mocker):
+def test_change_post_redirect_form_populated_correctly(client, change, change_redirect_fields, mock_checkout_provider, mock_legacy_provider_context, mocker):
+    provider_mock, _ = mock_checkout_provider
+    # Configure the mock provider to return our custom fields
+    provider_mock.get_checkout_context.return_value = mock_legacy_provider_context(
+        fields_to_post=change_redirect_fields
+    )
+    
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=change['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
-        spec_set=SubscriptionAgreement.customer_standing_subscription
-    )
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.payment_provider = 'cybersource_legacy'
+    sa_instance.can_be_altered.return_value = True
+    sa.customer_standing_subscription.return_value = sa_instance
     mocker.patch('perma_payments.views.ChangeRequest', autospec=True)
-    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=change_redirect_fields)
-
 
     # request
     response = client.post(change['route'])
@@ -1057,56 +1036,47 @@ def test_update_post_ur_validated_and_saved_correctly(client, update, complete_s
     assert ur_instance.save.call_count == 1
 
 
-def test_update_post_data_prepped_correctly(client, update, mocker):
+def test_update_post_provider_called_correctly(client, update, mock_checkout_provider, mocker):
+    """Test that the provider's get_checkout_context is called with correct arguments."""
+    provider_mock, _ = mock_checkout_provider
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
     sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
     sa_instance = sa.return_value
+    sa_instance.payment_provider = 'cybersource_legacy'
+    sa_instance.can_be_altered.return_value = True
     sa.customer_standing_subscription.return_value = sa_instance
-    sr = mocker.patch('perma_payments.views.SubscriptionRequest', autospec=True)
-    sr_instance = sr.return_value
-    srr = mocker.patch('perma_payments.views.SubscriptionRequestResponse', autospec=True)
-    srr_instance = srr.return_value
-    sa_instance.subscription_request = sr_instance
-    sr_instance.subscription_request_response = srr_instance
     ur = mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
     ur_instance = ur.return_value
-    prepped = mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True)
 
     # request
     response = client.post(update['route'])
 
     # assertions
     assert response.status_code == 200
-    fields_to_prep = {
-        'access_key': settings.CS_ACCESS_KEY,
-        'allow_payment_token_update': 'true',
-        'locale': sr_instance.locale,
-        'payment_method': sr_instance.payment_method,
-        'payment_token': srr_instance.payment_token,
-        'profile_id': settings.CS_PROFILE_ID,
-        'reference_number': sr_instance.reference_number,
-        'signed_date_time': ur_instance.get_formatted_datetime(),
-        'transaction_type': ur_instance.transaction_type,
-        'transaction_uuid': ur_instance.transaction_uuid,
-    }
-    prepped.assert_called_once_with(fields_to_prep)
-    for field in FIELDS_REQUIRED_FOR_CYBERSOURCE['update']:
-        assert field in fields_to_prep
+    provider_mock.get_checkout_context.assert_called_once()
+    call_kwargs = provider_mock.get_checkout_context.call_args[1]
+    assert call_kwargs['request_type'] == 'update'
+    assert call_kwargs['outgoing_transaction'] == ur_instance
 
 
-def test_update_post_redirect_form_populated_correctly(client, update, update_redirect_fields, mocker):
+def test_update_post_redirect_form_populated_correctly(client, update, update_redirect_fields, mock_checkout_provider, mock_legacy_provider_context, mocker):
+    provider_mock, _ = mock_checkout_provider
+    # Configure the mock provider to return our custom fields
+    provider_mock.get_checkout_context.return_value = mock_legacy_provider_context(
+        fields_to_post=update_redirect_fields
+    )
+    
     # mocks
     mocker.patch('perma_payments.views.process_perma_transmission', autospec=True, return_value=update['valid_data'])
     mocker.patch('perma_payments.views.transaction.atomic', autospec=True)
-    mocker.patch(
-        'perma_payments.views.SubscriptionAgreement.customer_standing_subscription',
-        spec_set=SubscriptionAgreement.customer_standing_subscription
-    )
+    sa = mocker.patch('perma_payments.views.SubscriptionAgreement', autospec=True)
+    sa_instance = sa.return_value
+    sa_instance.payment_provider = 'cybersource_legacy'
+    sa_instance.can_be_altered.return_value = True
+    sa.customer_standing_subscription.return_value = sa_instance
     mocker.patch('perma_payments.views.UpdateRequest', autospec=True)
-    mocker.patch('perma_payments.views.prep_for_cybersource', autospec=True, return_value=update_redirect_fields)
-
 
     # request
     response = client.post(update['route'])

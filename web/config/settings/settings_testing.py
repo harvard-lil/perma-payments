@@ -3,10 +3,12 @@ from .settings_base import *
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'k2#@_q=1$(__n7#(zax6#46fu)x=3&^lz&bwb8ol-_097k_rj5'
 
-# CyberSource creds
-CS_ACCESS_KEY = 'test'
-CS_PROFILE_ID = 'test'
-CS_SECRET_KEY = 'a-really-long-test-string'
+# Payment provider credentials for testing
+PAYMENT_PROVIDERS['cybersource_legacy'].update({
+    'access_key': 'test',
+    'profile_id': 'test',
+    'secret_key': 'a-really-long-test-string',
+})
 
 # Our encryption key for storing full responses from CyberSource
 # generated using perma_payments.security.generate_public_private_keys

@@ -59,7 +59,7 @@ class AlphaNumericValidator(object):
 # Communicate with CyberSource
 
 @sensitive_variables()
-def prep_for_cybersource(signed_fields, unsigned_fields={}):
+def prep_for_cybersource(signed_fields, unsigned_fields={}, secret_key=None):
     """
     Takes a dict of fields to sign, and optionally a dict of fields not to sign.
     Creates the appropriate signature, adds some required administrative fields,
@@ -68,6 +68,11 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
 
     Note: if additional fields are POSTed, or if any of these fields fail to be POSTed,
     CyberSource will reject the communication's signature and return 403 Forbidden.
+    
+    Args:
+        signed_fields: Dict of fields to sign
+        unsigned_fields: Dict of fields not to sign
+        secret_key: Secret key for signing. If not provided, uses provider config.
     """
     signed_fields = dict(
         signed_fields,
@@ -77,7 +82,7 @@ def prep_for_cybersource(signed_fields, unsigned_fields={}):
     to_post = {}
     to_post.update(signed_fields)
     to_post.update(unsigned_fields)
-    to_post['signature'] = sign_data(stringify_for_signature(signed_fields)).decode('utf-8')
+    to_post['signature'] = sign_data(stringify_for_signature(signed_fields), secret_key).decode('utf-8')
     return to_post
 
 
@@ -193,12 +198,19 @@ def stringify_for_signature(data, sort=True):
 
 
 @sensitive_variables()
-def sign_data(data_string):
+def sign_data(data_string, secret_key=None):
     """
-    Sign with HMAC sha256 and base64 encode
+    Sign with HMAC sha256 and base64 encode.
+    
+    Args:
+        data_string: String to sign
+        secret_key: Secret key for signing. If not provided, uses the
+                    cybersource_legacy provider's secret_key from settings.
     """
+    if secret_key is None:
+        secret_key = settings.PAYMENT_PROVIDERS.get('cybersource_legacy', {}).get('secret_key', '')
     message = bytes(data_string, 'utf-8')
-    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
+    secret = bytes(secret_key, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
 

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}<title>Redirecting to Stripe</title>{% endblock title %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  .checkout-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    text-align: center;
+  }
+  .loading-spinner {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #ff6600;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .fallback-link {
+    margin-top: 2rem;
+  }
+  .fallback-link a {
+    color: #ff6600;
+  }
+</style>
+{% endblock css %}
+
+{% block content %}
+<div class="checkout-container">
+  <div class="loading-spinner"></div>
+  <h2>Redirecting to Stripe...</h2>
+  <p>You will be redirected to Stripe's secure checkout page in a moment.</p>
+  
+  <div class="fallback-link">
+    <p>If you are not redirected automatically, 
+      <a href="{{ checkout_url }}" id="checkout-link">click here to continue</a>.
+    </p>
+  </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+  var config = {{ client_config|safe }};
+  var publishableKey = config.publishable_key;
+  var sessionId = config.session_id;
+  
+  if (publishableKey && sessionId) {
+    // Initialize Stripe and redirect to Checkout
+    var stripe = Stripe(publishableKey);
+    
+    stripe.redirectToCheckout({
+      sessionId: sessionId
+    }).then(function(result) {
+      if (result.error) {
+        // If there's an error, show a message
+        var container = document.querySelector('.checkout-container');
+        container.innerHTML = '<h2>Error</h2><p>' + result.error.message + '</p>';
+      }
+    });
+  } else {
+    // If no session ID, redirect to the checkout URL directly
+    var checkoutUrl = "{{ checkout_url }}";
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl;
+    }
+  }
+})();
+</script>
+{% endblock scripts %}

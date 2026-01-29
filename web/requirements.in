@@ -28,3 +28,7 @@ pytest-django               # testing
 pytest-factoryboy           # pop up model instances
 pytest-mock                 # more powerful mocking
 pytest-xdist                # run tests in parallel with pytest -n
+
+# Providers
+stripe
+cybersource-rest-client-python
