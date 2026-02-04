@@ -1,0 +1,21 @@
+{% if customer_type == 'Individual' %}Premium Perma User {{ customer_pk }}{% else %}{{ customer_type }} {{ customer_pk }}{% endif %} has submitted a request to cancel their paid
+subscription to Perma.cc.
+
+The subscription has been automatically canceled via the {{ provider_name }} API.
+
+Merchant Reference Number: {{ merchant_reference_number }}
+Subscription ID: {{ subscription_id }}
+
+No further action is required.
+
+If you wish to contact the customer, you may find their information at Perma.cc:
+{% if customer_type == 'Registrar' %}
+GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ customer_pk }}
+
+REGISTRAR USERS: {{ perma_url }}{{ registrar_users_path }}{{ customer_pk }}
+{% elif customer_type == 'Individual' %}
+{{ perma_url }}{{ individual_detail_path }}{{ customer_pk }}
+{% endif %}
+
+Thanks,
+Perma Payments

@@ -8,7 +8,7 @@ from django.http import QueryDict
 from faker import Faker
 import pytest
 
-from perma_payments.constants import CS_DECISIONS
+from perma_payments.providers.cybersource_legacy.constants import CS_DECISIONS
 from perma_payments.models import CUSTOMER_TYPES, SubscriptionRequest
 
 

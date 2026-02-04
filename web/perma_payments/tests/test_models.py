@@ -9,7 +9,7 @@ from django.http import QueryDict
 
 import pytest
 
-from perma_payments.constants import CS_DECISIONS
+from perma_payments.providers.cybersource_legacy.constants import CS_DECISIONS
 from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
     RN_SET, generate_reference_number, is_ref_number_available, SubscriptionAgreement, SubscriptionRequest,
     SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
@@ -303,7 +303,7 @@ def purchase_request_response(mocker, purchase_request, decision):
 @pytest.fixture()
 @pytest.mark.django_db
 def processed_purchase_request_response(purchase_request_response):
-    purchase_request_response.act_on_cs_decision({})
+    purchase_request_response.act_on_decision({})
     return purchase_request_response
 
 
@@ -321,30 +321,31 @@ def spoof_django_post_object():
 def test_generate_reference_number_valid(mocker):
     available = mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=True)
 
-    rn = generate_reference_number()
-    available.assert_called_once_with(rn)
-    prefix, first, second = rn.split('-')
+    rn = generate_reference_number('S')
+    available.assert_called_once_with(rn, 'S')
+    prefix, first, second, suffix = rn.split('-')
     assert prefix == REFERENCE_NUMBER_PREFIX
     for char in first + second:
         assert char in RN_SET
+    assert suffix == 'S'
 
 
 def test_generate_reference_number_fails_after_100_tries(mocker):
     available = mocker.patch('perma_payments.models.is_ref_number_available', autospec=True, return_value=False)
     with pytest.raises(Exception) as excinfo:
-        generate_reference_number()
+        generate_reference_number('S')
     assert "No valid reference_number found" in str(excinfo)
     assert available.call_count == 100
 
 
 @pytest.mark.django_db
 def test_is_ref_number_available_considers_subscription_agreements(complete_current_sa):
-    assert not is_ref_number_available(complete_current_sa.subscription_request.reference_number)
+    assert not is_ref_number_available(complete_current_sa.subscription_request.reference_number, 'S')
 
 
 @pytest.mark.django_db
 def test_is_ref_number_available_considers_purchase_requests(purchase_request):
-    assert not is_ref_number_available(purchase_request.reference_number)
+    assert not is_ref_number_available(purchase_request.reference_number, 'P')
 
 
 
@@ -367,7 +368,8 @@ def test_pr_required_fields():
             'customer_pk',
             'customer_type',
             'amount',
-            'link_quantity'
+            'link_quantity',
+            'payment_provider',
         ]
     )
 
@@ -392,7 +394,8 @@ def test_sa_required_fields():
         SubscriptionAgreement(), [
             'customer_pk',
             'customer_type',
-            'status'
+            'status',
+            'payment_provider',
         ]
     )
 
@@ -465,13 +468,13 @@ def test_sa_can_be_altered_false_if_not_standing(not_standing_sa):
     assert not not_standing_sa.can_be_altered()
 
 @pytest.mark.django_db
-def test_sa_update_after_cs_decision_sr(decision, mocker, complete_subscription_request):
+def test_sa_update_after_payment_decision_sr(decision, mocker, complete_subscription_request):
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
     sa = complete_subscription_request.subscription_agreement
     assert not sa.current_link_limit
     assert not sa.current_rate
     assert not sa.current_frequency
-    sa.update_after_cs_decision(complete_subscription_request, decision, {})
+    sa.update_after_payment_decision(complete_subscription_request, decision, {})
     assert sa.status != 'Pending'
     if decision in ["ACCEPT", "REVIEW"]:
         assert sa.current_link_limit == complete_subscription_request.link_limit
@@ -485,7 +488,7 @@ def test_sa_update_after_cs_decision_sr(decision, mocker, complete_subscription_
 
 
 @pytest.mark.django_db
-def test_sa_update_after_cs_decision_cr(decision, mocker, change_request):
+def test_sa_update_after_payment_decision_cr(decision, mocker, change_request):
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
     sa = change_request.subscription_agreement
     old_limit = sa.current_link_limit
@@ -493,7 +496,7 @@ def test_sa_update_after_cs_decision_cr(decision, mocker, change_request):
     old_frequency = sa.current_frequency
     assert old_limit != change_request.link_limit
     assert old_rate != change_request.recurring_amount
-    sa.update_after_cs_decision(change_request, decision, {})
+    sa.update_after_payment_decision(change_request, decision, {})
     assert sa.status != 'Pending'
     if decision in ["ACCEPT", "REVIEW"]:
         assert sa.current_link_limit == change_request.link_limit
@@ -814,10 +817,10 @@ def test_prr_customer_retrived(purchase_request_response):
 
 
 @pytest.mark.django_db
-def test_prr_act_on_cs_decision(mocker, purchase_request_response):
+def test_prr_act_on_decision(mocker, purchase_request_response):
     log = mocker.patch('perma_payments.models.logger.log', autospec=True)
     assert not purchase_request_response.inform_perma
-    purchase_request_response.act_on_cs_decision({})
+    purchase_request_response.act_on_decision({})
     if purchase_request_response.decision in ["ACCEPT", "REVIEW"]:
         assert purchase_request_response.inform_perma
     else:

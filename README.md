@@ -20,6 +20,25 @@ The Plot
 law firms and other entities that do not qualify for an unlimited free account.
 
 
+### Payment Providers
+
+Perma Payments supports multiple payment providers:
+
+- **Stripe**: Modern payment processing with Stripe Checkout. Supports automatic
+  subscription management and programmatic cancellation.
+- **CyberSource REST**: CyberSource REST API with Flex Microform for embedded
+  card entry. Supports programmatic subscription management.
+- **CyberSource Legacy**: CyberSource Secure Acceptance Web/Mobile (redirect-based).
+  Requires manual subscription management via the Business Center.
+
+The active provider is configured in `settings.CHECKOUT_PROVIDERS`. When processing
+a new subscription, Perma Payments probes providers in order until finding one with
+valid credentials.
+
+Probing multiple is particularly useful during a transition that disables one provider
+and enables another, so the new provider can be used as soon as it comes online.
+
+
 ### Subscribing
 
 Perma.cc admins can create registrars and, in the Perma.cc interface, indicate
@@ -37,49 +56,43 @@ information is included in the POST. However, to ensure that all POSTS indeed
 originate from Perma.cc, and for extra protection, all transmitted data is
 encrypted.
 
-After processing the POST, Perma Payments delivers the user at a page
-with a hidden form containing all the information required to communicate
-with CyberSource Secure Acceptance Web/Mobile, a payment management platform
-(see templates/redirect.html). Again, no PII or otherwise sensitive information
-is included; however, the data is signed as per CyberSource requirements. If the
-user has Javascript enabled, the form auto-submits, "redirecting" the user to the
-CyberSource checkout page. If the form fails to auto-submit for any reason, the
-user is presented with a link they can click, to the same effect.
+After processing the POST, Perma Payments routes the user to the configured
+payment provider's checkout experience:
+
+- **Stripe**: Redirects to Stripe Checkout, a hosted payment page
+- **CyberSource REST**: Renders an embedded Flex Microform for card entry
+- **CyberSource Legacy**: Auto-submits a signed form to CyberSource's hosted page
 
 The user enters their payment information and finalizes the transaction
-using CyberSource's systems: payment information never touches Perma Payments or
+using the provider's systems: payment information never touches Perma Payments or
 Perma.cc.
 
 When the transaction is complete, the user is redirected to their Perma.cc
-settings page (via a setting in the CyberSource Secure Acceptance Web/Mobile
-profile), and Perma Payments is informed of the result of the transaction
-(see views.cybersource_callback).
+settings page, and Perma Payments is informed of the result via callback/webhook.
 
 
 ### Updating Information
 
 If a subscribed registrar wishes to update their billing information,
-they visit their Perma.cc settings page and initiate a request. Just as
-with their original subscription request, a POST of encrypted, non-sensitive
-data is sent to Perma Payments (see views.update), and the user is delivered at
-a page with a self-submitting form that "redirects" them to CyberSource Secure Acceptance Web/Mobile, where they may update their billing information. Perma
-Payments informed of the result of the transaction (see views.cybersource_callback).
+they visit their Perma.cc settings page and initiate a request. The update
+flow varies by provider:
+
+- **Stripe**: Uses Stripe's Billing Portal for self-service payment updates
+- **CyberSource REST/Legacy**: Renders a payment form to update card details
 
 
 ### Cancelling
 
-CyberSource Secure Acceptance Web/Mobile does not provide a programmatic
-way to cancel a subscription.
-
 Subscribed users may indicate they wish to cancel by visiting their Perma.cc
-settings page. Just as with their original subscription request, a POST of
-encrypted, non-sensitive data is sent to Perma Payments. Perma Payments
-records the request and informs Perma.cc staff. Staff are notified of
-the request immediately, and are additionally sent a daily report of all
-pending cancellation requests, to ensure no requests go astray.
+settings page. The cancellation process depends on the provider:
 
-Staff may then cancel the subscription in the CyberSource Business Center,
-following the instructions in the notification email sent by Perma Payments.
+- **Stripe/CyberSource REST**: Cancellation is processed automatically via API.
+  Staff receive an informational email confirming the cancellation.
+- **CyberSource Legacy**: Does not support programmatic cancellation. Staff are
+  notified immediately and must manually cancel in the Business Center.
+
+For providers requiring manual cancellation, staff are sent a daily report of
+all pending cancellation requests to ensure no requests go astray.
 
 
 ### Subscription Statuses
@@ -97,76 +110,60 @@ encrypted response.
 
 #### Note on Status Accuracy
 
-CyberSource does not expose up-to-date subscription statuses via an
-easily-accessible API. This has two potential consequences for
-Perma.cc/Perma Payments:
+Status accuracy varies by provider:
 
-1. If a customer successfully signs up for a recurring paid subscription
-in CyberSource Secure Acceptance Web/Mobile, and CyberSource's response
-to Perma Payments goes astray, Perma Payments will continue to treat the
-subscription request as 'pending'.
-
-  In the unlikely evident this occurs, a Perma.cc staff member can manually
-  update Perma Payments records when contacted by the affected customer
-  (who will be unable to create links).
-
-2. If a customer with a monthly subscription has credit card trouble on
-a given month and their subscription lapses, Perma Payments will not
-automatically be notified. They will continue to be able to create links.
-
-  To protect against this possibility, Perma.cc staff should periodically
-  retrieve up-to-date subscription statuses from CyberSource and update
-  Perma Payment's records. This is a quick and easy job; see "Common Tasks"
-  below for detailed instructions.
-
-  Since customers with monthly subscriptions are charged on the first of
-  every month, updating subscription statuses in Perma Payments on the
-  2nd of the month and after any cancellation request should be sufficient.
+- **Stripe**: Webhook events keep Perma Payments informed of subscription changes
+  in real-time (renewals, failures, cancellations).
+- **CyberSource REST**: Similar webhook-based status updates.
+- **CyberSource Legacy**: Does not expose up-to-date subscription statuses via API.
+  Staff should periodically download status reports from the Business Center
+  and upload them to Perma Payments. See "Common Tasks" below.
 
 
 Design Notes
 ------------
 
-### On Customizing CyberSource
+### On Provider Architecture
 
-Whenever possible, Perma Payments makes use of CyberSource features, rather
-than implementing custom functionality. For example, at this time, we are
-using CyberSource's own "Response Pages", rather than custom built pages.
-If further customization is required in the future, we can consider:
-- embedding the CyberSource checkout page in an iframe whose wrapper is
-hosted at Perma Payments
-- building custom response pages, hosted at Perma.cc or Perma Payments
+Perma Payments uses a provider abstraction layer (`perma_payments/providers/`)
+that allows different payment providers to implement a common interface. Each
+provider handles:
+- Checkout flows (subscribe, purchase, change, update)
+- Webhook/callback processing
+- Credential validation
 
-### On Communicating with CyberSource
+### On Communicating with Payment Providers
 
 Perma.cc is designed to interact with Perma Payments, and Perma Payments is
-designed to interact with CyberSource; Perma.cc never communicates with
-CyberSource.
+designed to interact with payment providers; Perma.cc never communicates with
+payment providers directly.
 
-### On Storing Replies from CyberSource
+### On Storing Replies from Payment Providers
 
-Perma Payments has no control over which information CyberSource includes
-in its responses to subscription requests and update requests. Since
-CyberSource can and does send back potentially sensitive information,
+Perma Payments has no control over which information providers include
+in their responses to subscription requests and update requests. Since
+providers can and do send back potentially sensitive information,
 such as customer billing addresses, Perma Payments does NOT store
-responses from CyberSource as-is. Instead, Perma Payments extracts
-the minimum fields necessary for business requirements, ALL of which
-are non-sensitive, and stores them in its database. For thoroughness,
-the request in its entirety is then encrypted and stored in a form that
-can only be decrypted using keys kept offline in secure physical
-locations.
+responses as-is. Instead, Perma Payments extracts the minimum fields
+necessary for business requirements, ALL of which are non-sensitive,
+and stores them in its database. For thoroughness, the full response
+is encrypted and stored in a form that can only be decrypted using
+keys kept offline in secure physical locations.
 
 
 Common Tasks
 ------------
 
-### Log in to the CyberSource Business Center
+### Provider Dashboards
 
-test: [https://ebctest.cybersource.com/ebctest/login/LoginProcess.do](https://ebctest.cybersource.com/ebctest/login/LoginProcess.do)
-prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybersource.com/ebc/login/LoginProcess.do)
+- **Stripe**: [https://dashboard.stripe.com](https://dashboard.stripe.com)
+- **CyberSource Business Center (test)**: [https://ebctest.cybersource.com](https://ebctest.cybersource.com/ebctest/login/LoginProcess.do)
+- **CyberSource Business Center (prod)**: [https://ebc.cybersource.com](https://ebc.cybersource.com/ebc/login/LoginProcess.do)
 
 
-### Update Subscription Statuses
+### Update Subscription Statuses (CyberSource Legacy only)
+
+For CyberSource Legacy subscriptions, status updates must be done manually:
 
 1) Go to [https://ebctest.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling](https://ebctest.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling) (the test Business Center) or [https://ebc.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling](https://ebc.cybersource.com/ebc2/app/VirtualTerminal/RecurringBilling) (the production Business Center).
 
@@ -176,7 +173,7 @@ prod: [https://ebc.cybersource.com/ebc/login/LoginProcess.do](https://ebc.cybers
 
 4) Upload the CSV to the "Update Subscription Statuses" form. Submit.
 
-5) *Important* Safety check: review the list of subscriptions in the Perma Payments admin, and verify that everything looks good, especially that subscription statuses look correct, and that there's nothing weird in the subscriptions filter. (Cybersource recently broke the spreadsheet we use, and this is how we found out.)
+5) *Important* Safety check: review the list of subscriptions in the Perma Payments admin, and verify that everything looks good, especially that subscription statuses look correct, and that there's nothing weird in the subscriptions filter. (CyberSource recently broke the spreadsheet we use, and this is how we found out.)
 
 Et voilà.
 

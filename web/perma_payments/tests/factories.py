@@ -3,7 +3,7 @@ from faker import Faker
 
 import django.utils.timezone
 
-from perma_payments.constants import CS_DECISIONS
+from perma_payments.providers.cybersource_legacy.constants import CS_DECISIONS
 from perma_payments.models import (CUSTOMER_TYPES, SubscriptionAgreement,
     SubscriptionRequest, SubscriptionRequestResponse, UpdateRequest,
     UpdateRequestResponse, ChangeRequest, PurchaseRequest, PurchaseRequestResponse)
@@ -20,6 +20,8 @@ class PurchaseRequestFactory(factory.django.DjangoModelFactory):
     customer_type = fake.random_element(elements=CUSTOMER_TYPES)
     amount = factory.Faker('pydecimal', left_digits=6, right_digits=2, positive=True)
     link_quantity = fake.random_int()
+    payment_provider = 'cybersource_legacy'
+    provider_data = factory.LazyFunction(dict)
 
 
 class SubscriptionAgreementFactory(factory.django.DjangoModelFactory):
@@ -29,6 +31,8 @@ class SubscriptionAgreementFactory(factory.django.DjangoModelFactory):
     customer_pk = factory.Sequence(lambda n: n)
     customer_type = fake.random_element(elements=CUSTOMER_TYPES)
     status = 'Pending'
+    payment_provider = 'cybersource_legacy'
+    provider_data = factory.LazyFunction(dict)
 
 
 class SubscriptionRequestFactory(factory.django.DjangoModelFactory):

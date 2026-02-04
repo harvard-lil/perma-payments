@@ -3,6 +3,7 @@ __pycache__
 
 # custom Django settings
 **/settings.py
+**/settings_tunnels.py
 
 # pytest
 .cache

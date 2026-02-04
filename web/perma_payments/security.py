@@ -56,56 +56,6 @@ class AlphaNumericValidator(object):
 # Functions
 #
 
-# Communicate with CyberSource
-
-@sensitive_variables()
-def prep_for_cybersource(signed_fields, unsigned_fields={}):
-    """
-    Takes a dict of fields to sign, and optionally a dict of fields not to sign.
-    Creates the appropriate signature, adds some required administrative fields,
-    and packages everything up, returning a dict of data to POST to CyberSource
-    via form inputs. (e.g. <input type="hidden" name="KEY" value="VALUE"> for KEY,VALUE in returned_dict)
-
-    Note: if additional fields are POSTed, or if any of these fields fail to be POSTed,
-    CyberSource will reject the communication's signature and return 403 Forbidden.
-    """
-    signed_fields = dict(
-        signed_fields,
-        unsigned_field_names=','.join(sorted(unsigned_fields)),
-        signed_field_names=','.join(sorted(list(signed_fields) + ['signed_field_names', 'unsigned_field_names']))
-    )
-    to_post = {}
-    to_post.update(signed_fields)
-    to_post.update(unsigned_fields)
-    to_post['signature'] = sign_data(stringify_for_signature(signed_fields)).decode('utf-8')
-    return to_post
-
-
-@sensitive_variables()
-def process_cybersource_transmission(transmitted_data, fields):
-    # Transmitted data must include signature, signed_field_names,
-    # and all fields listed in signed_field_names
-    try:
-        signature = transmitted_data['signature']
-        signed_field_names = transmitted_data['signed_field_names']
-        signed_fields = OrderedDict()
-        for field in signed_field_names.split(','):
-            signed_fields[field] = transmitted_data[field]
-    except KeyError as e:
-        msg = 'Incomplete POST to CyberSource callback route: missing {}'.format(e)
-        logger.warning(msg)
-        raise InvalidTransmissionException(msg)
-
-    # The signature must be valid
-    if not is_valid_signature(signed_fields, signature):
-        msg = 'Data with invalid signature POSTed to CyberSource callback route'
-        logger.warning(msg)
-        raise InvalidTransmissionException(msg)
-
-    # Great! Return the subset of fields we want
-    return retrieve_fields(transmitted_data, fields)
-
-
 # Communicate with Perma
 
 @sensitive_variables()
@@ -193,12 +143,19 @@ def stringify_for_signature(data, sort=True):
 
 
 @sensitive_variables()
-def sign_data(data_string):
+def sign_data(data_string, secret_key=None):
     """
-    Sign with HMAC sha256 and base64 encode
+    Sign with HMAC sha256 and base64 encode.
+    
+    Args:
+        data_string: String to sign
+        secret_key: Secret key for signing. If not provided, uses the
+                    cybersource_legacy provider's secret_key from settings.
     """
+    if secret_key is None:
+        secret_key = settings.PAYMENT_PROVIDERS.get('cybersource_legacy', {}).get('secret_key', '')
     message = bytes(data_string, 'utf-8')
-    secret = bytes(settings.CS_SECRET_KEY, 'utf-8')
+    secret = bytes(secret_key, 'utf-8')
     hash = hmac.new(secret, message, hashlib.sha256)
     return base64.b64encode(hash.digest())
 

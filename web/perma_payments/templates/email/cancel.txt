@@ -1,10 +1,13 @@
 {% if customer_type == 'Individual' %}Premium Perma User {{ customer_pk }}{% else %}{{ customer_type }} {{ customer_pk }}{% endif %} has submitted a request to cancel their paid
 subscription to Perma.cc.
 
-At your earliest convenience, please log in to the "Recurring Billing"
-section of the CyberSource Business Center (part of the "Virtual Terminal")
-and cancel the subscription associated with Merchant Reference Number "{{ merchant_reference_number }}":
+Payment Provider: {{ provider_name }}
+Merchant Reference Number: {{ merchant_reference_number }}
+
+{% if search_url %}
+Please cancel the subscription manually in the provider's dashboard:
 {{ search_url }}
+{% if provider_name == 'cybersource_legacy' %}
 
 - Under the "Manage Subscriptions" heading, look for a row of filters
 - Click the last filter, which should read "Scope: All Subscriptions".
@@ -20,13 +23,19 @@ and cancel the subscription associated with Merchant Reference Number "{{ mercha
   through it. If you hover on that icon, a tool-tip appears that reads
   "Cancel Subscription". Click that, and then click "Confirm".
   DO NOT click the trash can with the tool-tip that reads "Delete Subscription".
+{% endif %}
+{% else %}
+This provider normally supports automatic cancellation, but either the
+subscription_id was not found or there was an issue with the API.
+Please cancel the subscription manually using the provider's dashboard.
+{% endif %}
 
 The customer will continue to be charged until this task is completed.
 
 No automatically generated emails will be sent to the customer by
-CyberSource, Perma.cc, or Perma Payments. If you wish to email the customer
-to tell them their cancellation has been processed, you may find their
-contact information at Perma.cc
+the payment provider, Perma.cc, or Perma Payments. If you wish to email
+the customer to tell them their cancellation has been processed, you may
+find their contact information at Perma.cc
 
 {% if customer_type == 'Registrar' %}
 GENERAL: {{ perma_url }}{{ registrar_detail_path }}{{ customer_pk }}

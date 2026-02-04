@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}<title>Perma.cc Payment</title>{% endblock title %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  .payment-form {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+  }
+  .microform-field {
+    height: 40px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    background-color: #fff;
+  }
+  .microform-field.focused {
+    border-color: #ff6600;
+    box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.2);
+  }
+  .microform-field.invalid {
+    border-color: #d9534f;
+  }
+  .error-message {
+    color: #d9534f;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+  .btn-submit {
+    width: 100%;
+    padding: 12px 24px;
+    background-color: #ff6600;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .btn-submit:hover {
+    background-color: #e55c00;
+  }
+  .btn-submit:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+  }
+  .loading.active {
+    display: block;
+  }
+  .payment-form.processing .form-container {
+    display: none;
+  }
+  .payment-form.processing .loading {
+    display: block;
+  }
+</style>
+{% endblock css %}
+
+{% block content %}
+<div class="payment-form" id="payment-form">
+  <div class="form-container">
+    <h2>Payment Information</h2>
+    
+    <form id="checkout-form">
+      <div class="form-group">
+        <label for="card-number">Card Number</label>
+        <div id="card-number" class="microform-field"></div>
+        <div id="card-number-error" class="error-message"></div>
+      </div>
+      
+      <div class="row">
+        <div class="six columns">
+          <div class="form-group">
+            <label for="expiration-date">Expiration Date</label>
+            <input type="text" id="expiration-date" name="expiration_date" 
+                   placeholder="MM/YY" maxlength="5" class="u-full-width">
+          </div>
+        </div>
+        <div class="six columns">
+          <div class="form-group">
+            <label for="security-code">Security Code</label>
+            <div id="security-code" class="microform-field"></div>
+            <div id="security-code-error" class="error-message"></div>
+          </div>
+        </div>
+      </div>
+      
+      <button type="submit" class="btn-submit" id="submit-btn">
+        Complete Payment
+      </button>
+    </form>
+  </div>
+  
+  <div class="loading">
+    <p>Processing your payment...</p>
+  </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="https://flex.cybersource.com/microform/bundle/v2/flex-microform.min.js"></script>
+<script>
+(function() {
+  // Configuration from server
+  var config = {{ client_config|safe }};
+  var captureContext = config.capture_context;
+  var transactionUuid = config.transaction_uuid;
+  var requestType = config.request_type;
+  var callbackUrl = config.callback_url;
+  
+  // Initialize Flex Microform
+  var flex = new Flex(captureContext);
+  var microform = flex.microform('card', { styles: {
+    'input': {
+      'font-size': '14px',
+      'font-family': 'inherit',
+      'color': '#333'
+    },
+    ':focus': {
+      'color': '#333'
+    },
+    '::placeholder': {
+      'color': '#999'
+    },
+    ':disabled': {
+      'cursor': 'not-allowed'
+    },
+    'valid': {
+      'color': '#333'
+    },
+    'invalid': {
+      'color': '#d9534f'
+    }
+  }});
+  
+  // Create card number field
+  var cardNumber = microform.createField('number', { placeholder: '1234 5678 9012 3456' });
+  cardNumber.load('#card-number');
+  
+  // Create security code field
+  var securityCode = microform.createField('securityCode', { placeholder: 'CVV' });
+  securityCode.load('#security-code');
+  
+  // Handle field focus/blur for styling
+  cardNumber.on('focus', function() {
+    document.getElementById('card-number').classList.add('focused');
+  });
+  cardNumber.on('blur', function() {
+    document.getElementById('card-number').classList.remove('focused');
+  });
+  
+  securityCode.on('focus', function() {
+    document.getElementById('security-code').classList.add('focused');
+  });
+  securityCode.on('blur', function() {
+    document.getElementById('security-code').classList.remove('focused');
+  });
+  
+  // Format expiration date input
+  document.getElementById('expiration-date').addEventListener('input', function(e) {
+    var value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2, 4);
+    }
+    e.target.value = value;
+  });
+  
+  // Handle form submission
+  document.getElementById('checkout-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    var submitBtn = document.getElementById('submit-btn');
+    var paymentForm = document.getElementById('payment-form');
+    
+    submitBtn.disabled = true;
+    paymentForm.classList.add('processing');
+    
+    // Parse expiration date
+    var expDate = document.getElementById('expiration-date').value.split('/');
+    var expMonth = expDate[0] || '';
+    var expYear = expDate[1] ? '20' + expDate[1] : '';
+    
+    // Create token with Flex Microform
+    var options = {
+      expirationMonth: expMonth,
+      expirationYear: expYear
+    };
+    
+    microform.createToken(options, function(err, token) {
+      if (err) {
+        submitBtn.disabled = false;
+        paymentForm.classList.remove('processing');
+        
+        // Show error message
+        if (err.details && err.details.length > 0) {
+          err.details.forEach(function(detail) {
+            if (detail.location === 'number') {
+              document.getElementById('card-number-error').textContent = detail.message;
+              document.getElementById('card-number').classList.add('invalid');
+            } else if (detail.location === 'securityCode') {
+              document.getElementById('security-code-error').textContent = detail.message;
+              document.getElementById('security-code').classList.add('invalid');
+            }
+          });
+        } else {
+          alert('Error creating payment token: ' + (err.message || 'Unknown error'));
+        }
+        return;
+      }
+      
+      // Token created successfully, submit to our callback endpoint
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = callbackUrl;
+      
+      var fields = {
+        'transient_token': token,
+        'transaction_uuid': transactionUuid,
+        'request_type': requestType
+      };
+      
+      for (var key in fields) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = fields[key];
+        form.appendChild(input);
+      }
+      
+      document.body.appendChild(form);
+      form.submit();
+    });
+  });
+})();
+</script>
+{% endblock scripts %}
