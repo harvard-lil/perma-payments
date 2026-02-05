@@ -114,6 +114,22 @@ class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
 
     Perma-Payments will log an error if any 16-digit Payment Tokens are received.
     """
+
+    class Meta:
+        indexes = [
+            # See SubscriptionAgreement.customer_standing_subscription() for the query this supports.
+            models.Index(
+                fields=["customer_pk", "customer_type", "id"],
+                name="pp_sa_stand_cust_id_idx",
+                condition=models.Q(status__in=STANDING_STATUSES),
+            ),
+            models.Index(
+                fields=["customer_pk", "customer_type", "paid_through", "id"],
+                name="pp_sa_canc_paid_thr_idx",
+                condition=models.Q(status="Canceled", paid_through__isnull=False),
+            ),
+        ]
+
     def __str__(self):
         return 'SubscriptionAgreement {}'.format(self.id)
 
@@ -507,6 +523,16 @@ class PurchaseRequest(SubscriptionAndPurchaseMixin, OutgoingTransaction, Purchas
     """
     A one-time request to purchase more links, independent of any subscription.
     """
+    class Meta:
+        indexes = [
+            # Supports PurchaseRequestResponse.customer_unacknowledged()/customer_history()
+            # which filter on related_request__customer_pk/customer_type.
+            models.Index(
+                fields=["customer_pk", "customer_type"],
+                name="pp_pr_custtype_idx",
+            ),
+        ]
+
     def __str__(self):
         return 'PurchaseRequest {}'.format(self.id)
 
@@ -698,6 +724,17 @@ class PurchaseRequestResponse(Response):
     """
     All (non-confidential) specifics of CyberSource's response to a purchase request.
     """
+    class Meta:
+        indexes = [
+            # Supports PurchaseRequestResponse.customer_unacknowledged():
+            # inform_perma = true AND perma_acknowledged_at IS NULL
+            models.Index(
+                fields=["related_request"],
+                name="pp_prr_unack_rel_idx",
+                condition=models.Q(inform_perma=True, perma_acknowledged_at__isnull=True),
+            ),
+        ]
+
     def __str__(self):
         return 'PurchaseRequestResponse {}'.format(self.id)
 
