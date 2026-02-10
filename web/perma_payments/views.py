@@ -5,40 +5,31 @@ from functools import wraps
 import io
 
 from django.conf import settings
+from perma_payments.tests import trace
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, MultipleObjectsReturned, PermissionDenied
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import render, redirect
 from django.utils.timezone import make_aware
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-from .constants import (
-    CS_PAYMENT_URL,
-    CS_SUBSCRIPTION_SEARCH_URL,
-    CS_TOKEN_UPDATE_URL
-)
 from .custom_errors import bad_request
 from .email import send_self_email
 from .models import (
     SubscriptionAgreement,
-    OutgoingTransaction,
     SubscriptionRequest,
     ChangeRequest,
     UpdateRequest,
     PurchaseRequest,
-    Response,
-    SubscriptionRequestResponse,
-    ChangeRequestResponse,
-    UpdateRequestResponse,
-    PurchaseRequestResponse
+    PurchaseRequestResponse,
 )
+from .providers.router import get_provider, get_checkout_provider
+from .providers.base import CallbackValidationError, NoProviderAvailable
 from .security import (
    InvalidTransmissionException,
-   prep_for_cybersource,
-   process_cybersource_transmission,
    prep_for_perma,
    process_perma_transmission,
 )
@@ -49,6 +40,28 @@ logger = logging.getLogger(__name__)
 #
 # UTILS
 #
+
+def get_provider_or_404(provider_name: str):
+    """Get a payment provider by name or raise Http404."""
+    try:
+        return get_provider(provider_name)
+    except (KeyError, NoProviderAvailable):
+        logger.error("Unknown payment provider: %s", provider_name)
+        raise Http404(f"Unknown payment provider: {provider_name}")
+
+
+def get_checkout_provider_or_500(customer_pk, customer_type):
+    """Get checkout provider or raise server error (500).
+    
+    NoProviderAvailable indicates misconfiguration or upstream issues,
+    not a user error, so we let it propagate as a 500.
+    """
+    try:
+        return get_checkout_provider(customer_pk, customer_type)
+    except NoProviderAvailable:
+        logger.error("No payment provider available - check configuration")
+        raise
+
 
 FIELDS_REQUIRED_FROM_PERMA = {
     'purchase': [
@@ -89,72 +102,6 @@ FIELDS_REQUIRED_FROM_PERMA = {
     'cancel_request': [
         'customer_pk',
         'customer_type'
-    ]
-}
-
-FIELDS_REQUIRED_FOR_CYBERSOURCE = {
-    'purchase': [
-        'access_key',
-        'amount',
-        'currency',
-        'locale',
-        'payment_method',
-        'profile_id',
-        'reference_number',
-        'signed_date_time',
-        'transaction_type',
-        'transaction_uuid'
-    ],
-    'subscribe': [
-        'access_key',
-        'amount',
-        'currency',
-        'locale',
-        'payment_method',
-        'profile_id',
-        'recurring_amount',
-        'recurring_frequency',
-        'recurring_start_date',
-        'reference_number',
-        'signed_date_time',
-        'transaction_type',
-        'transaction_uuid'
-    ],
-    'change': [
-        'access_key',
-        'allow_payment_token_update',
-        'amount',
-        'currency',
-        'locale',
-        'payment_method',
-        'payment_token',
-        'profile_id',
-        'recurring_amount',
-        'reference_number',
-        'signed_date_time',
-        'transaction_type',
-        'transaction_uuid'
-    ],
-    'update': [
-        'access_key',
-        'allow_payment_token_update',
-        'locale',
-        'payment_method',
-        'payment_token',
-        'profile_id',
-        'reference_number',
-        'signed_date_time',
-        'transaction_type',
-        'transaction_uuid'
-    ]
-}
-
-FIELDS_REQUIRED_FROM_CYBERSOURCE = {
-    'cybersource_callback': [
-        'req_transaction_uuid',
-        'decision',
-        'reason_code',
-        'message'
     ]
 }
 
@@ -232,7 +179,7 @@ def formatted_date_or_none(dt):
 @require_http_methods(["GET"])
 def index(request):
     return render(request, 'generic.html', {'heading': "Perma Payments",
-                                            'message': "A window to CyberSource Secure Acceptance Web/Mobile"})
+                                            'message': "Payment processing service for Perma.cc"})
 
 
 @csrf_exempt
@@ -241,18 +188,29 @@ def index(request):
 def purchase(request):
     """
     Processes user-initiated one-time purchase requests from Perma.cc;
-    Redirects user to CyberSource for payment.
+    Redirects user to payment provider for payment.
     """
     if request.method == "GET":
         return render(request, 'generic.html', {
             'heading': "Perma Payments",
-            'message': "A window to CyberSource Secure Acceptance Web/Mobile"
+            'message': "Payment processing service for Perma.cc"
         })
 
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['purchase'])
     except InvalidTransmissionException:
         return bad_request(request)
+    
+    # Log the decrypted purchase data
+    trace.log(
+        title='Decrypted Purchase Data',
+        lane='Server',
+        data=data,
+        explanation='Payload from Perma.cc decrypted from encrypted_data POST field',
+    )
+
+    # Get the appropriate payment provider
+    provider = get_checkout_provider_or_500(data['customer_pk'], data['customer_type'])
 
     # The purchase request fields must each be valid.
     try:
@@ -262,31 +220,19 @@ def purchase(request):
                 customer_type=data['customer_type'],
                 amount=data['amount'],
                 link_quantity=data['link_quantity'],
+                payment_provider=provider.name,
             )
             p_request.full_clean()
             p_request.save()
+            trace.db(p_request, title='PurchaseRequest')
     except ValidationError as e:
         logger.warning('Invalid POST from Perma.cc purchase form: {}'.format(e))
         return bad_request(request)
 
-    # If all that worked, we can finally bounce the user to CyberSource.
-    context = {
-        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource({
-            'access_key': settings.CS_ACCESS_KEY,
-            'amount': p_request.amount,
-            'currency': p_request.currency,
-            'locale': p_request.locale,
-            'payment_method': p_request.payment_method,
-            'profile_id': settings.CS_PROFILE_ID,
-            'reference_number': p_request.reference_number,
-            'signed_date_time': p_request.get_formatted_datetime(),
-            'transaction_type': p_request.transaction_type,
-            'transaction_uuid': p_request.transaction_uuid,
-        })
-    }
-    logger.info("Purchase request received for {} {}".format(data['customer_type'], data['customer_pk']))
-    return render(request, 'redirect.html', context)
+    logger.info("Purchase request received for {} {} (provider: {})".format(
+        data['customer_type'], data['customer_pk'], provider.name
+    ))
+    return provider.checkout_purchase(request, p_request)
 
 
 @csrf_exempt
@@ -327,18 +273,26 @@ def acknowledge_purchase(request):
 def subscribe(request):
     """
     Processes user-initiated subscription requests from Perma.cc;
-    Redirects user to CyberSource for payment.
+    Redirects user to payment provider for payment.
     """
     if request.method == "GET":
         return render(request, 'generic.html', {
             'heading': "Perma Payments",
-            'message': "A window to CyberSource Secure Acceptance Web/Mobile"
+            'message': "Payment processing service for Perma.cc"
         })
     
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['subscribe'])
     except InvalidTransmissionException:
         return bad_request(request)
+    
+    # Log the decrypted subscription data
+    trace.log(
+        title='Decrypted Subscribe Data',
+        lane='Server',
+        data=data,
+        explanation='Payload from Perma.cc decrypted from encrypted_data POST field',
+    )
 
     # The user must not already have a standing subscription.
     if SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type']):
@@ -346,16 +300,22 @@ def subscribe(request):
                                                 'message': "You already have a subscription to Perma.cc.<br>" +
                                                            "If you believe you have reached this page in error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
+    # Get the appropriate payment provider
+    provider = get_checkout_provider_or_500(data['customer_pk'], data['customer_type'])
+
     # The subscription request fields must each be valid.
     try:
         with transaction.atomic():
             s_agreement = SubscriptionAgreement(
                 customer_pk=data['customer_pk'],
                 customer_type=data['customer_type'],
-                status='Pending'
+                status='Pending',
+                payment_provider=provider.name,
             )
             s_agreement.full_clean()
             s_agreement.save()
+            trace.db(s_agreement, title='SubscriptionAgreement (Pending)')
+            
             s_request = SubscriptionRequest(
                 subscription_agreement=s_agreement,
                 amount=data['amount'],
@@ -367,31 +327,15 @@ def subscribe(request):
             )
             s_request.full_clean()
             s_request.save()
+            trace.db(s_request, title='SubscriptionRequest')
     except ValidationError as e:
         logger.warning('Invalid POST from Perma.cc subscribe form: {}'.format(e))
         return bad_request(request)
 
-    # If all that worked, we can finally bounce the user to CyberSource.
-    context = {
-        'post_to_url': CS_PAYMENT_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource({
-            'access_key': settings.CS_ACCESS_KEY,
-            'amount': s_request.amount,
-            'currency': s_request.currency,
-            'locale': s_request.locale,
-            'payment_method': s_request.payment_method,
-            'profile_id': settings.CS_PROFILE_ID,
-            'recurring_amount': s_request.recurring_amount,
-            'recurring_frequency': s_request.recurring_frequency,
-            'recurring_start_date': s_request.get_formatted_start_date(),
-            'reference_number': s_request.reference_number,
-            'signed_date_time': s_request.get_formatted_datetime(),
-            'transaction_type': s_request.transaction_type,
-            'transaction_uuid': s_request.transaction_uuid,
-        })
-    }
-    logger.info("Subscription request received for {} {}".format(data['customer_type'], data['customer_pk']))
-    return render(request, 'redirect.html', context)
+    logger.info("Subscription request received for {} {} (provider: {})".format(
+        data['customer_type'], data['customer_pk'], provider.name
+    ))
+    return provider.checkout_subscribe(request, s_request)
 
 
 @csrf_exempt
@@ -400,13 +344,21 @@ def subscribe(request):
 def change(request):
     """
     Processes user-initiated requests from Perma.cc;
-    Redirects user to CyberSource for payment.
+    Redirects user to payment provider for payment.
     Updates charge amount and frequency.
     """
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['change'])
     except InvalidTransmissionException:
         return bad_request(request)
+    
+    # Log the decrypted change data
+    trace.log(
+        title='Decrypted Change Data',
+        lane='Server',
+        data=data,
+        explanation='Payload from Perma.cc decrypted from encrypted_data POST field',
+    )
 
     # The user must have a subscription that can be updated.
     sa = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
@@ -414,9 +366,11 @@ def change(request):
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
+    
+    trace.db(sa, title='SubscriptionAgreement (existing)', action='Fetch')
 
-    s_request = sa.subscription_request
-    s_response = s_request.subscription_request_response
+    # Get the provider for this subscription
+    provider = get_provider_or_404(sa.payment_provider)
 
     # The change request fields must each be valid.
     try:
@@ -429,31 +383,15 @@ def change(request):
         )
         c_request.full_clean()
         c_request.save()
+        trace.db(c_request, title='ChangeRequest')
     except ValidationError as e:
         logger.warning('Invalid POST from Perma.cc change form: {}'.format(e))
         return bad_request(request)
 
-    # Bounce the user to CyberSource.
-    context = {
-        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource({
-            'access_key': settings.CS_ACCESS_KEY,
-            'allow_payment_token_update': 'true',
-            'amount': c_request.amount,
-            'currency': c_request.currency,
-            'locale': c_request.locale,
-            'payment_method': c_request.payment_method,
-            'payment_token': s_response.payment_token,
-            'profile_id': settings.CS_PROFILE_ID,
-            'recurring_amount': c_request.recurring_amount,
-            'reference_number': s_request.reference_number,
-            'signed_date_time': c_request.get_formatted_datetime(),
-            'transaction_type': c_request.transaction_type,
-            'transaction_uuid': c_request.transaction_uuid,
-        })
-    }
-    logger.info("Change request received for {} {}".format(data['customer_type'], data['customer_pk']))
-    return render(request, 'redirect.html', context)
+    logger.info("Change request received for {} {} (provider: {})".format(
+        data['customer_type'], data['customer_pk'], provider.name
+    ))
+    return provider.checkout_change(request, c_request)
 
 
 @csrf_exempt
@@ -462,13 +400,21 @@ def change(request):
 def update(request):
     """
     Processes user-initiated requests from Perma.cc;
-    Redirects user to CyberSource.
+    Redirects user to payment provider.
     Updates payment information.
     """
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['update'])
     except InvalidTransmissionException:
         return bad_request(request)
+    
+    # Log the decrypted update data
+    trace.log(
+        title='Decrypted Update Data',
+        lane='Server',
+        data=data,
+        explanation='Payload from Perma.cc decrypted from encrypted_data POST field',
+    )
 
     # The user must have a subscription that can be updated.
     sa = SubscriptionAgreement.customer_standing_subscription(data['customer_pk'], data['customer_type'])
@@ -476,9 +422,11 @@ def update(request):
         return render(request, 'generic.html', {'heading': "We're Having Trouble With Your Update Request",
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
+    
+    trace.db(sa, title='SubscriptionAgreement (existing)', action='Fetch')
 
-    s_request = sa.subscription_request
-    s_response = s_request.subscription_request_response
+    # Get the provider for this subscription
+    provider = get_provider_or_404(sa.payment_provider)
 
     # The update request fields must each be valid.
     try:
@@ -487,28 +435,15 @@ def update(request):
         )
         u_request.full_clean()
         u_request.save()
+        trace.db(u_request, title='UpdateRequest')
     except ValidationError as e:
         logger.warning('Invalid POST from Perma.cc update form: {}'.format(e))
         return bad_request(request)
 
-    # Bounce the user to CyberSource.
-    context = {
-        'post_to_url': CS_TOKEN_UPDATE_URL[settings.CS_MODE],
-        'fields_to_post': prep_for_cybersource({
-            'access_key': settings.CS_ACCESS_KEY,
-            'allow_payment_token_update': 'true',
-            'locale': s_request.locale,
-            'payment_method': s_request.payment_method,
-            'payment_token': s_response.payment_token,
-            'profile_id': settings.CS_PROFILE_ID,
-            'reference_number': s_request.reference_number,
-            'signed_date_time': u_request.get_formatted_datetime(),
-            'transaction_type': u_request.transaction_type,
-            'transaction_uuid': u_request.transaction_uuid,
-        })
-    }
-    logger.info("Update payment information request received for {} {}".format(data['customer_type'], data['customer_pk']))
-    return render(request, 'redirect.html', context)
+    logger.info("Update payment information request received for {} {} (provider: {})".format(
+        data['customer_type'], data['customer_pk'], provider.name
+    ))
+    return provider.checkout_update(request, u_request)
 
 
 @csrf_exempt
@@ -516,81 +451,79 @@ def update(request):
 @sensitive_post_parameters(*SENSITIVE_POST_PARAMETERS)
 def cybersource_callback(request):
     """
-    In dev, curl http://your-docker-machine-ip/cybersource-callback/ -X POST -d 'path/to/sample_response.txt'
+    Legacy callback URL for CyberSource Secure Acceptance.
+    
+    This endpoint exists for backward compatibility with CyberSource Business Center
+    configurations that use the old /cybersource-callback/ URL. It simply delegates
+    to the cybersource_legacy provider's webhook handler.
+    
+    New configurations should use /callback/cybersource_legacy/ instead.
     """
+    return provider_webhook(request, 'cybersource_legacy')
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def provider_webhook(request, provider_name):
+    """
+    Generic callback/webhook endpoint for payment providers.
+    
+    Routes to the appropriate provider based on the URL parameter.
+    URL pattern: /callback/<provider_name>/
+
+    Providers can return a string, raise CallbackValidationError, or return
+    a custom HttpResponse.
+    """
+    provider = get_provider_or_404(provider_name)
+    
+    # Trace incoming webhook request from provider
+    provider_lane = provider_name.title().replace('_', ' ')
+    trace.network_request(
+        from_lane=provider_lane,
+        to_lane='Server',
+        method=request.method,
+        url=request.build_absolute_uri(),
+        body=dict(request.POST) if request.POST else None,
+        title=f'{provider_lane} Webhook',
+    )
+    
     try:
-        data = process_cybersource_transmission(request.POST, FIELDS_REQUIRED_FROM_CYBERSOURCE['cybersource_callback'])
-    except InvalidTransmissionException:
-        return bad_request(request)
-
-    related_request = OutgoingTransaction.objects.get(transaction_uuid=data['req_transaction_uuid'])
-    decision = data['decision']
-    reason_code = data['reason_code']
-    message = data['message']
-
-    if isinstance(related_request, UpdateRequest):
-        Response.save_new_with_encrypted_full_response(
-            UpdateRequestResponse,
-            request.POST,
-            {
-                'related_request': related_request,
-                'decision': decision,
-                'reason_code': reason_code,
-                'message': message,
-            }
+        out = provider.handle_webhook(request)
+        if isinstance(out, str):
+            response = render(request, 'generic.html', {
+                'heading': f'{provider_name.title()} Callback',
+                'message': out,
+            })
+            trace.network_response(
+                from_lane='Server',
+                to_lane=provider_lane,
+                status=response.status_code,
+                body={'message': out},
+                title='Webhook Response',
+            )
+            return response
+        # HttpResponse returned directly by provider
+        trace.network_response(
+            from_lane='Server',
+            to_lane=provider_lane,
+            status=out.status_code,
+            title='Webhook Response',
         )
-
-    elif isinstance(related_request, ChangeRequest):
-        Response.save_new_with_encrypted_full_response(
-            ChangeRequestResponse,
-            request.POST,
-            {
-                'related_request': related_request,
-                'decision': decision,
-                'reason_code': reason_code,
-                'message': message,
-            }
+        return out
+    except CallbackValidationError as err:
+        logger.warning("Callback validation failed for %s: %s", provider_name, err)
+        response = render(request, 'generic.html', {
+            'heading': f'{provider_name.title()} Callback',
+            'message': err.display_message,
+        }, status=400)
+        trace.network_response(
+            from_lane='Server',
+            to_lane=provider_lane,
+            status=400,
+            body={'error': err.display_message},
+            title='Webhook Error',
         )
-        related_request.subscription_agreement.update_after_cs_decision(related_request, decision, redact(request.POST))
-
-    elif isinstance(related_request, SubscriptionRequest):
-        payment_token = request.POST.get('payment_token', '')
-
-        # Perma-Payments does not support 16-digit format-preserving Payment Tokens.
-        # See docstring for SubscriptionAgreement model for details.
-        if len(payment_token) == 16:
-            logger.error("16-digit Payment Token received in response to subscription request {}. Not supported by Perma-Payments! Investigate ASAP.".format(related_request.pk))
-
-        Response.save_new_with_encrypted_full_response(
-            SubscriptionRequestResponse,
-            request.POST,
-            {
-                'related_request': related_request,
-                'decision': decision,
-                'reason_code': reason_code,
-                'message': message,
-                'payment_token': payment_token,
-            }
-        )
-        related_request.subscription_agreement.update_after_cs_decision(related_request, decision, redact(request.POST))
-
-    elif isinstance(related_request, PurchaseRequest):
-        response = Response.save_new_with_encrypted_full_response(
-            PurchaseRequestResponse,
-            request.POST,
-            {
-                'related_request': related_request,
-                'decision': decision,
-                'reason_code': reason_code,
-                'message': message,
-            }
-        )
-        response.act_on_cs_decision(redact(request.POST))
-
-    else:
-        raise NotImplementedError("Can't handle a response of type {}, returned in response to outgoing transaction {}".format(type(related_request), related_request.pk))
-
-    return render(request, 'generic.html', {'heading': 'CyberSource Callback', 'message': 'OK'})
+        return response
 
 
 @csrf_exempt
@@ -665,7 +598,10 @@ def purchase_history(request):
 @sensitive_post_parameters('encrypted_data')
 def cancel_request(request):
     """
-    Records a cancellation request from Perma.cc
+    Records a cancellation request from Perma.cc.
+    
+    If the provider supports programmatic cancellation, cancels immediately via API.
+    Otherwise, flags the subscription and emails staff to cancel manually.
     """
     try:
         data = process_perma_transmission(request.POST, FIELDS_REQUIRED_FROM_PERMA['cancel_request'])
@@ -679,17 +615,57 @@ def cancel_request(request):
                                                 'message': "We can't find any active subscriptions associated with your account.<br>" +
                                                            "If you believe this is an error, please contact us at <a href='mailto:{0}?subject=Our%20Subscription'>{0}</a>.".format(settings.DEFAULT_CONTACT_EMAIL)})
 
+    merchant_reference_number = sa.subscription_request.reference_number
+    logger.info("Cancellation request received from {} {} for {}".format(
+        data['customer_pk'], data['customer_type'], merchant_reference_number))
+    
+    # Build base context for emails
     context = {
         'customer_pk': data['customer_pk'],
         'customer_type': data['customer_type'],
-        'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
         'perma_url': settings.PERMA_URL,
         'individual_detail_path': settings.INDIVIDUAL_DETAIL_PATH,
         'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
         'registrar_users_path': settings.REGISTRAR_USERS_PATH,
-        'merchant_reference_number': sa.subscription_request.reference_number
+        'merchant_reference_number': merchant_reference_number,
     }
-    logger.info("Cancellation request received from {} {} for {}".format(data['customer_pk'], data['customer_type'], context['merchant_reference_number']))
+    
+    # Try programmatic cancellation if provider supports it
+    provider = get_provider_or_404(sa.payment_provider)
+    subscription_id = sa.provider_data.get('subscription_id')
+    
+    if provider.supports_cancellation and subscription_id:
+        provider.cancel_subscription(subscription_id)
+        logger.info("Subscription %s canceled via %s API", subscription_id, provider.name)
+        
+        # Update subscription status
+        sa.status = 'Canceled'
+        sa.cancellation_requested = True
+        sa.save(update_fields=['status', 'cancellation_requested'])
+        
+        # Send informational email to staff
+        context.update({
+            'provider_name': provider.name,
+            'subscription_id': subscription_id,
+        })
+        send_self_email(
+            'Subscription canceled: {} {}'.format(data['customer_type'], data['customer_pk']),
+            request,
+            template="email/cancel_completed.txt",
+            context=context,
+            devs_only=False
+        )
+        
+        return redirect(settings.PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL)
+    
+    if not provider.supports_cancellation:
+        logger.info("Provider %s does not support programmatic cancellation, using manual flow", provider.name)
+    elif not subscription_id:
+        logger.info("No subscription_id in provider_data, using manual cancellation flow")
+    
+    # Fall back to manual cancellation flow
+    context['provider_name'] = provider.name
+    context['search_url'] = provider.manual_cancellation_url
     send_self_email('ACTION REQUIRED: cancellation request received', request, template="email/cancel.txt", context=context, devs_only=False)
     sa.cancellation_requested = True
     sa.save(update_fields=['cancellation_requested'])
@@ -712,7 +688,7 @@ def update_statuses(request):
                 log_level = logging.ERROR
             else:
                 log_level = logging.INFO
-            logger.log(log_level, "CyberSource reports a subscription {}: no corresponding record found".format(reference))
+            logger.log(log_level, "Subscription status CSV reports subscription {}: no corresponding record found".format(reference))
             continue
         except MultipleObjectsReturned:
             if settings.RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND:

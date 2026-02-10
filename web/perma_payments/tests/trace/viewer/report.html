@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Traces</title>
+    <style>
+{css}
+    </style>
+</head>
+<body>
+    <!-- Sidebar with test list -->
+    <aside class="sidebar">
+        <header class="sidebar-header">
+            <h1>Test Traces</h1>
+        </header>
+        <div class="sidebar-content">
+            <div class="loading">Loading...</div>
+        </div>
+    </aside>
+
+    <!-- Main content area -->
+    <main class="main">
+        <header class="main-header">
+            <h2 class="trace-title">Select a trace</h2>
+        </header>
+        <div class="main-content">
+            <div class="empty-state">
+                <h2>Welcome to Test Traces</h2>
+                <p>Select a trace from the sidebar to view it.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Lightbox for screenshots -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <img id="lightbox-img" src="" alt="Screenshot" />
+    </div>
+
+    <!-- Modal for stack traces -->
+    <div class="modal" id="stack-modal" onclick="if(event.target===this)closeStackModal()">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeStackModal()">&times;</span>
+            <h3>Stack Trace</h3>
+            <div id="stack-modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Inlined data -->
+    <script>
+        const MANIFEST = {manifest_json};
+        const TRACES = {traces_json};
+    </script>
+    
+    <script>
+{js}
+    </script>
+</body>
+</html>

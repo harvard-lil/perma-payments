@@ -3,12 +3,17 @@ from .settings_base import *
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'k2#@_q=1$(__n7#(zax6#46fu)x=3&^lz&bwb8ol-_097k_rj5'
 
-# CyberSource creds
-CS_ACCESS_KEY = 'test'
-CS_PROFILE_ID = 'test'
-CS_SECRET_KEY = 'a-really-long-test-string'
+# Payment provider credentials for testing.
+# Only cybersource_legacy is configured here because unit tests mock provider
+# interactions. Live sandbox tests for cybersource_rest and stripe load real
+# credentials from settings.py (outside version control).
+PAYMENT_PROVIDERS['cybersource_legacy'].update({
+    'access_key': 'test',
+    'profile_id': 'test',
+    'secret_key': 'a-really-long-test-string',
+})
 
-# Our encryption key for storing full responses from CyberSource
+# Our encryption key for storing full responses from payment providers
 # generated using perma_payments.security.generate_public_private_keys
 # SECURITY WARNING: keep the production vault public key secret!
 # SECURITY WARNING: keep the production vault secret key offline!

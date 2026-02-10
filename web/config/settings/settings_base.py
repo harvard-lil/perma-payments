@@ -142,13 +142,62 @@ PERMA_TIMESTAMP_MAX_AGE_SECONDS = 120
 
 # Direct all Perma.cc communications to perma dev by default
 PERMA_URL = 'https://perma-dev.org'
+# Where to redirect users after completing a payment action (subscribe, purchase, update, etc.)
+PERMA_PAYMENT_SUCCESS_REDIRECT_URL = 'https://perma-dev.org/settings/usage-plan/'
+# Where to redirect users after canceling a payment action (different from requesting cancellation)
+PERMA_PAYMENT_CANCELED_REDIRECT_URL = 'https://perma-dev.org/settings/usage-plan/'
+# Legacy setting name - still used for cancel_request view
 PERMA_SUBSCRIPTION_CANCELED_REDIRECT_URL = 'https://perma-dev.org/settings/subscription/'
 INDIVIDUAL_DETAIL_PATH = '/manage/users/'
 REGISTRAR_DETAIL_PATH = '/manage/registrars/'
 REGISTRAR_USERS_PATH = '/manage/registrar-users?registrar='
 
-# Direct all CyberSource communications to their test server by default
-CS_MODE = 'test'
+# Direct all payment interactions to test sandboxes by default. Must be 'test' or 'prod'.
+PROVIDER_ENVIRONMENT = 'test'
+
+#
+# Payment Provider Configuration
+#
+# Perma-Payments supports multiple payment providers. Each provider has its own
+# credentials configured as lowercase keys. Set credentials in settings.py
+# (outside version control). Blank values allow the app to run without credentials
+# (providers will report can_handle_new_subscription=False).
+#
+# The CHECKOUT_PROVIDERS list determines which providers to try (in order) for
+# new subscriptions.
+
+PAYMENT_PROVIDERS = {
+    'cybersource_legacy': {
+        'access_key': '',
+        'profile_id': '',
+        'secret_key': '',
+    },
+    'cybersource_rest': {
+        'merchant_id': '',
+        'key_id': '',
+        'shared_secret': '',
+        # Card networks to show in Flex Microform UI. Should match what your
+        # merchant account supports in CyberSource Business Center.
+        'allowed_card_networks': ['VISA', 'MASTERCARD', 'AMEX', 'DISCOVER'],
+    },
+    'stripe': {
+        'secret_key': '',
+        'publishable_key': '',
+        'webhook_secret': '',
+    },
+}
+
+# Providers to try in order for checkout (first available wins)
+# Change this list to migrate to new providers
+CHECKOUT_PROVIDERS = ['cybersource_legacy']
+
+# If True, can_handle_new_subscription() will probe upstream APIs to verify
+# credentials are valid, not just check that they exist. Useful when:
+# - Expecting a new provider to come online soon
+# - Wanting to detect revoked/expired credentials
+# - Testing failover between providers
+# Note: This adds latency to checkout requests as it makes API calls.
+PROBE_PROVIDER_CREDENTIALS = False
 
 # Exception handling for bulk updating subscription statuses;
 # override if desired for easier testing (e.g., in dev)

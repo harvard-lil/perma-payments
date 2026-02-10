@@ -75,9 +75,9 @@ def find_pending_cancellation_requests(ctx, tier='dev'):
     """
     Report pending cancellation requests.
     """
-    from perma_payments.constants import CS_SUBSCRIPTION_SEARCH_URL  #noqa
     from perma_payments.email import send_self_email  #noqa
     from perma_payments.models import SubscriptionAgreement  #noqa
+    from perma_payments.providers.router import get_provider  #noqa
     from django.test.client import RequestFactory  #noqa
     from django.conf import settings  #noqa
 
@@ -91,20 +91,22 @@ def find_pending_cancellation_requests(ctx, tier='dev'):
             }
         )
     else:
-        data = [
-            {
+        data = []
+        for sa in sas:
+            provider = get_provider(sa.payment_provider)
+            data.append({
                 'customer_pk': sa.customer_pk,
                 'customer_type': sa.customer_type,
                 'merchant_reference_number': sa.subscription_request.reference_number,
-                'status': sa.status
-            } for sa in sas
-        ]
+                'status': sa.status,
+                'payment_provider': sa.payment_provider,
+                'manual_cancellation_url': provider.manual_cancellation_url,
+            })
         send_self_email(
             'ACTION REQUIRED: cancellation requests pending on %s' % tier,
             RequestFactory().get('this-is-a-placeholder-request'),
             template="email/cancellation_report.txt",
             context={
-                'search_url': CS_SUBSCRIPTION_SEARCH_URL[settings.CS_MODE],
                 'perma_url': settings.PERMA_URL,
                 'individual_detail_path': settings.INDIVIDUAL_DETAIL_PATH,
                 'registrar_detail_path': settings.REGISTRAR_DETAIL_PATH,
@@ -114,3 +116,68 @@ def find_pending_cancellation_requests(ctx, tier='dev'):
             },
             devs_only=False
         )
+
+
+### Tunnel Tasks for Live Sandbox Testing ###
+
+@task
+@setup_django
+def tunnel_stripe(ctx, forward_to=None):
+    """
+    Start Stripe CLI webhook forwarding for live sandbox testing.
+    
+    This runs `stripe listen` to forward webhooks to the local test server,
+    extracts the webhook signing secret, and writes it to settings_tunnels.py.
+    
+    Usage:
+        inv tunnel-stripe
+        
+    The command will run until interrupted (Ctrl+C).
+    Make sure you're authenticated: `stripe login`
+    """
+    from perma_payments.providers.tunnels import StripeTunnel
+    
+    tunnel = StripeTunnel(forward_to=forward_to)
+    tunnel.start()
+    tunnel.stream_output()
+
+
+@task
+@setup_django
+def tunnel_cybersource_legacy(ctx, port=None):
+    """
+    Start ngrok tunnel for CyberSource Legacy live sandbox testing.
+    
+    This exposes the local test server via ngrok so CyberSource can
+    send server-to-server callbacks.
+    
+    Usage:
+        inv tunnel-cybersource-legacy
+        
+    After starting, configure the callback URL in CyberSource Business Center:
+        https://YOUR-SUBDOMAIN.ngrok.io/cybersource-callback/
+    
+    The command will run until interrupted (Ctrl+C).
+    """
+    from perma_payments.providers.tunnels import NgrokTunnel
+    
+    tunnel = NgrokTunnel(port=port)
+    tunnel.start()
+    tunnel.stream_output()
+
+
+@task
+@setup_django
+def tunnel_all(ctx):
+    """
+    Start both Stripe and ngrok tunnels for full live sandbox testing.
+    
+    Usage:
+        inv tunnel-all
+        
+    This starts both tunnels concurrently and merges their output.
+    Press Ctrl+C to stop both.
+    """
+    from perma_payments.providers.tunnels import StripeTunnel, NgrokTunnel, TunnelGroup
+    
+    TunnelGroup(StripeTunnel(), NgrokTunnel()).start().wait()

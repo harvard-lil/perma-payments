@@ -1,0 +1,3 @@
+from .cybersource_legacy import CybersourceLegacyProvider
+
+provider_class = CybersourceLegacyProvider

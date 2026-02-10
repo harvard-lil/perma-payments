@@ -1,0 +1,3 @@
+from .cybersource_rest import CybersourceRestProvider
+
+provider_class = CybersourceRestProvider
