@@ -164,8 +164,8 @@ RAISE_IF_MULTIPLE_SUBSCRIPTIONS_FOUND = True
 # Perma.cc staff must update subscription statuses again...
 # if 0: tomorrow
 # if 7: within the next week
-# if 31: next month (that is, exactly as usual, as though this never happened)
-GRACE_PERIOD = 31
+# if 31: next month
+GRACE_PERIOD = 7
 
 LOGGING = {
     'version': 1,
