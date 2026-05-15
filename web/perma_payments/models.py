@@ -1,4 +1,3 @@
-import calendar
 import datetime
 from dateutil.relativedelta import relativedelta
 import random
@@ -56,16 +55,6 @@ def generate_reference_number():
 
 def is_ref_number_available(rn):
     return not SubscriptionRequest.objects.filter(reference_number=rn).exists() and not PurchaseRequest.objects.filter(reference_number=rn).exists()
-
-
-def last_day_of_month(now):
-    _, num_days = calendar.monthrange(now.year, now.month)
-    return datetime.datetime(now.year, now.month, num_days, tzinfo=now.tzinfo)
-
-
-def this_day_next_year(now):
-    # relativedelta handles leap years: 2/29 -> 2/28
-    return now + relativedelta(years=1)
 
 
 def just_before_midnight(dt):
@@ -202,34 +191,49 @@ class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
 
 
     def calculate_paid_through_date_from_reported_status(self, status):
-        if status == 'Current':
-            frequency = self.current_frequency
-            now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE))
-            if frequency == 'monthly':
-                # Monthly customers are charged on the 1st of the month.
-                # Any 'current' monthly customer is paid through the end of the month.
-                return just_before_midnight(last_day_of_month(now))
-            elif frequency == 'annually':
-                # Annual customers are charged on the anniversary of their subscription date.
-                # If that day has already passed this year:
-                #    a 'current' annual customer is paid through their anniversary, NEXT year.
-                # If that day has not yet passed this year:
-                #    a 'current' annual customer is paid through their anniversary THIS year.
-                # If today is the anniversary:
-                #    we can't know whether CyberSource has attempted a charge yet.
-                #    Customer is paid through today, but tomorrow is a mystery.
-                #    See settings.GRACE_PERIOD for complete discussion
-                anniversary_this_year = self.created_date.replace(year=now.year)
-                if anniversary_this_year < now:
-                    return just_before_midnight(this_day_next_year(anniversary_this_year))
-                elif anniversary_this_year == now:
-                    return just_before_midnight(now + relativedelta(days=settings.GRACE_PERIOD))
-                else:
-                    return just_before_midnight(anniversary_this_year)
+        if status != 'Current':
+            return self.paid_through
+
+        frequency = self.current_frequency
+        now = datetime.datetime.now(tz=timezone(settings.TIME_ZONE))
+        start = self.subscription_request.recurring_start_date
+
+        # `billing_day_this_period` is the date in the current month (for monthly
+        # subscriptions) or current year (for annual subscriptions) on which
+        # CyberSource is scheduled to charge this customer.
+        #
+        # `now` + `relativedelta(day=...)` / `(month=...)` (note: singular)
+        # takes `now` and swaps out the day / month, similar to `datetime.replace(...),
+        # but unlike datetime.replace, clamps out-of-range values to the last valid day of the month.
+        # E.g., A subscription generally billed on the 31st becomes Feb 28 (or 29) in February instead of raising ValueError.
+        if frequency == 'monthly':
+            period = relativedelta(months=1)
+            billing_day_this_period = now + relativedelta(day=start.day)
+        elif frequency == 'annually':
+            period = relativedelta(years=1)
+            billing_day_this_period = now + relativedelta(month=start.month, day=start.day)
+        else:
             # We only offer monthly and annual subscriptions.
-            # If we change our minds, we need more logic here.
+            # If that ever changes, add another branch above.
             logger.error("No code for calculating paid-through date for subscriptions recurring {}".format(frequency))
-        return self.paid_through
+            return self.paid_through
+
+        if billing_day_this_period.date() < now.date():
+            # This period's billing day has already passed, so CyberSource has
+            # charged the customer for the current period. They are paid through
+            # the next period's billing day.
+            return just_before_midnight(billing_day_this_period + period)
+        elif billing_day_this_period.date() == now.date():
+            # Today IS the billing day. We can't know whether CyberSource has
+            # attempted today's charge yet, so be conservative: credit the customer
+            # through today plus settings.GRACE_PERIOD days, giving staff time to
+            # re-run the status check once CyberSource has confirmed the result.
+            # See settings.GRACE_PERIOD for the full discussion.
+            return just_before_midnight(now + relativedelta(days=settings.GRACE_PERIOD))
+        else:
+            # This period's billing day is still upcoming; the customer is paid
+            # through that date.
+            return just_before_midnight(billing_day_this_period)
 
 
     def update_after_cs_decision(self, request, decision, redacted_response):

@@ -17,6 +17,7 @@ from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
 
 from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
+_UTC = datetime.timezone.utc
 
 #
 # FIXTURES
@@ -312,6 +313,53 @@ def spoof_django_post_object():
     return QueryDict('a=1,b=2,c=3')
 
 
+@pytest.fixture()
+@pytest.mark.django_db
+def make_current_sa():
+    """
+    Factory fixture: returns a callable that builds a 'Current' SubscriptionAgreement
+    (with attached SubscriptionRequest) for a given frequency and recurring_start_date.
+    Useful for tests that need to vary these fields per parametrize case.
+    """
+    def _make(frequency, start_date):
+        sa = SubscriptionAgreement(
+            customer_pk=SENTINEL['customer_pk'],
+            customer_type=SENTINEL['customer_type'],
+            status='Current',
+            current_link_limit=SENTINEL['link_limit'],
+            current_rate=SENTINEL['recurring_amount'],
+            current_frequency=frequency,
+        )
+        sa.save()
+        SubscriptionRequest(
+            subscription_agreement=sa,
+            amount=SENTINEL['amount'],
+            recurring_amount=SENTINEL['recurring_amount'],
+            recurring_start_date=start_date,
+            recurring_frequency=frequency,
+            link_limit=SENTINEL['link_limit'],
+            link_limit_effective_timestamp=GENESIS,
+        ).save()
+        return sa
+    return _make
+
+
+@pytest.fixture()
+def mock_models_now(mocker):
+    """
+    Factory fixture: returns a callable that pins the value returned by
+    `datetime.datetime.now(...)` inside perma_payments.models. We replace the
+    `datetime` attribute on the models module with a MagicMock; the model
+    function under test only uses `datetime.datetime.now(tz=...)`, so this
+    narrow mock is safe.
+    """
+    def _mock(fake_now):
+        fake_dt_module = mocker.MagicMock()
+        fake_dt_module.datetime.now.return_value = fake_now
+        mocker.patch('perma_payments.models.datetime', fake_dt_module)
+    return _mock
+
+
 #
 # TESTS
 #
@@ -506,9 +554,76 @@ def test_sa_update_after_cs_decision_cr(decision, mocker, change_request):
 
 
 @pytest.mark.django_db
-def test_sa_calculate_paid_through_date_annual(complete_current_sa):
-    # lame test just to pass through some of the code
-    assert complete_current_sa.calculate_paid_through_date_from_reported_status('Current').tzinfo
+def test_sa_calculate_paid_through_date_returns_existing_paid_through_when_not_current(complete_current_sa, mocker):
+    # For any non-'Current' status, the function short-circuits and returns
+    # whatever paid_through is already on the SA, untouched.
+    sentinel = datetime.datetime(2030, 1, 1, tzinfo=timezone(settings.TIME_ZONE))
+    complete_current_sa.paid_through = sentinel
+    for status in ['Hold', 'Pending', 'Canceled', 'Aborted', 'Rejected']:
+        assert complete_current_sa.calculate_paid_through_date_from_reported_status(status) == sentinel
+
+
+@pytest.mark.django_db
+def test_sa_calculate_paid_through_date_unknown_frequency_logs_and_returns_paid_through(complete_current_sa, mocker):
+    log = mocker.patch('perma_payments.models.logger.error', autospec=True)
+    sentinel = datetime.datetime(2030, 1, 1, tzinfo=timezone(settings.TIME_ZONE))
+    complete_current_sa.paid_through = sentinel
+    complete_current_sa.current_frequency = 'weekly'
+    assert complete_current_sa.calculate_paid_through_date_from_reported_status('Current') == sentinel
+    assert log.call_count == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_month,start_day,fake_now,expected", [
+    # --- Monthly ---
+    # Old-style (day=1) queried mid-month: this period's billing day has passed,
+    # so paid through next month's billing day.
+    ('monthly', 1, 1,
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2026, 6, 1, 23, 59, 59, tzinfo=_UTC)),
+    # New-style (day=20), queried before billing day this month: paid through
+    # this month's billing day.
+    ('monthly', 1, 20,
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2026, 5, 20, 23, 59, 59, tzinfo=_UTC)),
+    # day=31 in February clamps to Feb 28 (2026 is not a leap year).
+    ('monthly', 1, 31,
+        datetime.datetime(2026, 2, 15, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2026, 2, 28, 23, 59, 59, tzinfo=_UTC)),
+    # --- Annual ---
+    # Anniversary already passed this year: paid through next year's anniversary.
+    ('annually', 8, 15,
+        datetime.datetime(2026, 9, 10, 12, 0, tzinfo=_UTC),
+        datetime.datetime(2027, 8, 15, 23, 59, 59, tzinfo=_UTC)),
+    # Anniversary still upcoming this year: paid through this year's anniversary.
+    ('annually', 8, 15,
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2026, 8, 15, 23, 59, 59, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_past_or_future(
+    make_current_sa, mock_models_now, frequency, start_month, start_day, fake_now, expected
+):
+    sa = make_current_sa(frequency, datetime.date(2024, start_month, start_day))
+    mock_models_now(fake_now)
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_month,start_day,fake_now", [
+    # Monthly: today's day-of-month equals the billing day-of-month.
+    ('monthly', 1, 14, datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC)),
+    # Annual: today's month and day equal the billing month and day.
+    ('annually', 5, 14, datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_when_today_is_billing_day_uses_grace_period(
+    make_current_sa, mock_models_now, frequency, start_month, start_day, fake_now
+):
+    sa = make_current_sa(frequency, datetime.date(2024, start_month, start_day))
+    mock_models_now(fake_now)
+    expected = (fake_now + relativedelta(days=settings.GRACE_PERIOD)).replace(
+        hour=23, minute=59, second=59
+    )
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
 
 
 # OutgoingTransaction
