@@ -15,7 +15,7 @@ from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
     SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
     ChangeRequest, ChangeRequestResponse, PurchaseRequest, PurchaseRequestResponse, OutgoingTransaction, Response)
 
-from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
+from .utils import GENESIS, GENESIS_DATE, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
 _UTC = datetime.timezone.utc
 
@@ -94,7 +94,7 @@ def complete_pending_sa():
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS,
@@ -122,7 +122,7 @@ def complete_current_sa(mocker, request):
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=request.param,
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
@@ -155,7 +155,7 @@ def complete_canceled_sa(mocker):
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
@@ -211,7 +211,7 @@ def blank_outgoing_transaction(mocker):
 def barebones_subscription_request(not_standing_sa):
     return SubscriptionRequest(
         subscription_agreement=not_standing_sa,
-        recurring_start_date=GENESIS
+        recurring_start_date=GENESIS_DATE
     )
 
 
@@ -222,7 +222,7 @@ def complete_subscription_request(not_standing_sa):
         subscription_agreement=not_standing_sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
