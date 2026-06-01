@@ -234,7 +234,12 @@ class SubscriptionAgreement(SubscriptionAndPurchaseMixin):
             logger.error("No code for calculating paid-through date for subscriptions recurring {}".format(frequency))
             return self.paid_through
 
-        if billing_day_this_period.date() < now.date():
+        if now.date() == start:
+            # This is a brand new subscription, and CyberSource has
+            # charged the customer for the current period. They are paid through
+            # the next period's billing day.
+            return just_before_midnight(billing_day_this_period + period)
+        elif billing_day_this_period.date() < now.date():
             # This period's billing day has already passed, so CyberSource has
             # charged the customer for the current period. They are paid through
             # the next period's billing day.

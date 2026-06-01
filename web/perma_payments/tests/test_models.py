@@ -626,6 +626,27 @@ def test_sa_calculate_paid_through_date_when_today_is_billing_day_uses_grace_per
     assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_date,fake_now,expected", [
+    # Brand-new subscription: CyberSource just charged for the first period,
+    # so paid through the next billing day (not the grace-period fallback).
+    ('monthly',
+        datetime.date(2026, 5, 14),
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2026, 6, 14, 23, 59, 59, tzinfo=_UTC)),
+    ('annually',
+        datetime.date(2026, 5, 14),
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2027, 5, 14, 23, 59, 59, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_new_subscription_on_start_day(
+    make_current_sa, mock_models_now, frequency, start_date, fake_now, expected
+):
+    sa = make_current_sa(frequency, start_date)
+    mock_models_now(fake_now)
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
+
+
 # OutgoingTransaction
 
 def test_outgoing_required_fields():
