@@ -15,6 +15,7 @@ from perma_payments.models import CUSTOMER_TYPES, SubscriptionRequest
 fake = Faker()
 
 GENESIS = datetime.fromtimestamp(0).replace(tzinfo=timezone.utc)
+GENESIS_DATE = GENESIS.date()
 
 SENTINEL = {
     'date': fake.future_date(tzinfo=timezone.utc),

@@ -15,7 +15,7 @@ from perma_payments.models import (STANDING_STATUSES, REFERENCE_NUMBER_PREFIX,
     SubscriptionRequestResponse, UpdateRequest, UpdateRequestResponse,
     ChangeRequest, ChangeRequestResponse, PurchaseRequest, PurchaseRequestResponse, OutgoingTransaction, Response)
 
-from .utils import GENESIS, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
+from .utils import GENESIS, GENESIS_DATE, SENTINEL, absent_required_fields_raise_validation_error, autopopulated_fields_present
 
 _UTC = datetime.timezone.utc
 
@@ -94,7 +94,7 @@ def complete_pending_sa():
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS,
@@ -122,7 +122,7 @@ def complete_current_sa(mocker, request):
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=request.param,
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
@@ -155,7 +155,7 @@ def complete_canceled_sa(mocker):
         subscription_agreement=sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
@@ -211,7 +211,7 @@ def blank_outgoing_transaction(mocker):
 def barebones_subscription_request(not_standing_sa):
     return SubscriptionRequest(
         subscription_agreement=not_standing_sa,
-        recurring_start_date=GENESIS
+        recurring_start_date=GENESIS_DATE
     )
 
 
@@ -222,7 +222,7 @@ def complete_subscription_request(not_standing_sa):
         subscription_agreement=not_standing_sa,
         amount=SENTINEL['amount'],
         recurring_amount=SENTINEL['recurring_amount'],
-        recurring_start_date=GENESIS,
+        recurring_start_date=GENESIS_DATE,
         recurring_frequency=SENTINEL['recurring_frequency'],
         link_limit=SENTINEL['link_limit'],
         link_limit_effective_timestamp=GENESIS
@@ -628,22 +628,98 @@ def test_sa_calculate_paid_through_date_when_today_is_billing_day_uses_grace_per
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("frequency,start_date,fake_now,expected", [
-    # Brand-new subscription: CyberSource just charged for the first period,
-    # so paid through the next billing day (not the grace-period fallback).
+    # Brand-new subscription: recurring_start_date is the next charge date,
+    # not today. The initial sale covers the period until then.
     ('monthly',
-        datetime.date(2026, 5, 14),
+        datetime.date(2026, 6, 14),
         datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
         datetime.datetime(2026, 6, 14, 23, 59, 59, tzinfo=_UTC)),
+    # Next charge in a later month; must not confuse with this month's billing day.
+    ('monthly',
+        datetime.date(2026, 6, 20),
+        datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
+        datetime.datetime(2026, 6, 20, 23, 59, 59, tzinfo=_UTC)),
     ('annually',
-        datetime.date(2026, 5, 14),
+        datetime.date(2027, 5, 14),
         datetime.datetime(2026, 5, 14, 14, 58, tzinfo=_UTC),
         datetime.datetime(2027, 5, 14, 23, 59, 59, tzinfo=_UTC)),
 ])
-def test_sa_calculate_paid_through_date_new_subscription_on_start_day(
+def test_sa_calculate_paid_through_date_before_first_recurring_charge(
     make_current_sa, mock_models_now, frequency, start_date, fake_now, expected
 ):
     sa = make_current_sa(frequency, start_date)
     mock_models_now(fake_now)
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_date,fake_now", [
+    # First recurring charge day: start date has arrived, so the first-period
+    # branch no longer applies; billing-day ambiguity → grace period.
+    ('monthly',
+        datetime.date(2026, 6, 14),
+        datetime.datetime(2026, 6, 14, 10, 0, tzinfo=_UTC)),
+    ('annually',
+        datetime.date(2027, 5, 14),
+        datetime.datetime(2027, 5, 14, 10, 0, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_on_first_recurring_charge_day_uses_grace_period(
+    make_current_sa, mock_models_now, frequency, start_date, fake_now
+):
+    sa = make_current_sa(frequency, start_date)
+    mock_models_now(fake_now)
+    expected = (fake_now + relativedelta(days=settings.GRACE_PERIOD)).replace(
+        hour=23, minute=59, second=59
+    )
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_date,fake_now,expected", [
+    # Day after the first recurring charge: normal billing-day logic resumes.
+    ('monthly',
+        datetime.date(2026, 6, 14),
+        datetime.datetime(2026, 6, 15, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2026, 7, 14, 23, 59, 59, tzinfo=_UTC)),
+    ('annually',
+        datetime.date(2027, 5, 14),
+        datetime.datetime(2027, 5, 15, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2028, 5, 14, 23, 59, 59, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_day_after_first_recurring_charge(
+    make_current_sa, mock_models_now, frequency, start_date, fake_now, expected
+):
+    sa = make_current_sa(frequency, start_date)
+    mock_models_now(fake_now)
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("frequency,start_date,fake_now_billing_day,fake_now_next_day,expected", [
+    # Grace period on billing day is temporary; recalc the next day credits
+    # the full next period.
+    ('monthly',
+        datetime.date(2026, 6, 14),
+        datetime.datetime(2026, 6, 14, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2026, 6, 15, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2026, 7, 14, 23, 59, 59, tzinfo=_UTC)),
+    ('annually',
+        datetime.date(2024, 5, 14),
+        datetime.datetime(2026, 5, 14, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2026, 5, 15, 10, 0, tzinfo=_UTC),
+        datetime.datetime(2027, 5, 14, 23, 59, 59, tzinfo=_UTC)),
+])
+def test_sa_calculate_paid_through_date_grace_period_self_corrects_after_billing_day(
+    make_current_sa, mock_models_now, frequency, start_date,
+    fake_now_billing_day, fake_now_next_day, expected
+):
+    sa = make_current_sa(frequency, start_date)
+    mock_models_now(fake_now_billing_day)
+    grace_end = (fake_now_billing_day + relativedelta(days=settings.GRACE_PERIOD)).replace(
+        hour=23, minute=59, second=59
+    )
+    assert sa.calculate_paid_through_date_from_reported_status('Current') == grace_end
+    mock_models_now(fake_now_next_day)
     assert sa.calculate_paid_through_date_from_reported_status('Current') == expected
 
 
